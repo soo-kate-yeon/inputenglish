@@ -1,40 +1,26 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useStore } from '@/lib/store';
-import { createClient } from '@/utils/supabase/client';
+import { useEffect, useRef } from "react";
+import { useStore } from "@/lib/store";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function DataLoader() {
-    const loadUserData = useStore((state) => state.loadUserData);
+  const loadUserData = useStore((state) => state.loadUserData);
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const hasLoadedRef = useRef(false);
 
-    useEffect(() => {
-        const supabase = createClient();
+  useEffect(() => {
+    // Only load data once when user is authenticated
+    if (!isLoading && isAuthenticated && user && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      loadUserData();
+    }
 
-        // Load data on mount if user is logged in
-        const loadData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                await loadUserData();
-            }
-        };
+    // Reset when user logs out
+    if (!isAuthenticated) {
+      hasLoadedRef.current = false;
+    }
+  }, [isLoading, isAuthenticated, user, loadUserData]);
 
-        loadData();
-
-        // Subscribe to auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session?.user) {
-                // Load user data when signed in
-                await loadUserData();
-            } else if (event === 'SIGNED_OUT') {
-                // Clear local data when signed out (optional)
-                // You might want to keep localStorage data
-            }
-        });
-
-        return () => {
-            subscription.unsubscribe();
-        };
-    }, [loadUserData]);
-
-    return null; // This component doesn't render anything
+  return null; // This component doesn't render anything
 }

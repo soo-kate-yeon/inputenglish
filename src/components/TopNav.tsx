@@ -2,15 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/utils/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function TopNav() {
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const supabase = useMemo(() => createClient(), []);
+  const { user, isLoading } = useAuth();
 
   const isSessionActive =
     pathname === "/home" ||
@@ -18,60 +14,29 @@ export default function TopNav() {
     pathname?.startsWith("/shadowing");
   const isArchiveActive = pathname?.startsWith("/archive");
 
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setUser(user);
-      } catch (error) {
-        console.error("Failed to get user:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    getUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
   return (
     <header
-      className="h-14 flex items-center justify-between sticky top-0 z-10"
+      className="h-14 flex items-center justify-between sticky top-0 z-10 bg-bg-subtle px-6"
       style={{
-        backgroundColor: "#f0efeb",
-        borderBottom: "1px solid #dfdedb",
-        paddingLeft: 24,
-        paddingRight: 24,
+        borderBottom:
+          "var(--border-width-strong) solid var(--color-border-default)",
       }}
     >
       {/* Left: Navigation */}
       <nav className="flex items-center gap-6">
         <Link
           href="/home"
-          className="text-base font-medium transition-colors"
-          style={{
-            color: isSessionActive ? "#b45000" : "#565552",
-          }}
+          className={`text-base font-medium transition-colors ${
+            isSessionActive ? "text-text-brand" : "text-text-muted"
+          }`}
         >
           세션
         </Link>
         <Link
           href="/archive"
-          className="text-base font-medium transition-colors"
-          style={{
-            color: isArchiveActive ? "#b45000" : "#565552",
-          }}
+          className={`text-base font-medium transition-colors ${
+            isArchiveActive ? "text-text-brand" : "text-text-muted"
+          }`}
         >
           노트
         </Link>
@@ -79,18 +44,11 @@ export default function TopNav() {
 
       {/* Right: Profile Icon */}
       {isLoading ? (
-        <div
-          className="w-9 h-9 rounded-full animate-pulse"
-          style={{ backgroundColor: "#dfdedb" }}
-        />
+        <div className="w-9 h-9 rounded-full animate-pulse bg-bg-muted" />
       ) : user ? (
         <Link
           href="/profile"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-opacity hover:opacity-80"
-          style={{
-            backgroundColor: "#dfdedb",
-            color: "#565552",
-          }}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-opacity hover:opacity-80 bg-bg-muted text-text-muted"
         >
           {user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
             <img

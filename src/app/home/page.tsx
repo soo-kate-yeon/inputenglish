@@ -50,7 +50,13 @@ export default function HomePage() {
         const response = await fetch(`/api/learning-sessions?${params}`, {
           signal: abortController.signal,
         });
-        if (!response.ok) throw new Error("Failed to fetch sessions");
+        if (!response.ok) {
+          // API error (e.g. Supabase unreachable) — silently fall back to empty
+          if (!abortController.signal.aborted) {
+            setLearningSessions([]);
+          }
+          return;
+        }
 
         const data = await response.json();
         if (!abortController.signal.aborted) {
@@ -61,7 +67,8 @@ export default function HomePage() {
           !abortController.signal.aborted &&
           (error as Error).name !== "AbortError"
         ) {
-          console.error("Failed to load learning sessions:", error);
+          // Network error — silently fall back to empty
+          setLearningSessions([]);
         }
       } finally {
         if (!abortController.signal.aborted) {
@@ -84,165 +91,37 @@ export default function HomePage() {
 
   if (!isMounted || isAuthLoading) {
     return (
-      <div
-        className="min-h-screen flex flex-col"
-        style={{ backgroundColor: "#faf9f5" }}
-      >
+      <div className="min-h-screen flex flex-col bg-bg-default">
         <TopNav />
         <main className="flex-1 flex items-center justify-center">
-          <p style={{ color: "#908f8c" }}>Loading...</p>
+          <p className="text-text-subtle">Loading...</p>
         </main>
       </div>
     );
   }
 
   const isGuest = !user;
+  const showContinueLearning = !isGuest && recentSessions.length > 0;
 
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{ backgroundColor: "#faf9f5" }}
-    >
+    <div className="min-h-screen flex flex-col bg-bg-default">
       <TopNav />
 
-      {/* Main Content - 100vh minus TopNav (56px), with 24px padding */}
-      <main
-        className="flex-1 h-[calc(100vh-56px)] overflow-hidden"
-        style={{ padding: 24 }}
-      >
-        {/* Two-column layout with 1:1 ratio and 24px gap */}
-        <div className="h-full flex" style={{ gap: 24 }}>
-          {/* Left Section: Learning Sessions (50%) */}
-          <section className="flex flex-col h-full min-h-0 flex-1">
-            {/* Header - 24px gap between title and filters */}
-            <div
-              className="flex flex-col shrink-0"
-              style={{ gap: 24, marginBottom: 24 }}
-            >
-              <h2 className="text-xl font-bold" style={{ color: "#0c0b09" }}>
-                어떤 영상으로 쉐도잉을 해보시겠어요?
-              </h2>
-
-              {/* Difficulty Filter */}
-              <div className="flex" style={{ gap: 8 }}>
-                {[
-                  { id: "all", label: "전체" },
-                  { id: "beginner", label: "초급" },
-                  { id: "intermediate", label: "중급" },
-                  { id: "advanced", label: "고급" },
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedDifficulty(cat.id)}
-                    className="flex items-center rounded-lg text-sm font-medium transition-colors"
-                    style={{
-                      padding: "8px 12px",
-                      gap: 6,
-                      backgroundColor:
-                        selectedDifficulty === cat.id ? "#0c0b09" : "#f0efeb",
-                      color:
-                        selectedDifficulty === cat.id ? "#ffffff" : "#565552",
-                    }}
-                  >
-                    {selectedDifficulty === cat.id && (
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <path
-                          d="M13.3333 4L6 11.3333L2.66667 8"
-                          stroke="#ffffff"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="1.6"
-                        />
-                      </svg>
-                    )}
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Scrollable Video Grid - 3 columns with 24px gap */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              {loading ? (
-                <div className="flex justify-center items-center h-40">
-                  <p style={{ color: "#908f8c" }}>Loading...</p>
-                </div>
-              ) : learningSessions.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center h-40"
-                  style={{ color: "#908f8c" }}
-                >
-                  <p>큐레이션된 학습 세션이 없어요.</p>
-                  <Link
-                    href="/admin"
-                    className="hover:underline"
-                    style={{ color: "#b45000", marginTop: 8 }}
-                  >
-                    + 세션 추가하기
-                  </Link>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div
-                    className="grid"
-                    style={{
-                      gridTemplateColumns: "repeat(2, 1fr)",
-                      gap: 24,
-                      paddingBottom: 24,
-                    }}
-                  >
-                    {learningSessions.map((session) => (
-                      <VideoCard
-                        key={session.id}
-                        title={session.title}
-                        thumbnailUrl={session.thumbnail_url}
-                        duration={`${Math.floor(session.duration / 60)}:${String(Math.floor(session.duration % 60)).padStart(2, "0")}`}
-                        description={session.description || ""}
-                        sentenceCount={session.sentence_ids?.length || 0}
-                        onClick={() => {
-                          if (isGuest) return;
-                          router.push(
-                            `/listening/${session.source_video_id}?sessionId=${session.id}`,
-                          );
-                        }}
-                        onMouseEnter={() => {
-                          if (isGuest) return;
-                          prefetchVideo(session.source_video_id);
-                          prefetchSession(session.id);
-                        }}
-                      />
-                    ))}
-                  </div>
-                  {isGuest && (
-                    <div
-                      className="absolute inset-0 pointer-events-none rounded-2xl"
-                      style={{
-                        background:
-                          "linear-gradient(to bottom, transparent, rgba(250, 249, 245, 0.3), rgba(250, 249, 245, 0.7))",
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Right Section: Continue Learning (50%) */}
-          <section className="flex flex-col h-full min-h-0 flex-1">
-            {/* Header */}
-            <div
-              className="flex items-center justify-between shrink-0"
-              style={{ marginBottom: 24 }}
-            >
-              <h2 className="text-xl font-bold" style={{ color: "#0c0b09" }}>
+      <main className="flex-1">
+        {/* Continue Learning — horizontal scroll, only for logged-in users with sessions */}
+        {showContinueLearning && (
+          <section
+            className="px-6 py-5 border-border-default"
+            style={{
+              borderBottomWidth: "var(--border-width-default)",
+              borderBottomStyle: "solid",
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-extrabold text-text-default">
                 계속 학습하기
               </h2>
-              <div className="flex items-center" style={{ gap: 8 }}>
+              <div className="flex items-center gap-2">
                 {isEditMode ? (
                   <>
                     <button
@@ -255,8 +134,7 @@ export default function HomePage() {
                           );
                         }
                       }}
-                      className="text-sm font-medium transition-colors"
-                      style={{ padding: "8px 12px", color: "#565552" }}
+                      className="text-sm font-medium transition-colors px-3 py-2 text-text-muted"
                     >
                       {selectedVideoIds.size === recentSessions.length
                         ? "전체 해제"
@@ -273,18 +151,11 @@ export default function HomePage() {
                         setIsEditMode(false);
                       }}
                       disabled={selectedVideoIds.size === 0}
-                      className="text-sm font-medium rounded-lg transition-colors"
-                      style={{
-                        padding: "8px 12px",
-                        backgroundColor:
-                          selectedVideoIds.size > 0 ? "#fce8e8" : "#f0efeb",
-                        color:
-                          selectedVideoIds.size > 0 ? "#cf1e29" : "#908f8c",
-                        cursor:
-                          selectedVideoIds.size === 0
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
+                      className={`text-sm font-medium rounded-lg transition-colors px-3 py-2 ${
+                        selectedVideoIds.size > 0
+                          ? "bg-error-subtle text-error-text cursor-pointer"
+                          : "bg-bg-subtle text-text-subtle cursor-not-allowed"
+                      }`}
                     >
                       삭제
                       {selectedVideoIds.size > 0 &&
@@ -295,117 +166,178 @@ export default function HomePage() {
                         setIsEditMode(false);
                         setSelectedVideoIds(new Set());
                       }}
-                      className="text-sm font-medium transition-colors"
-                      style={{ padding: "8px 12px", color: "#565552" }}
+                      className="text-sm font-medium transition-colors px-3 py-2 text-text-muted"
                     >
                       취소
                     </button>
                   </>
                 ) : (
-                  recentSessions.length > 0 && (
-                    <button
-                      onClick={() => setIsEditMode(true)}
-                      className="text-sm font-medium transition-colors"
-                      style={{ padding: "8px 12px", color: "#565552" }}
-                    >
-                      편집
-                    </button>
-                  )
+                  <button
+                    onClick={() => setIsEditMode(true)}
+                    className="text-sm font-medium transition-colors px-3 py-2 text-text-muted"
+                  >
+                    편집
+                  </button>
                 )}
               </div>
             </div>
 
-            {/* Scrollable Session List - 24px gap between items */}
-            <div
-              className="flex-1 min-h-0 overflow-y-auto rounded-xl relative"
-              style={{ backgroundColor: isGuest ? "#f0efeb" : "transparent" }}
-            >
-              {isGuest && (
-                <div
-                  className="absolute inset-0 z-10 flex items-center justify-center"
-                  style={{
-                    backgroundColor: "rgba(240, 239, 235, 0.8)",
-                    padding: 24,
-                  }}
-                >
-                  <div
-                    className="rounded-xl text-center"
-                    style={{
-                      padding: 20,
-                      backgroundColor: "#ffffff",
-                      border: "1px solid #dfdedb",
+            {/* Horizontal scroll container */}
+            <div className="flex gap-4 overflow-x-auto pb-2 -mx-6 px-6">
+              {recentSessions.map((session) => {
+                const learningSession = learningSessions.find(
+                  (s) => s.source_video_id === session.videoId,
+                );
+                const isSelected = selectedVideoIds.has(session.videoId);
+
+                return (
+                  <SessionCard
+                    key={session.id}
+                    title={learningSession?.title || `Video ${session.videoId}`}
+                    thumbnailUrl={
+                      learningSession?.thumbnail_url ||
+                      `https://img.youtube.com/vi/${session.videoId}/hqdefault.jpg`
+                    }
+                    isEditMode={isEditMode}
+                    isSelected={isSelected}
+                    onToggleSelection={() => {
+                      const newSelected = new Set(selectedVideoIds);
+                      if (isSelected) {
+                        newSelected.delete(session.videoId);
+                      } else {
+                        newSelected.add(session.videoId);
+                      }
+                      setSelectedVideoIds(newSelected);
                     }}
-                  >
-                    <p
-                      className="text-sm font-medium"
-                      style={{ color: "#565552" }}
-                    >
-                      로그인하면 최근 학습했던 영상을
-                      <br />
-                      여기서 바로 이어볼 수 있어요!
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {recentSessions.length > 0 ? (
-                <div
-                  className="flex flex-col"
-                  style={{ gap: 24, paddingBottom: 24 }}
-                >
-                  {recentSessions.map((session) => {
-                    const learningSession = learningSessions.find(
-                      (s) => s.source_video_id === session.videoId,
-                    );
-                    const isSelected = selectedVideoIds.has(session.videoId);
-
-                    return (
-                      <SessionCard
-                        key={session.id}
-                        title={
-                          learningSession?.title || `Video ${session.videoId}`
-                        }
-                        thumbnailUrl={
-                          learningSession?.thumbnail_url ||
-                          `https://img.youtube.com/vi/${session.videoId}/hqdefault.jpg`
-                        }
-                        isEditMode={isEditMode}
-                        isSelected={isSelected}
-                        onToggleSelection={() => {
-                          const newSelected = new Set(selectedVideoIds);
-                          if (isSelected) {
-                            newSelected.delete(session.videoId);
-                          } else {
-                            newSelected.add(session.videoId);
-                          }
-                          setSelectedVideoIds(newSelected);
-                        }}
-                        onClick={() => {
-                          router.push(
-                            `/listening/${session.videoId}${learningSession ? `?sessionId=${learningSession.id}` : ""}`,
-                          );
-                        }}
-                        onMouseEnter={() => {
-                          prefetchVideo(session.videoId);
-                          if (learningSession) {
-                            prefetchSession(learningSession.id);
-                          }
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              ) : (
-                <div
-                  className="flex flex-col items-center justify-center h-full"
-                  style={{ color: "#908f8c" }}
-                >
-                  <p className="text-sm">아직 학습 중인 영상이 없어요.</p>
-                </div>
-              )}
+                    onClick={() => {
+                      router.push(
+                        `/listening/${session.videoId}${learningSession ? `?sessionId=${learningSession.id}` : ""}`,
+                      );
+                    }}
+                    onMouseEnter={() => {
+                      prefetchVideo(session.videoId);
+                      if (learningSession) {
+                        prefetchSession(learningSession.id);
+                      }
+                    }}
+                  />
+                );
+              })}
             </div>
           </section>
-        </div>
+        )}
+
+        {/* Video Gallery */}
+        <section className="px-6 py-6">
+          {/* Header + Filter */}
+          <div className="mb-6">
+            <h2 className="text-xl font-extrabold text-text-default mb-4">
+              어떤 영상으로 쉐도잉을 해보시겠어요?
+            </h2>
+
+            {/* Difficulty Filter — bold-line style */}
+            <div className="flex gap-2">
+              {[
+                { id: "all", label: "전체" },
+                { id: "beginner", label: "초급" },
+                { id: "intermediate", label: "중급" },
+                { id: "advanced", label: "고급" },
+              ].map((cat) => {
+                const isActive = selectedDifficulty === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedDifficulty(cat.id)}
+                    className={`flex items-center rounded-lg text-sm font-medium transition-colors px-3 py-2 ${
+                      isActive
+                        ? "bg-bg-inverse text-text-inverse"
+                        : "bg-transparent text-text-muted border-border-default"
+                    }`}
+                    style={
+                      isActive
+                        ? undefined
+                        : {
+                            borderWidth: "var(--border-width-default)",
+                            borderStyle: "solid",
+                          }
+                    }
+                  >
+                    {isActive && (
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        className="mr-1.5"
+                      >
+                        <path
+                          d="M13.3333 4L6 11.3333L2.66667 8"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.6"
+                        />
+                      </svg>
+                    )}
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Responsive Video Grid */}
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <p className="text-text-subtle">Loading...</p>
+            </div>
+          ) : learningSessions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 text-text-subtle">
+              <p>큐레이션된 학습 세션이 없어요.</p>
+              <Link
+                href="/admin"
+                className="hover:underline text-text-brand mt-2"
+              >
+                + 세션 추가하기
+              </Link>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {learningSessions.map((session) => (
+                  <VideoCard
+                    key={session.id}
+                    title={session.title}
+                    thumbnailUrl={session.thumbnail_url}
+                    duration={`${Math.floor(session.duration / 60)}:${String(Math.floor(session.duration % 60)).padStart(2, "0")}`}
+                    description={session.description || ""}
+                    sentenceCount={session.sentence_ids?.length || 0}
+                    onClick={() => {
+                      if (isGuest) return;
+                      router.push(
+                        `/listening/${session.source_video_id}?sessionId=${session.id}`,
+                      );
+                    }}
+                    onMouseEnter={() => {
+                      if (isGuest) return;
+                      prefetchVideo(session.source_video_id);
+                      prefetchSession(session.id);
+                    }}
+                  />
+                ))}
+              </div>
+              {isGuest && (
+                <div
+                  className="absolute inset-0 pointer-events-none rounded-xl"
+                  style={{
+                    background:
+                      "linear-gradient(to bottom, transparent 30%, var(--color-bg-default))",
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </section>
       </main>
 
       {isMounted && isGuest && <GuestViewOverlay />}

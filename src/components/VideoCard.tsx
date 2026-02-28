@@ -23,13 +23,14 @@ export default function VideoCard({
     <div
       onClick={onClick}
       onMouseEnter={onMouseEnter}
-      className="flex flex-col gap-1 group cursor-pointer"
+      className="flex flex-col group cursor-pointer rounded-lg overflow-hidden border-border-default transition-colors hover:border-interactive-default"
+      style={{
+        borderWidth: "var(--border-width-card)",
+        borderStyle: "solid",
+      }}
     >
       {/* Thumbnail Container */}
-      <div
-        className="relative w-full aspect-video rounded-md overflow-hidden"
-        style={{ backgroundColor: "#dfdedb" }}
-      >
+      <div className="relative w-full aspect-video overflow-hidden bg-bg-muted">
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -37,10 +38,7 @@ export default function VideoCard({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div
-            className="w-full h-full flex items-center justify-center text-sm font-medium"
-            style={{ color: "#908f8c" }}
-          >
+          <div className="w-full h-full flex items-center justify-center text-sm font-medium text-text-subtle">
             No Image
           </div>
         )}
@@ -48,38 +46,32 @@ export default function VideoCard({
         {/* Tags on Thumbnail */}
         <div className="absolute top-1 right-1 flex gap-1.5">
           {sentenceCount !== undefined && (
-            <span
-              className="px-1 py-1 rounded-md text-xs font-regular"
-              style={{ backgroundColor: "#0c0b09", color: "#ffffff" }}
-            >
+            <span className="px-1 py-1 rounded-md text-xs font-regular bg-bg-inverse text-text-inverse">
               {sentenceCount}문장
             </span>
           )}
         </div>
 
         {/* Duration Badge */}
-        <div
-          className="absolute bottom-1 right-1 px-1 py-1 rounded-md text-xs font-regular"
-          style={{ backgroundColor: "#0c0b09", color: "#ffffff" }}
-        >
+        <div className="absolute bottom-1 right-1 px-1 py-1 rounded-md text-xs font-regular bg-bg-inverse text-text-inverse">
           {duration}
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex flex-col gap-1">
-        <h3
-          className="text-sm font-bold leading-snug line-clamp-2 group-hover:opacity-70 transition-opacity"
-          style={{ color: "#0c0b09" }}
-        >
+      {/* Content Area — separated by border-top */}
+      <div
+        className="flex flex-col gap-1 p-3 border-border-default"
+        style={{
+          borderTopWidth: "var(--border-width-card)",
+          borderTopStyle: "solid",
+        }}
+      >
+        <h3 className="text-sm font-bold leading-snug line-clamp-2 group-hover:opacity-70 transition-opacity text-text-default">
           {title}
         </h3>
 
         {description && (
-          <p
-            className="text-xs leading-relaxed line-clamp-2"
-            style={{ color: "#908f8c" }}
-          >
+          <p className="text-xs leading-relaxed line-clamp-2 text-text-subtle">
             {description}
           </p>
         )}

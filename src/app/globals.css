@@ -1,3 +1,5 @@
+@import "@framingui/ui/styles";
+
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
@@ -95,11 +97,16 @@
   --color-text-brand: var(--color-primary-600);
   --color-text-on-brand: var(--color-neutral-50);
 
-  /* Semantic Border Colors */
-  --color-border-default: var(--color-neutral-200);
-  --color-border-muted: var(--color-neutral-100);
-  --color-border-strong: var(--color-neutral-300);
+  /* Semantic Border Colors — Bold-Line overrides */
+  --color-border-default: var(--color-neutral-800);
+  --color-border-muted: var(--color-neutral-300);
+  --color-border-strong: var(--color-neutral-900);
   --color-border-focus: var(--color-primary-500);
+
+  /* Bold-Line Border Widths */
+  --border-width-default: 2px;
+  --border-width-strong: 3px;
+  --border-width-card: 2px;
 
   /* Semantic Interactive Colors */
   --color-interactive-default: var(--color-primary-500);
@@ -157,13 +164,13 @@
   --spacing-3xl: var(--spacing-16);
   --spacing-4xl: var(--spacing-24);
 
-  /* Radius */
+  /* Radius — Bold-Line: tighter corners */
   --radius-none: 0px;
   --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 24px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
   --radius-full: 9999px;
 
   /* Typography - Display */
@@ -192,35 +199,35 @@
   --text-display-sm--font-weight: 700;
   --text-display-sm--letter-spacing: -0.01em;
 
-  /* Typography - Heading */
+  /* Typography - Heading (Bold-Line: 700–800) */
   --text-heading-h1: 40px;
   --text-heading-h1--line-height: 1.27;
-  --text-heading-h1--font-weight: 600;
+  --text-heading-h1--font-weight: 800;
   --text-heading-h1--letter-spacing: -0.02em;
 
   --text-heading-h2: 33px;
   --text-heading-h2--line-height: 1.38;
-  --text-heading-h2--font-weight: 600;
+  --text-heading-h2--font-weight: 800;
   --text-heading-h2--letter-spacing: -0.01em;
 
   --text-heading-h3: 27.5px;
   --text-heading-h3--line-height: 1.46;
-  --text-heading-h3--font-weight: 600;
+  --text-heading-h3--font-weight: 700;
   --text-heading-h3--letter-spacing: 0em;
 
   --text-heading-h4: 23px;
   --text-heading-h4--line-height: 1.53;
-  --text-heading-h4--font-weight: 600;
+  --text-heading-h4--font-weight: 700;
   --text-heading-h4--letter-spacing: 0em;
 
   --text-heading-h5: 20px;
   --text-heading-h5--line-height: 1.58;
-  --text-heading-h5--font-weight: 600;
+  --text-heading-h5--font-weight: 700;
   --text-heading-h5--letter-spacing: 0em;
 
   --text-heading-h6: 20px;
   --text-heading-h6--line-height: 1.58;
-  --text-heading-h6--font-weight: 600;
+  --text-heading-h6--font-weight: 700;
   --text-heading-h6--letter-spacing: 0em;
 
   /* Typography - Title */
@@ -293,15 +300,12 @@
   --text-code-inline--font-weight: 400;
   --text-code-inline--letter-spacing: 0.01em;
 
-  /* Elevation/Shadow */
+  /* Elevation/Shadow — Bold-Line: flat design, no shadows */
   --shadow-none: 0 0 0 0 transparent;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
-  --shadow-md:
-    0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg:
-    0 4px 6px -2px rgba(0, 0, 0, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-  --shadow-xl:
-    0 8px 10px -4px rgba(0, 0, 0, 0.1), 0 20px 25px -5px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 0 0 0 transparent;
+  --shadow-md: 0 0 0 0 transparent;
+  --shadow-lg: 0 0 0 0 transparent;
+  --shadow-xl: 0 0 0 0 transparent;
 }
 
 /* Base Styles */
@@ -310,6 +314,18 @@
     background-color: var(--color-bg-default);
     color: var(--color-text-default);
     font-family: var(--font-sans);
+  }
+
+  /* Bold-Line: heavier headings */
+  h1,
+  h2,
+  h3 {
+    font-weight: 800;
+  }
+  h4,
+  h5,
+  h6 {
+    font-weight: 700;
   }
 }
 

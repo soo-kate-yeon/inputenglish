@@ -11,9 +11,22 @@ export default function GuestViewOverlay() {
       {/* Bottom Banner */}
       <div className="fixed bottom-0 left-0 right-0 z-20 pointer-events-none">
         <div className="max-w-[1920px] mx-auto px-8 pb-8">
-          <div className="bg-gradient-to-r from-primary-500/95 to-orange-500/95 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 p-6 flex items-center justify-between gap-6 pointer-events-auto">
+          <div
+            className="bg-gradient-to-r from-primary-500/95 to-orange-500/95 backdrop-blur-md rounded-xl p-6 flex items-center justify-between gap-6 pointer-events-auto border-border-default"
+            style={{
+              borderWidth: "var(--border-width-strong)",
+              borderStyle: "solid",
+            }}
+          >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white shrink-0">
+              <div
+                className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center text-white shrink-0"
+                style={{
+                  borderWidth: "var(--border-width-default)",
+                  borderStyle: "solid",
+                  borderColor: "rgba(255, 255, 255, 0.3)",
+                }}
+              >
                 <svg
                   width="24"
                   height="24"
@@ -30,7 +43,7 @@ export default function GuestViewOverlay() {
                 </svg>
               </div>
               <div className="text-white">
-                <p className="font-semibold text-lg leading-tight">
+                <p className="font-bold text-lg leading-tight">
                   이런 영상들로 학습하고 싶으세요?
                 </p>
                 <p className="text-white/90 text-sm">
@@ -40,7 +53,12 @@ export default function GuestViewOverlay() {
             </div>
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="bg-white text-primary-600 font-semibold py-3 px-8 rounded-2xl hover:bg-white/90 transition-all shadow-lg active:scale-95 whitespace-nowrap"
+              className="bg-white font-bold py-3 px-8 rounded-xl hover:bg-white/90 transition-all active:scale-95 whitespace-nowrap text-text-brand"
+              style={{
+                borderWidth: "var(--border-width-default)",
+                borderStyle: "solid",
+                borderColor: "var(--color-border-default)",
+              }}
             >
               회원가입하고 시작하기 →
             </button>

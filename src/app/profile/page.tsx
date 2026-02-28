@@ -1,36 +1,80 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext";
 import TopNav from "@/components/TopNav";
 import { useStore } from "@/lib/store";
 import AdminButton from "./AdminButton";
 
+// Loading skeleton for profile page
+function ProfileSkeleton() {
+  return (
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ backgroundColor: "#faf9f5" }}
+    >
+      <TopNav />
+      <main className="flex-1 max-w-[480px] w-full mx-auto px-5 py-8 flex flex-col gap-5">
+        {/* Profile Header Skeleton */}
+        <section
+          className="flex items-center gap-4 pb-5 border-b"
+          style={{ borderColor: "#dfdedb" }}
+        >
+          <div
+            className="w-14 h-14 rounded-full animate-pulse"
+            style={{ backgroundColor: "#dfdedb" }}
+          />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div
+              className="h-5 w-24 rounded animate-pulse"
+              style={{ backgroundColor: "#dfdedb" }}
+            />
+            <div
+              className="h-4 w-40 rounded animate-pulse"
+              style={{ backgroundColor: "#dfdedb" }}
+            />
+          </div>
+        </section>
+
+        {/* Stats Skeleton */}
+        <section className="flex gap-3">
+          <div
+            className="flex-1 rounded-xl p-4 h-20 animate-pulse"
+            style={{ backgroundColor: "#f0efeb" }}
+          />
+          <div
+            className="flex-1 rounded-xl p-4 h-20 animate-pulse"
+            style={{ backgroundColor: "#f0efeb" }}
+          />
+        </section>
+
+        {/* Menu Skeleton */}
+        <section
+          className="rounded-xl overflow-hidden border h-32 animate-pulse"
+          style={{ backgroundColor: "#ffffff", borderColor: "#dfdedb" }}
+        />
+      </main>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isLoading, isAuthenticated, signOut } = useAuth();
   const router = useRouter();
-  const supabase = createClient();
   const sessions = useStore((state) => state.sessions);
   const savedSentences = useStore((state) => state.savedSentences);
   const highlights = useStore((state) => state.highlights);
 
+  // Redirect to home if not authenticated
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      if (!user) {
-        router.push("/home");
-      }
-    };
-    getUser();
-  }, [supabase, router]);
+    if (!isLoading && !isAuthenticated) {
+      router.push("/home");
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     router.push("/home");
     router.refresh();
   };
@@ -38,6 +82,12 @@ export default function ProfilePage() {
   const sessionsCount = Object.keys(sessions).length;
   const savedCount = savedSentences.length + highlights.length;
 
+  // Show skeleton while loading
+  if (isLoading) {
+    return <ProfileSkeleton />;
+  }
+
+  // Don't render if not authenticated
   if (!user) return null;
 
   return (
