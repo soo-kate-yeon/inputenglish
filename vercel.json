@@ -1,12 +1,11 @@
 {
   "rootDirectory": "apps/web",
-  "buildCommand": "pnpm run build",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm turbo build --filter=@shadowoo/web",
   "devCommand": "pnpm run dev",
-  "installCommand": "pnpm install",
+  "outputDirectory": ".next",
   "framework": "nextjs",
-  "regions": [
-    "icn1"
-  ],
+  "regions": ["icn1"],
   "headers": [
     {
       "source": "/api/(.*)",
