@@ -1,10 +1,10 @@
 # Shadowing Ninja 🥷
 
-AI 기반 영어 쉐도잉 학습 플랫폼
+AI 기반 영어 쉐도잉 학습 플랫폼 (Turborepo 모노레포)
 
 ## 📚 프로젝트 소개
 
-Shadowing Ninja는 YouTube 영상을 활용한 영어 쉐도잉 학습을 돕는 웹 애플리케이션입니다. AI가 자막을 분석하고, 사용자의 학습을 효과적으로 지원합니다.
+Shadowing Ninja는 YouTube 영상을 활용한 영어 쉐도잉 학습을 돕는 웹 애플리케이션입니다. AI가 자막을 분석하고, 사용자의 학습을 효과적으로 지원합니다. pnpm + Turborepo 모노레포 구조로 웹(`apps/web`)과 모바일(`apps/mobile`) 앱을 위한 공유 패키지(`@shadowoo/shared`)를 제공합니다.
 
 ## 🚀 빠른 시작
 
@@ -15,18 +15,18 @@ Shadowing Ninja는 YouTube 영상을 활용한 영어 쉐도잉 학습을 돕는
 git clone https://github.com/your-username/shadowing-ninja.git
 cd shadowing-ninja
 
-# 의존성 설치
-npm install
+# 의존성 설치 (pnpm 필요: npm install -g pnpm)
+pnpm install
 
 # 환경 변수 설정
 cp .env.local.example .env.local
 # .env.local 파일을 편집하여 실제 값 입력
 
 # 로컬 Supabase 시작
-npm run supabase:start
+pnpm run supabase:start
 
 # 개발 서버 실행
-npm run dev
+pnpm dev
 ```
 
 브라우저에서 http://localhost:3000 접속
@@ -43,6 +43,7 @@ npm run dev
 - **Backend**: Next.js API Routes
 - **Database**: Supabase (PostgreSQL)
 - **AI**: Google Generative AI
+- **패키지 관리**: pnpm + Turborepo (모노레포)
 - **배포**: Vercel
 - **CI/CD**: GitHub Actions
 

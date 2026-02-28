@@ -65,3 +65,9 @@ ssl/
 *.key
 *.crt
 *.pem
+
+# claude code / moai
+.claude/
+.moai/
+moai-adk/
+my-project/
