@@ -1,0 +1,9 @@
+{
+  "name": "@shadowoo/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shadowoo mobile app (React Native/Expo) - placeholder for future development",
+  "dependencies": {
+    "@shadowoo/shared": "workspace:*"
+  }
+}
