@@ -34,19 +34,24 @@ jobs:
           GOOGLE_GENERATIVE_AI_API_KEY: dummy_key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
-      - name: Run Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v11
-        with:
-          urls: |
-            http://localhost:3000
-          serverCommand: pnpm --filter @shadowoo/web start
-          serverReadyPattern: 'Ready in'
-          uploadArtifacts: true
-          temporaryPublicStorage: true
-          runs: 3
+      - name: Start Next.js server
+        run: pnpm --filter @shadowoo/web start &
         env:
+          PORT: 3000
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy_key
           SUPABASE_SERVICE_ROLE_KEY: dummy_key
           GOOGLE_GENERATIVE_AI_API_KEY: dummy_key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v11
+        with:
+          urls: |
+            http://localhost:3000
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          runs: 3
