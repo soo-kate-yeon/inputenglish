@@ -1,5 +1,3 @@
-@import "@framingui/ui/styles";
-
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
