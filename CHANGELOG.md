@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Mobile App Shell** (SPEC-MOBILE-002): Initialized Expo SDK 52 mobile app in `apps/mobile/`
+  - expo-router v4 file-based navigation: (auth) and (tabs) groups with stack routes
+  - Supabase auth with expo-secure-store (iOS Keychain / Android Keystore, PKCE)
+  - AuthContext: AppState foreground/background management, exponential backoff retry
+  - MMKV-backed Zustand stores via @shadowoo/shared factory pattern
+  - Email/password auth forms with loading states and error handling
+  - OAuth buttons: Google, GitHub, Kakao, Microsoft (via expo-auth-session + PKCE)
+  - Route guards via expo-router Redirect in tab layout
+  - expo-dev-client for custom development builds with native modules
+  - Turborepo pipeline integration (typecheck, build tasks)
+
 ## [0.2.0] - 2026-03-01
 
 ### Added
