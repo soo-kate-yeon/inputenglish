@@ -2,7 +2,6 @@
 // @MX:REASON: [AUTO] fan_in >= 3: used by web, mobile, and test contexts; removes direct Supabase client singleton
 // @MX:SPEC: SPEC-MOBILE-001 - factory pattern for cross-platform state management
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseStore } from "../lib/supabase-store";
 import type {
@@ -71,226 +70,216 @@ export const createAppStore = (
 ) => {
   const supabaseOps = createSupabaseStore(supabaseClient);
 
-  return create<AppState>()(
-    persist(
-      (set, get) => ({
-        videos: INITIAL_VIDEOS,
-        sessions: {},
-        highlights: [],
-        savedSentences: [],
-        aiNotes: [],
-        pendingSentenceOps: [],
+  return create<AppState>()((set, get) => ({
+    videos: INITIAL_VIDEOS,
+    sessions: {},
+    highlights: [],
+    savedSentences: [],
+    aiNotes: [],
+    pendingSentenceOps: [],
 
-        addSession: async (session) => {
+    addSession: async (session) => {
+      set((state) => ({
+        sessions: { ...state.sessions, [session.videoId]: session },
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await supabaseOps.saveSession(userId, session);
+      }
+    },
+
+    updateSessionProgress: async (videoId, progress) => {
+      const session = get().sessions[videoId];
+      if (!session) return;
+
+      const updatedSession = {
+        ...session,
+        progress,
+        lastAccessedAt: Date.now(),
+      };
+      set((state) => ({
+        sessions: {
+          ...state.sessions,
+          [videoId]: updatedSession,
+        },
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await supabaseOps.saveSession(userId, updatedSession);
+      }
+    },
+
+    updateSessionPosition: async (videoId, step, sentenceIndex) => {
+      const session = get().sessions[videoId];
+      if (!session) return;
+
+      console.log(
+        `Session updated - Video: ${videoId}, Step: ${step}, Sentence: ${sentenceIndex ?? "N/A"}`,
+      );
+
+      const updatedSession = {
+        ...session,
+        currentStep: step,
+        currentSentence: sentenceIndex,
+        lastAccessedAt: Date.now(),
+      };
+
+      set((state) => ({
+        sessions: {
+          ...state.sessions,
+          [videoId]: updatedSession,
+        },
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await supabaseOps.saveSession(userId, updatedSession);
+      }
+    },
+
+    addHighlight: async (highlight) => {
+      set((state) => ({
+        highlights: [...state.highlights, highlight],
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await supabaseOps.saveHighlight(userId, highlight);
+      }
+    },
+
+    removeHighlight: async (id: string) => {
+      set((state) => ({
+        highlights: state.highlights.filter((h) => h.id !== id),
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await supabaseOps.deleteHighlight(userId, id);
+      }
+    },
+
+    addSavedSentence: async (sentence) => {
+      set((state) => ({
+        savedSentences: [...state.savedSentences, sentence],
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        try {
+          await supabaseOps.saveSavedSentence(userId, sentence);
+        } catch {
+          // Offline: queue for later sync
           set((state) => ({
-            sessions: { ...state.sessions, [session.videoId]: session },
+            pendingSentenceOps: [
+              ...state.pendingSentenceOps,
+              { type: "add", sentence },
+            ],
           }));
+        }
+      }
+    },
 
-          const userId = await getCurrentUserId();
-          if (userId) {
-            await supabaseOps.saveSession(userId, session);
-          }
-        },
+    removeSavedSentence: async (id: string) => {
+      set((state) => ({
+        savedSentences: state.savedSentences.filter((s) => s.id !== id),
+      }));
 
-        updateSessionProgress: async (videoId, progress) => {
-          const session = get().sessions[videoId];
-          if (!session) return;
-
-          const updatedSession = {
-            ...session,
-            progress,
-            lastAccessedAt: Date.now(),
-          };
+      const userId = await getCurrentUserId();
+      if (userId) {
+        try {
+          await supabaseOps.deleteSavedSentence(userId, id);
+        } catch {
+          // Offline: queue for later sync
           set((state) => ({
-            sessions: {
-              ...state.sessions,
-              [videoId]: updatedSession,
-            },
+            pendingSentenceOps: [
+              ...state.pendingSentenceOps,
+              { type: "remove", id },
+            ],
           }));
+        }
+      }
+    },
 
-          const userId = await getCurrentUserId();
-          if (userId) {
-            await supabaseOps.saveSession(userId, updatedSession);
+    addAINote: async (note) => {
+      set((state) => ({
+        aiNotes: [...state.aiNotes, note],
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await supabaseOps.saveAINote(userId, note);
+      }
+    },
+
+    removeAINote: async (id) => {
+      set((state) => ({
+        aiNotes: state.aiNotes.filter((n) => n.id !== id),
+      }));
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await supabaseOps.deleteAINote(userId, id);
+      }
+    },
+
+    getVideo: (videoId) => get().videos.find((v) => v.id === videoId),
+
+    removeSession: async (videoId) => {
+      try {
+        const userId = await getCurrentUserId();
+        if (userId) {
+          await supabaseOps.deleteSession(userId, videoId);
+        }
+        // Update local state after successful DB deletion
+        set((state) => {
+          const { [videoId]: _, ...remainingSessions } = state.sessions;
+          return { sessions: remainingSessions };
+        });
+        return { success: true };
+      } catch (error) {
+        console.error(`[Store] Failed to delete session ${videoId}:`, error);
+        return { success: false, error };
+      }
+    },
+
+    syncPendingOps: async (userId: string) => {
+      const pending = get().pendingSentenceOps;
+      if (pending.length === 0) return;
+
+      const failed: typeof pending = [];
+      for (const op of pending) {
+        try {
+          if (op.type === "add") {
+            await supabaseOps.saveSavedSentence(userId, op.sentence);
+          } else {
+            await supabaseOps.deleteSavedSentence(userId, op.id);
           }
-        },
+        } catch {
+          failed.push(op);
+        }
+      }
+      set({ pendingSentenceOps: failed });
+    },
 
-        updateSessionPosition: async (videoId, step, sentenceIndex) => {
-          const session = get().sessions[videoId];
-          if (!session) return;
+    loadUserData: async () => {
+      const userId = await getCurrentUserId();
+      if (!userId) return;
 
-          console.log(
-            `Session updated - Video: ${videoId}, Step: ${step}, Sentence: ${sentenceIndex ?? "N/A"}`,
-          );
+      // Flush pending offline ops before loading fresh data
+      await get().syncPendingOps(userId);
 
-          const updatedSession = {
-            ...session,
-            currentStep: step,
-            currentSentence: sentenceIndex,
-            lastAccessedAt: Date.now(),
-          };
-
-          set((state) => ({
-            sessions: {
-              ...state.sessions,
-              [videoId]: updatedSession,
-            },
-          }));
-
-          const userId = await getCurrentUserId();
-          if (userId) {
-            await supabaseOps.saveSession(userId, updatedSession);
-          }
-        },
-
-        addHighlight: async (highlight) => {
-          set((state) => ({
-            highlights: [...state.highlights, highlight],
-          }));
-
-          const userId = await getCurrentUserId();
-          if (userId) {
-            await supabaseOps.saveHighlight(userId, highlight);
-          }
-        },
-
-        removeHighlight: async (id: string) => {
-          set((state) => ({
-            highlights: state.highlights.filter((h) => h.id !== id),
-          }));
-
-          const userId = await getCurrentUserId();
-          if (userId) {
-            await supabaseOps.deleteHighlight(userId, id);
-          }
-        },
-
-        addSavedSentence: async (sentence) => {
-          set((state) => ({
-            savedSentences: [...state.savedSentences, sentence],
-          }));
-
-          const userId = await getCurrentUserId();
-          if (userId) {
-            try {
-              await supabaseOps.saveSavedSentence(userId, sentence);
-            } catch {
-              // Offline: queue for later sync
-              set((state) => ({
-                pendingSentenceOps: [
-                  ...state.pendingSentenceOps,
-                  { type: "add", sentence },
-                ],
-              }));
-            }
-          }
-        },
-
-        removeSavedSentence: async (id: string) => {
-          set((state) => ({
-            savedSentences: state.savedSentences.filter((s) => s.id !== id),
-          }));
-
-          const userId = await getCurrentUserId();
-          if (userId) {
-            try {
-              await supabaseOps.deleteSavedSentence(userId, id);
-            } catch {
-              // Offline: queue for later sync
-              set((state) => ({
-                pendingSentenceOps: [
-                  ...state.pendingSentenceOps,
-                  { type: "remove", id },
-                ],
-              }));
-            }
-          }
-        },
-
-        addAINote: async (note) => {
-          set((state) => ({
-            aiNotes: [...state.aiNotes, note],
-          }));
-
-          const userId = await getCurrentUserId();
-          if (userId) {
-            await supabaseOps.saveAINote(userId, note);
-          }
-        },
-
-        removeAINote: async (id) => {
-          set((state) => ({
-            aiNotes: state.aiNotes.filter((n) => n.id !== id),
-          }));
-
-          const userId = await getCurrentUserId();
-          if (userId) {
-            await supabaseOps.deleteAINote(userId, id);
-          }
-        },
-
-        getVideo: (videoId) => get().videos.find((v) => v.id === videoId),
-
-        removeSession: async (videoId) => {
-          try {
-            const userId = await getCurrentUserId();
-            if (userId) {
-              await supabaseOps.deleteSession(userId, videoId);
-            }
-            // Update local state after successful DB deletion
-            set((state) => {
-              const { [videoId]: _, ...remainingSessions } = state.sessions;
-              return { sessions: remainingSessions };
-            });
-            return { success: true };
-          } catch (error) {
-            console.error(
-              `[Store] Failed to delete session ${videoId}:`,
-              error,
-            );
-            return { success: false, error };
-          }
-        },
-
-        syncPendingOps: async (userId: string) => {
-          const pending = get().pendingSentenceOps;
-          if (pending.length === 0) return;
-
-          const failed: typeof pending = [];
-          for (const op of pending) {
-            try {
-              if (op.type === "add") {
-                await supabaseOps.saveSavedSentence(userId, op.sentence);
-              } else {
-                await supabaseOps.deleteSavedSentence(userId, op.id);
-              }
-            } catch {
-              failed.push(op);
-            }
-          }
-          set({ pendingSentenceOps: failed });
-        },
-
-        loadUserData: async () => {
-          const userId = await getCurrentUserId();
-          if (!userId) return;
-
-          // Flush pending offline ops before loading fresh data
-          await get().syncPendingOps(userId);
-
-          const data = await supabaseOps.loadAllUserData(userId);
-          set({
-            sessions: data.sessions,
-            highlights: data.highlights,
-            savedSentences: data.savedSentences,
-            aiNotes: data.aiNotes,
-          });
-        },
-      }),
-      {
-        name: "shadowoo-app-v1",
-      },
-    ),
-  );
+      const data = await supabaseOps.loadAllUserData(userId);
+      set({
+        sessions: data.sessions,
+        highlights: data.highlights,
+        savedSentences: data.savedSentences,
+        aiNotes: data.aiNotes,
+      });
+    },
+  }));
 };
 
 export type AppStore = ReturnType<typeof createAppStore>;
