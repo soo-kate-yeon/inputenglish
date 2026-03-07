@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/server";
 import type { LearningSession } from "@shadowoo/shared";
 
 export async function POST(request: NextRequest) {
@@ -14,22 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    console.log(
-      "🔍 [API] Auth check - user:",
-      user?.id,
-      "error:",
-      authError?.message,
-    );
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = createAdminClient();
 
     // 1. Delete existing sessions for this video (Full replacement strategy)
     // This is simpler than diffing. For admin tool, this is acceptable.
@@ -52,7 +37,7 @@ export async function POST(request: NextRequest) {
         thumbnail_url: s.thumbnail_url,
         difficulty: s.difficulty,
         order_index: index,
-        created_by: user.id,
+        created_by: null,
         // duration is generated column
       }),
     );
