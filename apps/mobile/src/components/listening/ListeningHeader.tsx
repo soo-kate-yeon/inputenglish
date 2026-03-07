@@ -17,12 +17,14 @@ interface ListeningHeaderProps {
   title: string;
   playbackRate: number;
   onRateChange: (rate: number) => void;
+  videoId?: string;
 }
 
 export default function ListeningHeader({
   title,
   playbackRate,
   onRateChange,
+  videoId,
 }: ListeningHeaderProps) {
   return (
     <View style={styles.container}>
@@ -36,6 +38,14 @@ export default function ListeningHeader({
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
+        {videoId && (
+          <TouchableOpacity
+            onPress={() => router.push(`/shadowing/${videoId}`)}
+            style={styles.shadowingButton}
+          >
+            <Text style={styles.shadowingText}>쉐도잉 →</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <ScrollView
         horizontal
@@ -113,6 +123,18 @@ const styles = StyleSheet.create({
     color: "#555",
   },
   speedTextActive: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  shadowingButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: "#34C759",
+    marginLeft: 8,
+  },
+  shadowingText: {
+    fontSize: 13,
     color: "#fff",
     fontWeight: "600",
   },

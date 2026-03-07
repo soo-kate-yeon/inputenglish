@@ -211,6 +211,7 @@ export default function ListeningScreen() {
         title={video.title}
         playbackRate={playbackRate}
         onRateChange={setPlaybackRate}
+        videoId={videoId}
       />
       <YouTubePlayer
         ref={playerRef}
