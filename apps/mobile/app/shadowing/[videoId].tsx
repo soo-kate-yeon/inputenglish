@@ -58,6 +58,8 @@ export default function ShadowingScreen() {
     duration,
     isPlaying: isPlayingRecording,
     playbackProgress,
+    isRecorderBusy,
+    lastError,
     startRecording,
     stopRecording,
     playRecording,
@@ -160,17 +162,30 @@ export default function ShadowingScreen() {
   // Record button tap: pause YouTube, start recording - REQ-E-001, REQ-C-001
   const handleRecord = useCallback(
     async (sentenceId: string) => {
+      if (isRecorderBusy || recordingState === "recording") {
+        return;
+      }
       setPlaying(false);
-      setCurrentRecordingSentenceId(sentenceId);
-      await startRecording();
+      const started = await startRecording();
+      if (started) {
+        setCurrentRecordingSentenceId(sentenceId);
+      } else {
+        setCurrentRecordingSentenceId(null);
+      }
     },
-    [startRecording],
+    [isRecorderBusy, recordingState, startRecording],
   );
 
   // Stop recording - REQ-E-002
   const handleStop = useCallback(async () => {
-    await stopRecording();
-  }, [stopRecording]);
+    const uri = await stopRecording();
+    if (!uri) {
+      Alert.alert(
+        "녹음을 중지할 수 없어요",
+        lastError ?? "녹음을 정상적으로 저장하지 못했습니다.",
+      );
+    }
+  }, [lastError, stopRecording]);
 
   // Confirm recording: save to state - REQ-C-002
   const handleConfirm = useCallback(async () => {

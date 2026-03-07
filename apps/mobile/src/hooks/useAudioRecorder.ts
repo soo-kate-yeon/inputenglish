@@ -1,7 +1,7 @@
 // @MX:NOTE: [AUTO] expo-av based audio recorder hook mirroring web useAudioRecorder interface.
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-U-001, REQ-U-005, REQ-E-007, REQ-N-002
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { Audio } from "expo-av";
 
 export type RecordingState = "idle" | "recording" | "playback";
@@ -13,8 +13,10 @@ export interface UseAudioRecorderReturn {
   isPlaying: boolean;
   playbackProgress: number; // 0-1
   hasPermission: boolean | null;
-  startRecording: () => Promise<void>;
-  stopRecording: () => Promise<void>;
+  isRecorderBusy: boolean;
+  lastError: string | null;
+  startRecording: () => Promise<boolean>;
+  stopRecording: () => Promise<string | null>;
   playRecording: () => Promise<void>;
   pauseRecording: () => void;
   resetRecording: () => Promise<void>;
@@ -30,13 +32,12 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isRecorderBusy, setIsRecorderBusy] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
-  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
-  const durationRef = useRef(0);
+  const operationInFlightRef = useRef(false);
 
   // Check permission on mount
   useEffect(() => {
@@ -45,9 +46,6 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     });
     return () => {
       // Cleanup on unmount
-      if (durationIntervalRef.current) {
-        clearInterval(durationIntervalRef.current);
-      }
       void cleanupRecording();
       void cleanupSound();
     };
@@ -56,7 +54,14 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   const cleanupRecording = async () => {
     if (recordingRef.current) {
       try {
-        await recordingRef.current.stopAndUnloadAsync();
+        const status = await recordingRef.current.getStatusAsync();
+        if (status.isRecording || status.canRecord) {
+          await recordingRef.current.stopAndUnloadAsync();
+        } else {
+          await recordingRef.current.stopAndUnloadAsync().catch(() => {
+            // Ignore stop failures for partially prepared recorders.
+          });
+        }
       } catch {
         // Ignore cleanup errors
       }
@@ -83,6 +88,10 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   }, []);
 
   const startRecording = useCallback(async () => {
+    if (operationInFlightRef.current || recordingState === "recording") {
+      return false;
+    }
+
     // Check or request permission (handle null initial state)
     let permitted = hasPermission;
     if (permitted === null || !permitted) {
@@ -93,8 +102,12 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
         "마이크 권한 필요",
         "쉐도잉 녹음을 위해 마이크 권한이 필요합니다. 설정에서 권한을 허용해주세요.",
       );
-      return;
+      return false;
     }
+
+    operationInFlightRef.current = true;
+    setIsRecorderBusy(true);
+    setLastError(null);
 
     try {
       await cleanupRecording();
@@ -103,35 +116,66 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
       });
 
-      const { recording } =
-        await Audio.Recording.createAsync(RECORDING_OPTIONS);
+      const recording = new Audio.Recording();
+      recording.setOnRecordingStatusUpdate((status) => {
+        if (!("canRecord" in status) || !status.canRecord) return;
+        const durationMillis = status.durationMillis ?? 0;
+        setDuration(Math.floor(durationMillis / 1000));
+      });
+      await recording.prepareToRecordAsync(RECORDING_OPTIONS);
+      const status = await recording.getStatusAsync();
+
+      if (!status.canRecord) {
+        throw new Error("Recorder was not prepared correctly");
+      }
+
+      await recording.startAsync();
       recordingRef.current = recording;
 
-      // Track duration with 100ms interval
-      durationRef.current = 0;
       setDuration(0);
-      durationIntervalRef.current = setInterval(() => {
-        durationRef.current += 0.1;
-        setDuration(Math.floor(durationRef.current));
-      }, 100);
-
       setRecordingState("recording");
       setAudioUri(null);
       setPlaybackProgress(0);
+      return true;
     } catch (error) {
       console.error("Failed to start recording:", error);
+      const message =
+        error instanceof Error ? error.message : "Unknown recording error";
+      setLastError(message);
+      recordingRef.current = null;
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      }).catch(() => {
+        // Ignore audio mode cleanup failures.
+      });
+      if (Platform.OS === "ios") {
+        Alert.alert(
+          "녹음을 시작할 수 없어요",
+          "iOS 시뮬레이터에서는 오디오 녹음이 지원되지 않습니다. 실제 iPhone 기기에서 테스트해주세요.",
+        );
+      }
+      return false;
+    } finally {
+      operationInFlightRef.current = false;
+      setIsRecorderBusy(false);
     }
   }, [hasPermission, requestPermission]);
 
   const stopRecording = useCallback(async () => {
-    if (durationIntervalRef.current) {
-      clearInterval(durationIntervalRef.current);
-      durationIntervalRef.current = null;
+    if (operationInFlightRef.current) {
+      return null;
     }
 
-    if (!recordingRef.current) return;
+    if (!recordingRef.current) return null;
+
+    operationInFlightRef.current = true;
+    setIsRecorderBusy(true);
+    setLastError(null);
 
     try {
       const currentRecording = recordingRef.current;
@@ -148,8 +192,16 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
       setRecordingState("playback");
       setIsPlaying(false);
       setPlaybackProgress(0);
+      return uri ?? null;
     } catch (error) {
       console.error("Failed to stop recording:", error);
+      const message =
+        error instanceof Error ? error.message : "Unknown recording error";
+      setLastError(message);
+      return null;
+    } finally {
+      operationInFlightRef.current = false;
+      setIsRecorderBusy(false);
     }
   }, []);
 
@@ -198,19 +250,25 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   }, []);
 
   const resetRecording = useCallback(async () => {
-    if (durationIntervalRef.current) {
-      clearInterval(durationIntervalRef.current);
-      durationIntervalRef.current = null;
+    if (operationInFlightRef.current) {
+      return;
     }
-    await cleanupRecording();
-    await cleanupSound();
+    operationInFlightRef.current = true;
+    setIsRecorderBusy(true);
+    try {
+      await cleanupRecording();
+      await cleanupSound();
 
-    setRecordingState("idle");
-    setAudioUri(null);
-    setDuration(0);
-    setIsPlaying(false);
-    setPlaybackProgress(0);
-    durationRef.current = 0;
+      setRecordingState("idle");
+      setAudioUri(null);
+      setDuration(0);
+      setIsPlaying(false);
+      setPlaybackProgress(0);
+      setLastError(null);
+    } finally {
+      operationInFlightRef.current = false;
+      setIsRecorderBusy(false);
+    }
   }, []);
 
   return {
@@ -220,6 +278,8 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     isPlaying,
     playbackProgress,
     hasPermission,
+    isRecorderBusy,
+    lastError,
     startRecording,
     stopRecording,
     playRecording,
