@@ -9,11 +9,16 @@ import React, {
   useCallback,
   useMemo,
   ReactNode,
-} from 'react';
-import { AppState, AppStateStatus } from 'react-native';
-import { router } from 'expo-router';
-import { User, AuthChangeEvent, Session, Provider } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+} from "react";
+import { AppState, AppStateStatus } from "react-native";
+import { router } from "expo-router";
+import {
+  User,
+  AuthChangeEvent,
+  Session,
+  Provider,
+} from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 interface AuthContextType {
   user: User | null;
@@ -25,7 +30,9 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signInWithOAuth: (provider: 'google' | 'github' | 'kakao' | 'azure') => Promise<void>;
+  signInWithOAuth: (
+    provider: "google" | "github" | "kakao" | "azure",
+  ) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -70,7 +77,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return fetchUser(retryCount + 1);
       }
 
-      setError(err instanceof Error ? err : new Error('Failed to fetch user'));
+      setError(err instanceof Error ? err : new Error("Failed to fetch user"));
       setUser(null);
     }
   }, []);
@@ -96,10 +103,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setSession(null);
         }
       } catch (err) {
-        console.error('[AuthContext] Initialization error:', err);
+        console.error("[AuthContext] Initialization error:", err);
         if (mounted) {
           setError(
-            err instanceof Error ? err : new Error('Auth initialization failed'),
+            err instanceof Error
+              ? err
+              : new Error("Auth initialization failed"),
           );
         }
       } finally {
@@ -118,16 +127,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       (event: AuthChangeEvent, newSession: Session | null) => {
         if (!mounted) return;
 
-        console.log('[AuthContext] Auth state changed:', event);
+        console.log("[AuthContext] Auth state changed:", event);
 
         setSession(newSession);
         setUser(newSession?.user ?? null);
         setIsLoading(false);
 
-        if (event === 'SIGNED_OUT') {
+        if (event === "SIGNED_IN" && newSession) {
+          router.replace("/(tabs)");
+        } else if (event === "SIGNED_OUT") {
           setUser(null);
           setSession(null);
-        } else if (event === 'TOKEN_REFRESHED' && newSession) {
+          router.replace("/(auth)/login");
+        } else if (event === "TOKEN_REFRESHED" && newSession) {
           setUser(newSession.user);
         }
       },
@@ -142,9 +154,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // AppState listener: pause/resume token auto-refresh when app goes background/foreground
   useEffect(() => {
     const subscription = AppState.addEventListener(
-      'change',
+      "change",
       (nextState: AppStateStatus) => {
-        if (nextState === 'active') {
+        if (nextState === "active") {
           supabase.auth.startAutoRefresh();
         } else {
           supabase.auth.stopAutoRefresh();
@@ -157,31 +169,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string): Promise<void> => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const signIn = useCallback(
+    async (email: string, password: string): Promise<void> => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      if (signInError) {
-        throw signInError;
+        if (signInError) {
+          throw signInError;
+        }
+        // Auth state change listener handles user/session state update
+      } catch (err) {
+        console.error("[AuthContext] Sign in error:", err);
+        setError(err instanceof Error ? err : new Error("Failed to sign in"));
+        throw err;
+      } finally {
+        setIsLoading(false);
       }
-      // Auth state change listener handles user/session state update
-    } catch (err) {
-      console.error('[AuthContext] Sign in error:', err);
-      setError(err instanceof Error ? err : new Error('Failed to sign in'));
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   const signUp = useCallback(
-    async (email: string, password: string, fullName: string): Promise<void> => {
+    async (
+      email: string,
+      password: string,
+      fullName: string,
+    ): Promise<void> => {
       try {
         setIsLoading(true);
         setError(null);
@@ -200,8 +219,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           throw signUpError;
         }
       } catch (err) {
-        console.error('[AuthContext] Sign up error:', err);
-        setError(err instanceof Error ? err : new Error('Failed to sign up'));
+        console.error("[AuthContext] Sign up error:", err);
+        setError(err instanceof Error ? err : new Error("Failed to sign up"));
         throw err;
       } finally {
         setIsLoading(false);
@@ -216,10 +235,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await supabase.auth.signOut();
       setUser(null);
       setSession(null);
-      router.replace('/(auth)/login');
+      router.replace("/(auth)/login");
     } catch (err) {
-      console.error('[AuthContext] Sign out error:', err);
-      setError(err instanceof Error ? err : new Error('Failed to sign out'));
+      console.error("[AuthContext] Sign out error:", err);
+      setError(err instanceof Error ? err : new Error("Failed to sign out"));
     } finally {
       setIsLoading(false);
     }
@@ -228,11 +247,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // @MX:NOTE: [AUTO] signInWithOAuth initiates OAuth flow via Supabase.
   // Actual token exchange from deep link happens in the root _layout.tsx.
   const signInWithOAuth = useCallback(
-    async (provider: 'google' | 'github' | 'kakao' | 'azure'): Promise<void> => {
+    async (
+      provider: "google" | "github" | "kakao" | "azure",
+    ): Promise<void> => {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: provider as Provider,
         options: {
-          redirectTo: 'shadowoo://auth/callback',
+          redirectTo: "shadowoo://auth/callback",
         },
       });
 
@@ -263,7 +284,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signInWithOAuth,
       refreshUser,
     }),
-    [user, session, isLoading, isInitialized, error, signIn, signUp, signOut, signInWithOAuth, refreshUser],
+    [
+      user,
+      session,
+      isLoading,
+      isInitialized,
+      error,
+      signIn,
+      signUp,
+      signOut,
+      signInWithOAuth,
+      refreshUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -273,14 +305,14 @@ export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
 
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
 
   return context;
 }
 
 // Hook for protected routes - uses expo-router instead of window.location
-export function useRequireAuth(redirectTo = '/(auth)/login') {
+export function useRequireAuth(redirectTo = "/(auth)/login") {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   useEffect(() => {

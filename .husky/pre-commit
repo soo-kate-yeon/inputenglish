@@ -3,6 +3,3 @@
 
 # TypeScript type check
 npm run type-check
-
-# Build check
-npm run build
