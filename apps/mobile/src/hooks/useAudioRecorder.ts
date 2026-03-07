@@ -17,29 +17,11 @@ export interface UseAudioRecorderReturn {
   stopRecording: () => Promise<void>;
   playRecording: () => Promise<void>;
   pauseRecording: () => void;
-  resetRecording: () => void;
+  resetRecording: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
 }
 
-const RECORDING_OPTIONS: Audio.RecordingOptions = {
-  android: {
-    extension: ".m4a",
-    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-    audioEncoder: Audio.AndroidAudioEncoder.AAC,
-    sampleRate: 44100,
-    numberOfChannels: 1,
-    bitRate: 128000,
-  },
-  ios: {
-    extension: ".m4a",
-    audioQuality: Audio.IOSAudioQuality.HIGH,
-    sampleRate: 44100,
-    numberOfChannels: 1,
-    bitRate: 128000,
-    outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-  },
-  web: {},
-};
+const RECORDING_OPTIONS = Audio.RecordingOptionsPresets.HIGH_QUALITY;
 
 export default function useAudioRecorder(): UseAudioRecorderReturn {
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
@@ -101,9 +83,9 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   }, []);
 
   const startRecording = useCallback(async () => {
-    // Check or request permission
+    // Check or request permission (handle null initial state)
     let permitted = hasPermission;
-    if (!permitted) {
+    if (permitted === null || !permitted) {
       permitted = await requestPermission();
     }
     if (!permitted) {
@@ -123,9 +105,8 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
         playsInSilentModeIOS: true,
       });
 
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(RECORDING_OPTIONS);
-      await recording.startAsync();
+      const { recording } =
+        await Audio.Recording.createAsync(RECORDING_OPTIONS);
       recordingRef.current = recording;
 
       // Track duration with 100ms interval
@@ -153,9 +134,10 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     if (!recordingRef.current) return;
 
     try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
+      const currentRecording = recordingRef.current;
       recordingRef.current = null;
+      await currentRecording.stopAndUnloadAsync();
+      const uri = currentRecording.getURI();
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
@@ -191,6 +173,9 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
             setPlaybackProgress(0);
           }
         });
+      } else {
+        // Sound already loaded (e.g. replaying after finish) — reset to start
+        await soundRef.current.setPositionAsync(0);
       }
 
       await soundRef.current.playAsync();
@@ -212,13 +197,13 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
       });
   }, []);
 
-  const resetRecording = useCallback(() => {
+  const resetRecording = useCallback(async () => {
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
       durationIntervalRef.current = null;
     }
-    void cleanupRecording();
-    void cleanupSound();
+    await cleanupRecording();
+    await cleanupSound();
 
     setRecordingState("idle");
     setAudioUri(null);

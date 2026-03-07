@@ -173,7 +173,7 @@ export default function ShadowingScreen() {
   }, [stopRecording]);
 
   // Confirm recording: save to state - REQ-C-002
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback(async () => {
     if (!currentRecordingSentenceId || !audioUri) {
       Alert.alert("오류", "녹음 파일이 없습니다.");
       return;
@@ -183,12 +183,12 @@ export default function ShadowingScreen() {
       [currentRecordingSentenceId]: audioUri,
     }));
     setCurrentRecordingSentenceId(null);
-    resetRecording();
+    await resetRecording();
   }, [currentRecordingSentenceId, audioUri, resetRecording]);
 
   // Re-record: reset to idle - REQ-E-004
-  const handleReRecord = useCallback(() => {
-    resetRecording();
+  const handleReRecord = useCallback(async () => {
+    await resetRecording();
     setCurrentRecordingSentenceId(null);
   }, [resetRecording]);
 
