@@ -3,9 +3,22 @@ import type { Session, Highlight, SavedSentence, AINote } from "./store";
 
 const supabase = createClient();
 
+async function ensureUserProfile(userId: string) {
+  const { error } = await supabase
+    .from("users")
+    .upsert({ id: userId }, { onConflict: "id" });
+
+  if (error) {
+    console.error("Error ensuring user profile:", error);
+    throw error;
+  }
+}
+
 // ==================== Sessions ====================
 
 export async function saveSession(userId: string, session: Session) {
+  await ensureUserProfile(userId);
+
   const { error } = await supabase.from("sessions").upsert(
     {
       user_id: userId,
@@ -74,6 +87,8 @@ export async function loadSessions(
 // ==================== Highlights ====================
 
 export async function saveHighlight(userId: string, highlight: Highlight) {
+  await ensureUserProfile(userId);
+
   const { error } = await supabase.from("highlights").insert({
     id: highlight.id,
     user_id: userId,
@@ -133,6 +148,8 @@ export async function saveSavedSentence(
   userId: string,
   sentence: SavedSentence,
 ) {
+  await ensureUserProfile(userId);
+
   const { error } = await supabase.from("saved_sentences").insert({
     id: sentence.id,
     user_id: userId,
@@ -193,6 +210,8 @@ export async function loadSavedSentences(
 // ==================== AI Notes ====================
 
 export async function saveAINote(userId: string, note: AINote) {
+  await ensureUserProfile(userId);
+
   const { error } = await supabase.from("ai_notes").insert({
     id: note.id,
     user_id: userId,

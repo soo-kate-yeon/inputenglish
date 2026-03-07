@@ -1,16 +1,33 @@
 // @MX:ANCHOR: createSupabaseStore - platform-agnostic Supabase operations factory
 // @MX:REASON: [AUTO] fan_in >= 3: used by app-store, study-store, and future mobile store; eliminates singleton client dependency
 // @MX:SPEC: SPEC-MOBILE-001 - factory pattern for cross-platform shared code
-import { SupabaseClient } from '@supabase/supabase-js';
-import type { Session, AppHighlight, SavedSentence, AINote } from '../types/index';
+import { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  Session,
+  AppHighlight,
+  SavedSentence,
+  AINote,
+} from "../types/index";
 
 // @MX:NOTE: [AUTO] Factory returns all Supabase DB operations with injected client.
 // Web uses createClient() from @supabase/ssr; mobile uses its own client.
 export const createSupabaseStore = (client: SupabaseClient) => ({
+  async ensureUserProfile(userId: string): Promise<void> {
+    const { error } = await client
+      .from("users")
+      .upsert({ id: userId }, { onConflict: "id" });
+
+    if (error) {
+      console.error("Error ensuring user profile:", error);
+      throw error;
+    }
+  },
 
   // ==================== Sessions ====================
 
   async saveSession(userId: string, session: Session): Promise<void> {
+    await this.ensureUserProfile(userId);
+
     const { error } = await client.from("sessions").upsert(
       {
         user_id: userId,
@@ -77,6 +94,8 @@ export const createSupabaseStore = (client: SupabaseClient) => ({
   // ==================== Highlights ====================
 
   async saveHighlight(userId: string, highlight: AppHighlight): Promise<void> {
+    await this.ensureUserProfile(userId);
+
     const { error } = await client.from("highlights").insert({
       id: highlight.id,
       user_id: userId,
@@ -132,7 +151,12 @@ export const createSupabaseStore = (client: SupabaseClient) => ({
 
   // ==================== Saved Sentences ====================
 
-  async saveSavedSentence(userId: string, sentence: SavedSentence): Promise<void> {
+  async saveSavedSentence(
+    userId: string,
+    sentence: SavedSentence,
+  ): Promise<void> {
+    await this.ensureUserProfile(userId);
+
     const { error } = await client.from("saved_sentences").insert({
       id: sentence.id,
       user_id: userId,
@@ -191,6 +215,8 @@ export const createSupabaseStore = (client: SupabaseClient) => ({
   // ==================== AI Notes ====================
 
   async saveAINote(userId: string, note: AINote): Promise<void> {
+    await this.ensureUserProfile(userId);
+
     const { error } = await client.from("ai_notes").insert({
       id: note.id,
       user_id: userId,
