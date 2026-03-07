@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/server";
 import type { LearningSession } from "@shadowoo/shared";
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -27,7 +30,9 @@ export async function POST(request: NextRequest) {
     // Actually, let's use upsert.
     const sessionsToUpsert = sessions.map(
       (s: LearningSession, index: number) => ({
-        id: s.id, // Use ID from client (either existed or new UUID)
+        ...(typeof s.id === "string" && UUID_PATTERN.test(s.id)
+          ? { id: s.id }
+          : {}),
         source_video_id,
         title: s.title,
         description: s.description,
@@ -68,7 +73,13 @@ export async function POST(request: NextRequest) {
         .upsert(sessionsToUpsert);
 
       if (error) {
-        console.error("❌ [API] Upsert error:", error);
+        console.error("❌ [API] Upsert error:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          sessionsToUpsert,
+        });
         throw error;
       }
     }

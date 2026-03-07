@@ -2,11 +2,14 @@
 
 import { Suspense, useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  extractVideoId,
-  parseTranscriptToSentences,
+import { extractVideoId, parseTranscriptToSentences } from "@shadowoo/shared";
+import type {
+  TranscriptItem,
+  Sentence,
+  LearningSession,
+  SceneRecommendation,
+  SceneAnalysisResponse,
 } from "@shadowoo/shared";
-import type { TranscriptItem, Sentence, LearningSession, SceneRecommendation, SceneAnalysisResponse } from "@shadowoo/shared";
 import { useSentenceEditor } from "./hooks/useSentenceEditor";
 import { useTranscriptFetch } from "./hooks/useTranscriptFetch";
 import { SentenceItem } from "./components/SentenceItem";
@@ -20,6 +23,9 @@ import YouTubePlayer from "@/components/YouTubePlayer";
 import { createClient } from "@/utils/supabase/client";
 
 import { useSearchParams } from "next/navigation";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function AdminPageContent() {
   const router = useRouter();
@@ -357,6 +363,7 @@ function AdminPageContent() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      const createdBy = user?.id && UUID_PATTERN.test(user.id) ? user.id : null;
 
       // USING DIRECT SUPABASE UPSERT (Bypassing API for full Admin power)
       const payload = {
@@ -373,7 +380,7 @@ function AdminPageContent() {
         transcript: sentences,
         attribution: "YouTube",
         created_at: new Date().toISOString(),
-        created_by: user?.id,
+        created_by: createdBy,
       };
 
       // Use upsert matching video_id
@@ -381,7 +388,16 @@ function AdminPageContent() {
         .from("curated_videos")
         .upsert(payload, { onConflict: "video_id" });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Curated video save failed:", {
+          message: dbError.message,
+          details: dbError.details,
+          hint: dbError.hint,
+          code: dbError.code,
+          payload,
+        });
+        throw dbError;
+      }
 
       // 2. Save Sessions via API
       if (createdSessions.length > 0) {
