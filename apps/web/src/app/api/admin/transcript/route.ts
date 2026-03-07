@@ -1,67 +1,114 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { YoutubeTranscript } from '@danielxceron/youtube-transcript';
+import { NextRequest, NextResponse } from "next/server";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { writeFile, readFile, unlink } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 
-// Decode HTML entities (e.g., &amp;#39; -> ', &quot; -> ", etc.)
-function decodeHtmlEntities(text: string): string {
-    const entities: Record<string, string> = {
-        '&amp;': '&',
-        '&lt;': '<',
-        '&gt;': '>',
-        '&quot;': '"',
-        '&#39;': "'",
-        '&apos;': "'",
-        '&#x27;': "'",
-        '&#x2F;': '/',
-    };
+const execFileAsync = promisify(execFile);
 
-    // Decode entities multiple times to handle double-encoding like &amp;#39;
-    let decoded = text;
-    let previous = '';
+interface Json3Event {
+  tStartMs?: number;
+  dDurationMs?: number;
+  segs?: { utf8: string }[];
+}
 
-    // Keep decoding until no more changes occur (max 3 iterations to prevent infinite loops)
-    for (let i = 0; i < 3 && decoded !== previous; i++) {
-        previous = decoded;
-        decoded = decoded.replace(/&[#\w]+;/g, (entity) => entities[entity] || entity);
-    }
+// yt-dlp is the most reliable way to fetch YouTube transcripts server-side.
+// Direct HTTP approaches (timedtext API, InnerTube) are blocked by YouTube's
+// bot detection when called from server environments without browser cookies.
+async function fetchTranscriptViaYtDlp(
+  videoId: string,
+  lang = "en",
+): Promise<
+  {
+    text: string;
+    start: number;
+    duration: number;
+    offset: number;
+    lang: string;
+  }[]
+> {
+  const outPath = join(tmpdir(), `yt_${videoId}_${Date.now()}`);
 
-    return decoded;
+  try {
+    // Try manual subtitles first, then fall back to auto-generated
+    await execFileAsync(
+      "yt-dlp",
+      [
+        `https://www.youtube.com/watch?v=${videoId}`,
+        "--write-subs",
+        "--write-auto-subs",
+        "--sub-langs",
+        lang,
+        "--sub-format",
+        "json3",
+        "--skip-download",
+        "--no-playlist",
+        "-o",
+        outPath,
+        "--quiet",
+      ],
+      { timeout: 30000 },
+    );
+
+    // yt-dlp appends language to filename
+    const subtitlePath = `${outPath}.${lang}.json3`;
+    const raw = await readFile(subtitlePath, "utf8");
+    await unlink(subtitlePath).catch(() => {});
+
+    const data = JSON.parse(raw) as { events?: Json3Event[] };
+
+    return (data.events ?? [])
+      .filter(
+        (e): e is Json3Event & { tStartMs: number; segs: { utf8: string }[] } =>
+          Array.isArray(e.segs) && e.tStartMs !== undefined,
+      )
+      .map((e) => ({
+        text: e.segs
+          .map((s) => s.utf8)
+          .join("")
+          .replace(/\n/g, " ")
+          .trim(),
+        start: e.tStartMs / 1000, // seconds
+        duration: (e.dDurationMs ?? 0) / 1000,
+        offset: e.tStartMs / 1000,
+        lang,
+      }))
+      .filter((e) => e.text && e.text !== " ");
+  } catch (err) {
+    // Clean up any partial files
+    await unlink(`${outPath}.${lang}.json3`).catch(() => {});
+    throw err;
+  }
 }
 
 export async function GET(request: NextRequest) {
-    const searchParams = request.nextUrl.searchParams;
-    const videoId = searchParams.get('videoId');
+  const searchParams = request.nextUrl.searchParams;
+  const videoId = searchParams.get("videoId");
+  const lang = searchParams.get("lang") ?? "en";
 
-    if (!videoId) {
-        return NextResponse.json(
-            { error: 'Missing videoId parameter' },
-            { status: 400 }
-        );
+  if (!videoId) {
+    return NextResponse.json(
+      { error: "Missing videoId parameter" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const transcript = await fetchTranscriptViaYtDlp(videoId, lang);
+
+    if (!transcript.length) {
+      return NextResponse.json(
+        { error: "No transcript available for this video" },
+        { status: 404 },
+      );
     }
 
-    try {
-        // Fetch transcript using youtube-transcript package
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-
-        if (!Array.isArray(transcript) || transcript.length === 0) {
-            return NextResponse.json(
-                { error: 'No transcript available for this video' },
-                { status: 404 }
-            );
-        }
-
-        // Decode HTML entities in transcript text
-        const cleanTranscript = transcript.map(item => ({
-            ...item,
-            text: decodeHtmlEntities(item.text)
-        }));
-
-        return NextResponse.json({ transcript: cleanTranscript });
-
-    } catch (error: any) {
-        console.error('Transcript fetch error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to fetch transcript' },
-            { status: 500 }
-        );
-    }
+    return NextResponse.json({ transcript });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch transcript";
+    console.error("Transcript fetch error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
