@@ -73,12 +73,18 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
     fetchCuratedVideos()
       .then(setVideos)
       .catch((e) => setError(e.message ?? "영상 목록을 불러오지 못했습니다."))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const renderItem = useCallback(
     ({ item }: { item: VideoListItem }) => <VideoCard item={item} />,
@@ -97,6 +103,9 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={load}>
+          <Text style={styles.retryText}>다시 시도</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -212,6 +221,18 @@ const styles = StyleSheet.create({
     color: "#e00",
     textAlign: "center",
     paddingHorizontal: 24,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+  },
+  retryText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
   },
   emptyText: {
     fontSize: 15,

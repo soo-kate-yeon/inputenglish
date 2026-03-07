@@ -42,6 +42,10 @@ export default function ListeningScreen() {
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const listRef = useRef<FlatList<Sentence>>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Refs mirror state so the poll callback always reads fresh values without recreating the interval
+  const activeSentenceIdRef = useRef<string | null>(null);
+  const loopingSentenceIdRef = useRef<string | null>(null);
+  const seekDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const savedSentences = appStore((s) => s.savedSentences);
   const addSavedSentence = appStore((s) => s.addSavedSentence);
@@ -67,33 +71,49 @@ export default function ListeningScreen() {
   }, []);
 
   // 100ms polling for active sentence sync - REQ-E-002, REQ-S-001
+  // Deps: only playing/video — loop/active state read via refs to avoid interval recreation on every sentence change
   useEffect(() => {
     if (!playing || !video?.transcript?.length) {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       return;
     }
 
+    const sentences = video.transcript;
+    const offset = video.snippet_start_time ?? 0;
+    // Seek 80ms before endTime to compensate for poll interval + WebView bridge latency
+    const LOOP_SEEK_LEAD_MS = 0.08;
+
     pollIntervalRef.current = setInterval(async () => {
       const currentTime = await playerRef.current?.getCurrentTime();
       if (currentTime === undefined) return;
 
-      const sentences = video.transcript;
+      const relativeTime = currentTime - offset;
 
       // Loop handling - REQ-S-002, REQ-C-002
-      if (loopingSentenceId) {
-        const loopSentence = sentences.find((s) => s.id === loopingSentenceId);
-        if (loopSentence && currentTime >= loopSentence.endTime) {
-          playerRef.current?.seekTo(loopSentence.startTime);
+      const loopId = loopingSentenceIdRef.current;
+      if (loopId) {
+        const loopSentence = sentences.find((s) => s.id === loopId);
+        if (
+          loopSentence &&
+          relativeTime >= loopSentence.endTime - LOOP_SEEK_LEAD_MS
+        ) {
+          playerRef.current?.seekTo(loopSentence.startTime + offset);
           return;
         }
       }
 
-      // Active sentence detection
-      const active = sentences.find(
-        (s) => currentTime >= s.startTime && currentTime < s.endTime,
-      );
+      // Active sentence detection: find the LAST sentence whose startTime has passed.
+      // Reverse traversal avoids returning an earlier sentence when endTimes overlap.
+      let active: (typeof sentences)[0] | undefined;
+      for (let i = sentences.length - 1; i >= 0; i--) {
+        if (sentences[i].startTime <= relativeTime) {
+          active = sentences[i];
+          break;
+        }
+      }
 
-      if (active && active.id !== activeSentenceId) {
+      if (active && active.id !== activeSentenceIdRef.current) {
+        activeSentenceIdRef.current = active.id;
         setActiveSentenceId(active.id);
         const index = sentences.indexOf(active);
         if (index >= 0) {
@@ -109,15 +129,31 @@ export default function ListeningScreen() {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [playing, video, activeSentenceId, loopingSentenceId]);
+  }, [playing, video]);
 
-  const handleSentenceTap = useCallback((sentence: Sentence) => {
-    playerRef.current?.seekTo(sentence.startTime);
-    setActiveSentenceId(sentence.id);
-  }, []);
+  const handleSentenceTap = useCallback(
+    (sentence: Sentence) => {
+      // Debounce rapid taps (300ms) to prevent seek spam over WebView bridge
+      if (seekDebounceRef.current) clearTimeout(seekDebounceRef.current);
+      seekDebounceRef.current = setTimeout(() => {
+        const offset = video?.snippet_start_time ?? 0;
+        playerRef.current?.seekTo(sentence.startTime + offset);
+        activeSentenceIdRef.current = sentence.id;
+        setActiveSentenceId(sentence.id);
+      }, 300);
+    },
+    [video],
+  );
 
   const handleLoopToggle = useCallback((sentence: Sentence) => {
-    setLoopingSentenceId((prev) => (prev === sentence.id ? null : sentence.id));
+    // Enforce minimum 0.5s loop duration to prevent rapid infinite seeks
+    const duration = sentence.endTime - sentence.startTime;
+    if (duration < 0.5) return;
+    setLoopingSentenceId((prev) => {
+      const next = prev === sentence.id ? null : sentence.id;
+      loopingSentenceIdRef.current = next;
+      return next;
+    });
   }, []);
 
   const handleSaveToggle = useCallback(
@@ -188,34 +224,40 @@ export default function ListeningScreen() {
         hidden={scriptHidden}
         onPress={() => setScriptHidden((h) => !h)}
       />
-      <FlatList
-        ref={listRef}
-        data={sentences}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ScriptLine
-            sentence={item}
-            isActive={item.id === activeSentenceId}
-            isLooping={item.id === loopingSentenceId}
-            isSaved={savedSentences.some(
-              (s) => s.sentenceId === item.id && s.videoId === videoId,
-            )}
-            scriptHidden={scriptHidden}
-            onTap={handleSentenceTap}
-            onLoopToggle={handleLoopToggle}
-            onSaveToggle={handleSaveToggle}
-          />
-        )}
-        getItemLayout={(_data, index) => ({
-          length: SCRIPT_LINE_HEIGHT,
-          offset: SCRIPT_LINE_HEIGHT * index,
-          index,
-        })}
-        onScrollToIndexFailed={() => {
-          /* ignore scroll failures for short lists */
-        }}
-        style={styles.list}
-      />
+      {sentences.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>자막이 없습니다.</Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={listRef}
+          data={sentences}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <ScriptLine
+              sentence={item}
+              isActive={item.id === activeSentenceId}
+              isLooping={item.id === loopingSentenceId}
+              isSaved={savedSentences.some(
+                (s) => s.sentenceId === item.id && s.videoId === videoId,
+              )}
+              scriptHidden={scriptHidden}
+              onTap={handleSentenceTap}
+              onLoopToggle={handleLoopToggle}
+              onSaveToggle={handleSaveToggle}
+            />
+          )}
+          getItemLayout={(_data, index) => ({
+            length: SCRIPT_LINE_HEIGHT,
+            offset: SCRIPT_LINE_HEIGHT * index,
+            index,
+          })}
+          onScrollToIndexFailed={() => {
+            /* ignore scroll failures for short lists */
+          }}
+          style={styles.list}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -233,6 +275,10 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: "#e00",
+  },
+  emptyText: {
+    fontSize: 15,
+    color: "#888",
   },
   list: {
     flex: 1,

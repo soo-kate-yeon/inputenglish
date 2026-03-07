@@ -19,6 +19,7 @@ import {
   Provider,
 } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { appStore } from "@/lib/stores";
 
 interface AuthContextType {
   user: User | null;
@@ -97,6 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (initialSession) {
           setSession(initialSession);
           setUser(initialSession.user);
+          appStore.getState().loadUserData().catch(console.error);
         } else {
           // No session - guest user; skip getUser to avoid AuthSessionMissingError
           setUser(null);
@@ -134,6 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(false);
 
         if (event === "SIGNED_IN" && newSession) {
+          appStore.getState().loadUserData().catch(console.error);
           router.replace("/(tabs)");
         } else if (event === "SIGNED_OUT") {
           setUser(null);

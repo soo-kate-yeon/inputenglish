@@ -5,7 +5,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseStore } from "../lib/supabase-store";
-import type { Video, Session, AppHighlight, SavedSentence, AINote } from '../types/index';
+import type {
+  Video,
+  Session,
+  AppHighlight,
+  SavedSentence,
+  AINote,
+} from "../types/index";
 
 // Re-export domain types for consumers who import from this module
 export type { Video, Session, AppHighlight, SavedSentence, AINote };
@@ -29,6 +35,9 @@ interface AppState {
   removeHighlight: (id: string) => void;
   addSavedSentence: (sentence: SavedSentence) => void;
   removeSavedSentence: (id: string) => void;
+  pendingSentenceOps: Array<
+    { type: "add"; sentence: SavedSentence } | { type: "remove"; id: string }
+  >;
   addAINote: (note: AINote) => void;
   removeAINote: (id: string) => void;
   removeSession: (
@@ -38,6 +47,7 @@ interface AppState {
 
   // Supabase sync
   loadUserData: () => Promise<void>;
+  syncPendingOps: (userId: string) => Promise<void>;
 }
 
 // Initial Mock Data
@@ -69,6 +79,7 @@ export const createAppStore = (
         highlights: [],
         savedSentences: [],
         aiNotes: [],
+        pendingSentenceOps: [],
 
         addSession: async (session) => {
           set((state) => ({
@@ -160,7 +171,17 @@ export const createAppStore = (
 
           const userId = await getCurrentUserId();
           if (userId) {
-            await supabaseOps.saveSavedSentence(userId, sentence);
+            try {
+              await supabaseOps.saveSavedSentence(userId, sentence);
+            } catch {
+              // Offline: queue for later sync
+              set((state) => ({
+                pendingSentenceOps: [
+                  ...state.pendingSentenceOps,
+                  { type: "add", sentence },
+                ],
+              }));
+            }
           }
         },
 
@@ -171,7 +192,17 @@ export const createAppStore = (
 
           const userId = await getCurrentUserId();
           if (userId) {
-            await supabaseOps.deleteSavedSentence(userId, id);
+            try {
+              await supabaseOps.deleteSavedSentence(userId, id);
+            } catch {
+              // Offline: queue for later sync
+              set((state) => ({
+                pendingSentenceOps: [
+                  ...state.pendingSentenceOps,
+                  { type: "remove", id },
+                ],
+              }));
+            }
           }
         },
 
@@ -220,9 +251,31 @@ export const createAppStore = (
           }
         },
 
+        syncPendingOps: async (userId: string) => {
+          const pending = get().pendingSentenceOps;
+          if (pending.length === 0) return;
+
+          const failed: typeof pending = [];
+          for (const op of pending) {
+            try {
+              if (op.type === "add") {
+                await supabaseOps.saveSavedSentence(userId, op.sentence);
+              } else {
+                await supabaseOps.deleteSavedSentence(userId, op.id);
+              }
+            } catch {
+              failed.push(op);
+            }
+          }
+          set({ pendingSentenceOps: failed });
+        },
+
         loadUserData: async () => {
           const userId = await getCurrentUserId();
           if (!userId) return;
+
+          // Flush pending offline ops before loading fresh data
+          await get().syncPendingOps(userId);
 
           const data = await supabaseOps.loadAllUserData(userId);
           set({
