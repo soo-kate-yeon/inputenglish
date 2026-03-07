@@ -1,5 +1,20 @@
-import { TranscriptItem, Sentence } from '../types/index';
+import { TranscriptItem, Sentence } from "../types/index";
 export type { TranscriptItem, Sentence };
+
+function generateId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID (e.g. Hermes)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 /**
  * Parse transcript items and merge them into sentences
@@ -10,104 +25,110 @@ export type { TranscriptItem, Sentence };
  * 4. Time gaps (2+ seconds)
  * 5. Word count (15+ words)
  */
-export function parseTranscriptToSentences(transcriptItems: TranscriptItem[]): Sentence[] {
-    // If first item has no timestamp (e.g. from raw text), use raw text parser
-    if (transcriptItems.length > 0 && typeof transcriptItems[0].start !== 'number') {
-        // @ts-ignore - Handle raw text masquerading as TranscriptItem
-        return parseRawTextToSentences(transcriptItems.map(i => i.text).join(' '));
+export function parseTranscriptToSentences(
+  transcriptItems: TranscriptItem[],
+): Sentence[] {
+  // If first item has no timestamp (e.g. from raw text), use raw text parser
+  if (
+    transcriptItems.length > 0 &&
+    typeof transcriptItems[0].start !== "number"
+  ) {
+    // @ts-ignore - Handle raw text masquerading as TranscriptItem
+    return parseRawTextToSentences(
+      transcriptItems.map((i) => i.text).join(" "),
+    );
+  }
+
+  const sentences: Sentence[] = [];
+  let currentSentence = "";
+  let currentStartTime = 0;
+  let currentEndTime = 0;
+  let lastItemEndTime = 0;
+
+  // Configuration
+  const MAX_SENTENCE_LENGTH = 300; // characters (Increased 2x)
+  const MAX_WORD_COUNT = 40; // words (Increased to match longer sentences)
+  const TIME_GAP_THRESHOLD = 2.0; // seconds
+
+  const createSentence = (reason: string, index: number) => {
+    if (currentSentence.trim()) {
+      sentences.push({
+        id: generateId(),
+        text: currentSentence.trim(),
+        startTime: currentStartTime,
+        endTime: currentEndTime,
+        highlights: [],
+      });
+
+      currentSentence = "";
+    }
+  };
+
+  transcriptItems.forEach((item, index) => {
+    // Skip items with no text
+    if (!item.text) return;
+
+    // Initialize start time for new sentence
+    if (currentSentence === "") {
+      currentStartTime = item.start;
     }
 
-    const sentences: Sentence[] = [];
-    let currentSentence = '';
-    let currentStartTime = 0;
-    let currentEndTime = 0;
-    let lastItemEndTime = 0;
+    // Check for time gap (indicates natural pause/break)
+    const timeGap = lastItemEndTime > 0 ? item.start - lastItemEndTime : 0;
+    if (timeGap >= TIME_GAP_THRESHOLD && currentSentence !== "") {
+      createSentence("time gap", index);
+      currentStartTime = item.start;
+    }
 
-    // Configuration
-    const MAX_SENTENCE_LENGTH = 300; // characters (Increased 2x)
-    const MAX_WORD_COUNT = 40; // words (Increased to match longer sentences)
-    const TIME_GAP_THRESHOLD = 2.0; // seconds
+    // Add current item to sentence
+    currentSentence += (currentSentence ? " " : "") + item.text;
+    currentEndTime = item.start + item.duration;
+    lastItemEndTime = currentEndTime;
 
+    // Check various sentence-ending conditions
+    const text = item.text.trim();
+    const primaryPunctuation = /[.!?]$/.test(text);
+    // Secondary punctuation check removed as requested
+    const isLastItem = index === transcriptItems.length - 1;
+    const currentLength = currentSentence.trim().length;
+    const currentWordCount = currentSentence.trim().split(/\s+/).length;
 
-    const createSentence = (reason: string, index: number) => {
-        if (currentSentence.trim()) {
-            sentences.push({
-                id: crypto.randomUUID(),
-                text: currentSentence.trim(),
-                startTime: currentStartTime,
-                endTime: currentEndTime,
-                highlights: [],
-            });
+    // Decision tree for sentence breaks
+    if (primaryPunctuation) {
+      // Always break on . ! ?
+      createSentence("primary punctuation", index);
+    } else if (currentLength >= MAX_SENTENCE_LENGTH) {
+      // Force break if too long
+      createSentence("max length", index);
+    } else if (currentWordCount >= MAX_WORD_COUNT) {
+      // Force break if too many words
+      createSentence("max words", index);
+    } else if (isLastItem) {
+      // Always create sentence for last item
+      createSentence("last item", index);
+    }
+  });
 
-            currentSentence = '';
-        }
-    };
-
-    transcriptItems.forEach((item, index) => {
-        // Skip items with no text
-        if (!item.text) return;
-
-        // Initialize start time for new sentence
-        if (currentSentence === '') {
-            currentStartTime = item.start;
-        }
-
-        // Check for time gap (indicates natural pause/break)
-        const timeGap = lastItemEndTime > 0 ? item.start - lastItemEndTime : 0;
-        if (timeGap >= TIME_GAP_THRESHOLD && currentSentence !== '') {
-            createSentence('time gap', index);
-            currentStartTime = item.start;
-        }
-
-        // Add current item to sentence
-        currentSentence += (currentSentence ? ' ' : '') + item.text;
-        currentEndTime = item.start + item.duration;
-        lastItemEndTime = currentEndTime;
-
-        // Check various sentence-ending conditions
-        const text = item.text.trim();
-        const primaryPunctuation = /[.!?]$/.test(text);
-        // Secondary punctuation check removed as requested
-        const isLastItem = index === transcriptItems.length - 1;
-        const currentLength = currentSentence.trim().length;
-        const currentWordCount = currentSentence.trim().split(/\s+/).length;
-
-        // Decision tree for sentence breaks
-        if (primaryPunctuation) {
-            // Always break on . ! ?
-            createSentence('primary punctuation', index);
-        } else if (currentLength >= MAX_SENTENCE_LENGTH) {
-            // Force break if too long
-            createSentence('max length', index);
-        } else if (currentWordCount >= MAX_WORD_COUNT) {
-            // Force break if too many words
-            createSentence('max words', index);
-        } else if (isLastItem) {
-            // Always create sentence for last item
-            createSentence('last item', index);
-        }
-    });
-
-    return sentences;
+  return sentences;
 }
 
 /**
  * Extract YouTube video ID from URL
  */
 export function extractVideoId(url: string): string | null {
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-        /youtube\.com\/embed\/([^&\n?#]+)/,
-    ];
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+    /youtube\.com\/embed\/([^&\n?#]+)/,
+  ];
 
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) {
-            return match[1];
-        }
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      return match[1];
     }
+  }
 
-    return null;
+  return null;
 }
 
 /**
@@ -117,55 +138,61 @@ export function extractVideoId(url: string): string | null {
  * - total: all sentences combined into one
  */
 export function groupSentencesByMode(
-    sentences: Sentence[],
-    mode: 'sentence' | 'paragraph' | 'total'
+  sentences: Sentence[],
+  mode: "sentence" | "paragraph" | "total",
 ): Sentence[] {
-    if (mode === 'sentence') {
-        return sentences;
+  if (mode === "sentence") {
+    return sentences;
+  }
+
+  if (mode === "total") {
+    // Combine all sentences into one
+    if (sentences.length === 0) return [];
+
+    return [
+      {
+        id: generateId(),
+        text: sentences.map((s) => s.text).join(" "),
+        startTime: sentences[0].startTime,
+        endTime: sentences[sentences.length - 1].endTime,
+        highlights: [],
+      },
+    ];
+  }
+
+  // Paragraph mode: 5-10 sentences, must end with period
+  const paragraphs: Sentence[] = [];
+  let currentParagraph: Sentence[] = [];
+
+  sentences.forEach((sentence, index) => {
+    currentParagraph.push(sentence);
+
+    const endsWithPeriod = sentence.text.trim().endsWith(".");
+    const hasMinSentences = currentParagraph.length >= 5;
+    const hasMaxSentences = currentParagraph.length >= 10;
+    const isLastSentence = index === sentences.length - 1;
+
+    // Create paragraph if:
+    // 1. Has 5-10 sentences AND ends with period
+    // 2. Has 10 sentences (force break)
+    // 3. Is last sentence and has at least 1 sentence
+    if (
+      (hasMinSentences && endsWithPeriod) ||
+      hasMaxSentences ||
+      isLastSentence
+    ) {
+      paragraphs.push({
+        id: generateId(),
+        text: currentParagraph.map((s) => s.text).join(" "),
+        startTime: currentParagraph[0].startTime,
+        endTime: currentParagraph[currentParagraph.length - 1].endTime,
+        highlights: [],
+      });
+      currentParagraph = [];
     }
+  });
 
-    if (mode === 'total') {
-        // Combine all sentences into one
-        if (sentences.length === 0) return [];
-
-        return [{
-            id: crypto.randomUUID(),
-            text: sentences.map(s => s.text).join(' '),
-            startTime: sentences[0].startTime,
-            endTime: sentences[sentences.length - 1].endTime,
-            highlights: [],
-        }];
-    }
-
-    // Paragraph mode: 5-10 sentences, must end with period
-    const paragraphs: Sentence[] = [];
-    let currentParagraph: Sentence[] = [];
-
-    sentences.forEach((sentence, index) => {
-        currentParagraph.push(sentence);
-
-        const endsWithPeriod = sentence.text.trim().endsWith('.');
-        const hasMinSentences = currentParagraph.length >= 5;
-        const hasMaxSentences = currentParagraph.length >= 10;
-        const isLastSentence = index === sentences.length - 1;
-
-        // Create paragraph if:
-        // 1. Has 5-10 sentences AND ends with period
-        // 2. Has 10 sentences (force break)
-        // 3. Is last sentence and has at least 1 sentence
-        if ((hasMinSentences && endsWithPeriod) || hasMaxSentences || isLastSentence) {
-            paragraphs.push({
-                id: crypto.randomUUID(),
-                text: currentParagraph.map(s => s.text).join(' '),
-                startTime: currentParagraph[0].startTime,
-                endTime: currentParagraph[currentParagraph.length - 1].endTime,
-                highlights: [],
-            });
-            currentParagraph = [];
-        }
-    });
-
-    return paragraphs;
+  return paragraphs;
 }
 
 /**
@@ -173,54 +200,57 @@ export function groupSentencesByMode(
  * Handles newlines as potential breaks, but prioritizes punctuation
  */
 export function parseRawTextToSentences(rawText: string): Sentence[] {
-    if (!rawText) return [];
+  if (!rawText) return [];
 
-    // 1. Normalize line endings and remove extra spaces
-    const normalized = rawText.replace(/\r\n/g, '\n').trim();
+  // 1. Normalize line endings and remove extra spaces
+  const normalized = rawText.replace(/\r\n/g, "\n").trim();
 
-    // 2. Split by double newlines (paragraphs) first, then single newlines
-    const lines = normalized.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  // 2. Split by double newlines (paragraphs) first, then single newlines
+  const lines = normalized
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
 
-    const sentences: Sentence[] = [];
+  const sentences: Sentence[] = [];
 
-    // 3. Process each line
-    lines.forEach((line) => {
-        // Simple regex to split by .!? followed by space or end of string
-        // But keep the punctuation
-        const splitPattern = /([.!?]+)(?=\s|$)/g;
+  // 3. Process each line
+  lines.forEach((line) => {
+    // Simple regex to split by .!? followed by space or end of string
+    // But keep the punctuation
+    const splitPattern = /([.!?]+)(?=\s|$)/g;
 
-        let match;
-        let lastIndex = 0;
+    let match;
+    let lastIndex = 0;
 
-        // Find all punctuation
-        while ((match = splitPattern.exec(line)) !== null) {
-            const endIndex = match.index + match[0].length;
-            const text = line.substring(lastIndex, endIndex).trim();
+    // Find all punctuation
+    while ((match = splitPattern.exec(line)) !== null) {
+      const endIndex = match.index + match[0].length;
+      const text = line.substring(lastIndex, endIndex).trim();
 
-            if (text) {
-                sentences.push({
-                    id: crypto.randomUUID(),
-                    text,
-                    startTime: 0, // To be filled by Sync Editor
-                    endTime: 0,
-                    highlights: []
-                });
-            }
-            lastIndex = endIndex;
-        }
+      if (text) {
+        sentences.push({
+          id: generateId(),
+          text,
+          startTime: 0, // To be filled by Sync Editor
+          endTime: 0,
+          highlights: [],
+        });
+      }
+      lastIndex = endIndex;
+    }
 
-        // Add remaining text if any
-        const remaining = line.substring(lastIndex).trim();
-        if (remaining) {
-            sentences.push({
-                id: crypto.randomUUID(),
-                text: remaining,
-                startTime: 0,
-                endTime: 0,
-                highlights: []
-            });
-        }
-    });
+    // Add remaining text if any
+    const remaining = line.substring(lastIndex).trim();
+    if (remaining) {
+      sentences.push({
+        id: generateId(),
+        text: remaining,
+        startTime: 0,
+        endTime: 0,
+        highlights: [],
+      });
+    }
+  });
 
-    return sentences;
+  return sentences;
 }
