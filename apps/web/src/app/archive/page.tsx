@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import TopNav from "@/components/TopNav";
 import HighlightCard from "@/components/HighlightCard";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export default function ArchivePage() {
+  const { isAuthenticated, isLoading } = useAuth();
   const highlights = useStore((state) => state.highlights);
   const removeHighlight = useStore((state) => state.removeHighlight);
   const addHighlight = useStore((state) => state.addHighlight);
@@ -14,12 +16,33 @@ export default function ArchivePage() {
   const removeSavedSentence = useStore((state) => state.removeSavedSentence);
   const addSavedSentence = useStore((state) => state.addSavedSentence);
   const getVideo = useStore((state) => state.getVideo);
+  const loadUserData = useStore((state) => state.loadUserData);
 
   // Hydration fix
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      loadUserData().catch((error) => {
+        console.error("[ArchivePage] Failed to load user data:", error);
+      });
+    }
+  }, [isLoading, isAuthenticated, loadUserData]);
+
+  useEffect(() => {
+    if (isMounted) {
+      console.log("[ArchivePage] render state:", {
+        isAuthenticated,
+        isLoading,
+        savedSentenceCount: savedSentences.length,
+        highlightCount: highlights.length,
+        savedSentences,
+      });
+    }
+  }, [isMounted, isAuthenticated, isLoading, savedSentences, highlights]);
 
   const handleDeleteHighlight = (highlightId: string) => {
     const highlight = highlights.find((h) => h.id === highlightId);

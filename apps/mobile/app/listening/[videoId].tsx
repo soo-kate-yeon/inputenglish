@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import * as Crypto from "expo-crypto";
 import type { Sentence, SavedSentence, CuratedVideo } from "@shadowoo/shared";
 import { fetchCuratedVideo } from "../../src/lib/api";
 import { appStore } from "../../src/lib/stores";
@@ -166,7 +167,7 @@ export default function ListeningScreen() {
         removeSavedSentence(existing.id);
       } else {
         const saved: SavedSentence = {
-          id: `${videoId}_${sentence.id}`,
+          id: Crypto.randomUUID(),
           videoId,
           sentenceId: sentence.id,
           sentenceText: sentence.text,

@@ -65,6 +65,7 @@ export default function ProfilePage() {
   const sessions = useStore((state) => state.sessions);
   const savedSentences = useStore((state) => state.savedSentences);
   const highlights = useStore((state) => state.highlights);
+  const loadUserData = useStore((state) => state.loadUserData);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -72,6 +73,14 @@ export default function ProfilePage() {
       router.push("/home");
     }
   }, [isLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      loadUserData().catch((error) => {
+        console.error("[ProfilePage] Failed to load user data:", error);
+      });
+    }
+  }, [isLoading, isAuthenticated, loadUserData]);
 
   const handleLogout = async () => {
     await signOut();

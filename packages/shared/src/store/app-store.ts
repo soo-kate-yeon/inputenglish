@@ -12,6 +12,30 @@ import type {
   AINote,
 } from "../types/index";
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function generateUuid(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = (Math.random() * 16) | 0;
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
+function normalizeSavedSentence(sentence: SavedSentence): SavedSentence {
+  return UUID_PATTERN.test(sentence.id)
+    ? sentence
+    : { ...sentence, id: generateUuid() };
+}
+
 // Re-export domain types for consumers who import from this module
 export type { Video, Session, AppHighlight, SavedSentence, AINote };
 
@@ -79,13 +103,37 @@ export const createAppStore = (
     pendingSentenceOps: [],
 
     addSession: async (session) => {
+      const previousSession = get().sessions[session.videoId];
+
       set((state) => ({
         sessions: { ...state.sessions, [session.videoId]: session },
       }));
 
       const userId = await getCurrentUserId();
       if (userId) {
-        await supabaseOps.saveSession(userId, session);
+        try {
+          const persistedSession = await supabaseOps.saveSession(
+            userId,
+            session,
+          );
+          set((state) => ({
+            sessions: {
+              ...state.sessions,
+              [session.videoId]: persistedSession,
+            },
+          }));
+        } catch (error) {
+          console.error("[Store] Failed to save session:", error);
+          set((state) => {
+            const nextSessions = { ...state.sessions };
+            if (previousSession) {
+              nextSessions[session.videoId] = previousSession;
+            } else {
+              delete nextSessions[session.videoId];
+            }
+            return { sessions: nextSessions };
+          });
+        }
       }
     },
 
@@ -107,7 +155,26 @@ export const createAppStore = (
 
       const userId = await getCurrentUserId();
       if (userId) {
-        await supabaseOps.saveSession(userId, updatedSession);
+        try {
+          const persistedSession = await supabaseOps.saveSession(
+            userId,
+            updatedSession,
+          );
+          set((state) => ({
+            sessions: {
+              ...state.sessions,
+              [videoId]: persistedSession,
+            },
+          }));
+        } catch (error) {
+          console.error("[Store] Failed to update session progress:", error);
+          set((state) => ({
+            sessions: {
+              ...state.sessions,
+              [videoId]: session,
+            },
+          }));
+        }
       }
     },
 
@@ -135,7 +202,26 @@ export const createAppStore = (
 
       const userId = await getCurrentUserId();
       if (userId) {
-        await supabaseOps.saveSession(userId, updatedSession);
+        try {
+          const persistedSession = await supabaseOps.saveSession(
+            userId,
+            updatedSession,
+          );
+          set((state) => ({
+            sessions: {
+              ...state.sessions,
+              [videoId]: persistedSession,
+            },
+          }));
+        } catch (error) {
+          console.error("[Store] Failed to update session position:", error);
+          set((state) => ({
+            sessions: {
+              ...state.sessions,
+              [videoId]: session,
+            },
+          }));
+        }
       }
     },
 
@@ -146,58 +232,109 @@ export const createAppStore = (
 
       const userId = await getCurrentUserId();
       if (userId) {
-        await supabaseOps.saveHighlight(userId, highlight);
+        try {
+          const persistedHighlight = await supabaseOps.saveHighlight(
+            userId,
+            highlight,
+          );
+          set((state) => ({
+            highlights: state.highlights.map((item) =>
+              item.id === highlight.id ? persistedHighlight : item,
+            ),
+          }));
+        } catch (error) {
+          console.error("[Store] Failed to save highlight:", error);
+          set((state) => ({
+            highlights: state.highlights.filter(
+              (item) => item.id !== highlight.id,
+            ),
+          }));
+        }
       }
     },
 
     removeHighlight: async (id: string) => {
+      const targetHighlight = get().highlights.find((h) => h.id === id);
+
       set((state) => ({
         highlights: state.highlights.filter((h) => h.id !== id),
       }));
 
       const userId = await getCurrentUserId();
-      if (userId) {
-        await supabaseOps.deleteHighlight(userId, id);
+      if (userId && targetHighlight) {
+        try {
+          await supabaseOps.deleteHighlight(userId, id);
+        } catch (error) {
+          console.error("[Store] Failed to delete highlight:", error);
+          set((state) => ({
+            highlights: [...state.highlights, targetHighlight].sort(
+              (a, b) => b.createdAt - a.createdAt,
+            ),
+          }));
+        }
       }
     },
 
     addSavedSentence: async (sentence) => {
+      const normalizedSentence = normalizeSavedSentence(sentence);
+
       set((state) => ({
-        savedSentences: [...state.savedSentences, sentence],
+        savedSentences: state.savedSentences.some(
+          (saved) =>
+            saved.videoId === normalizedSentence.videoId &&
+            saved.sentenceId === normalizedSentence.sentenceId,
+        )
+          ? state.savedSentences
+          : [...state.savedSentences, normalizedSentence],
       }));
 
       const userId = await getCurrentUserId();
       if (userId) {
         try {
-          await supabaseOps.saveSavedSentence(userId, sentence);
-        } catch {
-          // Offline: queue for later sync
+          const persistedSentence = await supabaseOps.saveSavedSentence(
+            userId,
+            normalizedSentence,
+          );
           set((state) => ({
-            pendingSentenceOps: [
-              ...state.pendingSentenceOps,
-              { type: "add", sentence },
-            ],
+            savedSentences: state.savedSentences.map((saved) =>
+              saved.videoId === normalizedSentence.videoId &&
+              saved.sentenceId === normalizedSentence.sentenceId
+                ? persistedSentence
+                : saved,
+            ),
+          }));
+        } catch (error) {
+          console.error("[Store] Failed to save saved sentence:", error);
+          set((state) => ({
+            savedSentences: state.savedSentences.filter(
+              (saved) =>
+                !(
+                  saved.videoId === normalizedSentence.videoId &&
+                  saved.sentenceId === normalizedSentence.sentenceId
+                ),
+            ),
           }));
         }
       }
     },
 
     removeSavedSentence: async (id: string) => {
+      const targetSentence = get().savedSentences.find((s) => s.id === id);
+
       set((state) => ({
         savedSentences: state.savedSentences.filter((s) => s.id !== id),
       }));
 
       const userId = await getCurrentUserId();
-      if (userId) {
+      if (userId && targetSentence) {
         try {
-          await supabaseOps.deleteSavedSentence(userId, id);
-        } catch {
-          // Offline: queue for later sync
+          await supabaseOps.deleteSavedSentence(userId, targetSentence);
+        } catch (error) {
+          console.error("[Store] Failed to delete saved sentence:", error);
           set((state) => ({
-            pendingSentenceOps: [
-              ...state.pendingSentenceOps,
-              { type: "remove", id },
-            ],
+            savedSentences: [...state.savedSentences, targetSentence].sort(
+              (a, b) => b.createdAt - a.createdAt,
+            ),
           }));
         }
       }
@@ -210,18 +347,41 @@ export const createAppStore = (
 
       const userId = await getCurrentUserId();
       if (userId) {
-        await supabaseOps.saveAINote(userId, note);
+        try {
+          const persistedNote = await supabaseOps.saveAINote(userId, note);
+          set((state) => ({
+            aiNotes: state.aiNotes.map((item) =>
+              item.id === note.id ? persistedNote : item,
+            ),
+          }));
+        } catch (error) {
+          console.error("[Store] Failed to save AI note:", error);
+          set((state) => ({
+            aiNotes: state.aiNotes.filter((item) => item.id !== note.id),
+          }));
+        }
       }
     },
 
     removeAINote: async (id) => {
+      const targetNote = get().aiNotes.find((n) => n.id === id);
+
       set((state) => ({
         aiNotes: state.aiNotes.filter((n) => n.id !== id),
       }));
 
       const userId = await getCurrentUserId();
-      if (userId) {
-        await supabaseOps.deleteAINote(userId, id);
+      if (userId && targetNote) {
+        try {
+          await supabaseOps.deleteAINote(userId, id);
+        } catch (error) {
+          console.error("[Store] Failed to delete AI note:", error);
+          set((state) => ({
+            aiNotes: [...state.aiNotes, targetNote].sort(
+              (a, b) => b.createdAt - a.createdAt,
+            ),
+          }));
+        }
       }
     },
 
@@ -255,7 +415,13 @@ export const createAppStore = (
           if (op.type === "add") {
             await supabaseOps.saveSavedSentence(userId, op.sentence);
           } else {
-            await supabaseOps.deleteSavedSentence(userId, op.id);
+            const targetSentence = get().savedSentences.find(
+              (sentence) => sentence.id === op.id,
+            );
+            if (!targetSentence) {
+              continue;
+            }
+            await supabaseOps.deleteSavedSentence(userId, targetSentence);
           }
         } catch {
           failed.push(op);
@@ -266,12 +432,23 @@ export const createAppStore = (
 
     loadUserData: async () => {
       const userId = await getCurrentUserId();
-      if (!userId) return;
+      if (!userId) {
+        console.warn("[Store] loadUserData skipped: no userId");
+        return;
+      }
 
       // Flush pending offline ops before loading fresh data
       await get().syncPendingOps(userId);
 
       const data = await supabaseOps.loadAllUserData(userId);
+      console.log("[Store] loadUserData result:", {
+        userId,
+        sessionCount: Object.keys(data.sessions).length,
+        highlightCount: data.highlights.length,
+        savedSentenceCount: data.savedSentences.length,
+        aiNoteCount: data.aiNotes.length,
+        savedSentences: data.savedSentences,
+      });
       set({
         sessions: data.sessions,
         highlights: data.highlights,
