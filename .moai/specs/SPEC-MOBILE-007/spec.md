@@ -2,7 +2,7 @@
 id: SPEC-MOBILE-007
 title: "Offline Support + Push Notifications + Release Preparation"
 version: "1.0.0"
-status: planned
+status: partially-completed
 created: "2026-03-08"
 updated: "2026-03-08"
 author: MoAI
@@ -24,6 +24,7 @@ tags:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 1.0.1 | 2026-03-08 | 푸시 알림, 릴리스 설정 구현 완료; 오프라인 지원 및 일부 릴리스 항목 deferred |
 | 1.0.0 | 2026-03-08 | 초기 SPEC 작성 |
 
 ---
@@ -242,27 +243,179 @@ CREATE TABLE push_tokens (
 
 ---
 
-## 7. Traceability
+## 7. Implementation Notes
 
-| 요구사항 ID | 파일 | 테스트 시나리오 |
-|-------------|------|-----------------|
-| REQ-OFF-001 | `network-monitor.ts`, `useNetworkStatus.ts` | AC-OFF-001 |
-| REQ-OFF-002 | `offline-queue.ts` | AC-OFF-002 |
-| REQ-OFF-003 | `useOfflineSync.ts` | AC-OFF-003 |
-| REQ-OFF-004 | `transcript-cache.ts` | AC-OFF-004 |
-| REQ-OFF-005 | `transcript-cache.ts` | AC-OFF-005 |
-| REQ-OFF-006 | `offline-queue.ts` | AC-OFF-006 |
-| REQ-OFF-007 | UI 컴포넌트 | AC-OFF-007 |
-| REQ-OFF-008 | - | AC-OFF-008 |
-| REQ-PUSH-001 | `push-notifications.ts` | AC-PUSH-001 |
-| REQ-PUSH-002 | `push-notifications.ts` | AC-PUSH-002 |
-| REQ-PUSH-003 | iOS 설정 파일 | AC-PUSH-003 |
-| REQ-PUSH-004 | `push-notifications.ts` | AC-PUSH-004 |
-| REQ-PUSH-005 | `push-notifications.ts` | AC-PUSH-005 |
-| REQ-PUSH-006 | `NotificationPreferences.tsx` | AC-PUSH-006 |
-| REQ-REL-001 | `eas.json` | AC-REL-001 |
-| REQ-REL-002 | App Store 메타데이터 | AC-REL-002 |
-| REQ-REL-003 | Play Store 메타데이터 | AC-REL-003 |
-| REQ-REL-004 | `deploy-mobile.yml` | AC-REL-004 |
-| REQ-REL-005 | `app.json` | AC-REL-005 |
-| REQ-REL-006 | 에셋 파일 | AC-REL-006 |
+### 완료된 기능 (Completed)
+
+**푸시 알림 (Push Notifications)**
+
+1. **expo-notifications 설정** (AC-PUSH-001)
+   - `apps/mobile/src/lib/push-notifications.ts` 생성
+   - `initPushNotifications()`: 앱 시작 시 알림 권한 요청 및 토큰 발급
+   - 권한 요청과 토큰 발급을 분리하여 시뮬레이터에서 권한 다이얼로그 테스트 가능하도록 설계
+
+2. **푸시 토큰 동기화** (AC-PUSH-002)
+   - `apps/mobile/app/_layout.tsx`에서 로그인 시 자동 토큰 등록
+   - Supabase `push_tokens` 테이블에 user_id, token, platform 저장
+
+3. **iOS 푸시 설정** (AC-PUSH-003)
+   - `apps/mobile/app.json`에 `ios.entitlements.aps-environment: "production"` 추가
+   - iOS 빌드 시 자동으로 entitlements 파일에 포함됨
+
+4. **인앱 알림 처리 및 딥링킹** (AC-PUSH-005)
+   - `handleNotificationResponse()`: 알림 수신 시 딥링크로 해당 화면 이동
+   - `apps/mobile/app/_layout.tsx`에 notification 리스너 등록
+
+5. **알림 설정 UI** (AC-PUSH-006)
+   - `apps/mobile/src/hooks/useNotificationSettings.ts` 생성: MMKV 기반 알림 설정 관리
+   - `apps/mobile/app/(tabs)/profile.tsx`에 알림 설정 섹션 추가
+     - 학습 리마인더 (학습 리마인더)
+     - 새 콘텐츠 알림 (새 콘텐츠)
+     - Streak 알림 (Streak)
+
+**릴리스 준비 (Release Preparation)**
+
+1. **버전 관리 전략** (AC-REL-005)
+   - `apps/mobile/app.json`에 `version: "1.0.0"`, `ios.buildNumber: "1"`, `android.versionCode: 1` 설정
+   - Semantic Versioning(MAJOR.MINOR.PATCH) 준수
+
+2. **릴리스 체크리스트** (추가 생성)
+   - `apps/mobile/docs/release-checklist.md` 생성
+   - 실제 기기 테스트 항목 및 릴리스 빌드 테스트 항목 포함
+
+### Deferred된 기능 (Deferred)
+
+**푸시 알림**
+
+1. **알림 카테고리 및 서버 사이드 스케줄링** (AC-PUSH-004)
+   - 상태: Deferred
+   - 사유: 학습 리마인더 알림 발송은 서버 사이드 스케줄링이 필요함 (Supabase Edge Functions 또는 별도 notification service)
+   - 클라이언트 알림 설정은 완료되었으나, 서버에서 설정된 시간에 맞춰 푸시 알림을 발송하는 로직은 별도 SPEC으로 분리
+   - 영향: 사용자는 프로필에서 알림 설정을 변경할 수 있지만, 서버에서는 아직 이 설정을 활용한 푸시 발송 로직이 미구현
+
+**릴리스 준비**
+
+1. **App Store 메타데이터** (AC-REL-002)
+   - 상태: Deferred
+   - 사유: 비개발자 작업으로 분류 (마케팅/PM 담당)
+   - 포함 항목: 앱 설명, 스크린샷, 개인정보 처리방침 URL
+
+2. **Play Store 메타데이터** (AC-REL-003)
+   - 상태: Deferred
+   - 사유: 비개발자 작업으로 분류 (마케팅/PM 담당)
+   - 포함 항목: 앱 설명, 콘텐츠 등급, 개인정보 처리방침 URL
+
+3. **앱 아이콘/스플래시 스크린** (AC-REL-006)
+   - 상태: Deferred
+   - 사유: 디자인 에셋이 준비되지 않음
+   - 추후 디자인 팀에서 에셋 제공 시 `apps/mobile/assets/` 디렉토리에 추가 및 `app.json` 설정 필요
+
+### 아직 구현되지 않은 기능 (Not Started)
+
+**오프라인 지원 (Offline Support)**
+
+다음 항목들은 현재 구현되지 않았으며, 향후 별도 작업으로 진행 예정:
+
+1. **네트워크 상태 감지** (REQ-OFF-001, AC-OFF-001)
+   - `@react-native-community/netinfo` 설치 및 `useNetworkStatus()` hook 생성
+   - 네트워크 상태 변경 감지 및 전역 상태 관리
+
+2. **오프라인 큐 영속화** (REQ-OFF-002, AC-OFF-002)
+   - `offline-queue.ts`: MMKV 기반 오프라인 작업 큐 관리
+   - 문장 완료, 북마크 등 쓰기 작업을 오프라인 큐에 저장
+
+3. **자동 재동기화** (REQ-OFF-003, AC-OFF-003)
+   - 네트워크 복구 시 오프라인 큐의 작업을 FIFO 순서로 Supabase에 동기화
+   - 재시도 로직 (최대 3회) 및 실패 처리
+
+4. **자막/메타데이터 캐싱** (REQ-OFF-004, AC-OFF-004)
+   - `transcript-cache.ts`: 웹의 TranscriptCache 패턴을 모바일에 이식
+   - MMKV에 자막 데이터 캐싱 (TTL: 7일)
+
+5. **Cache-First 읽기 패턴** (REQ-OFF-005, AC-OFF-005)
+   - 로컬 캐시 우선 조회, 캐시 미스 시 네트워크 요청
+   - stale-while-revalidate 패턴으로 백그라운드 갱신
+
+6. **충돌 해결** (REQ-OFF-006, AC-OFF-006)
+   - Last-Write-Wins 전략으로 로컬/서버 데이터 충돌 해결
+   - 타임스탬프 기반 비교
+
+7. **오프라인 UI 표시** (REQ-OFF-007, AC-OFF-007)
+   - 오프라인 상태 배너 표시
+   - 네트워크 필요 기능(비디오 재생) 비활성화
+
+### 파일 변경 사항
+
+**생성된 파일:**
+- `apps/mobile/src/lib/push-notifications.ts`: 푸시 알림 초기화 및 핸들러
+- `apps/mobile/src/hooks/useNotificationSettings.ts`: MMKV 기반 알림 설정 hook
+- `apps/mobile/docs/release-checklist.md`: 릴리스 체크리스트
+
+**수정된 파일:**
+- `apps/mobile/app/_layout.tsx`: 푸시 토큰 등록 및 notification listener
+- `apps/mobile/app/(tabs)/profile.tsx`: 알림 설정 UI 추가
+- `apps/mobile/app.json`: 버전, buildNumber, versionCode, iOS entitlements 설정
+- `apps/mobile/src/lib/ai-api.ts`: Gemini 모델 업데이트 관련 변경
+
+### 설계 결정 (Design Decisions)
+
+**권한 요청과 토큰 발급 분리**
+
+iOS 시뮬레이터에서는 실제 Expo 푸시 토큰을 발급할 수 없지만, 권한 다이얼로그는 표시됩니다. 따라서:
+- `requestPermission()`: 알림 권한 요청 다이얼로그 표시
+- `getToken()`: 토큰 발급 시도 (기기에서만 성공, 시뮬레이터에서는 null)
+- 시뮬레이터에서 권한 다이얼로그 테스트 시 `requestPermission()` 만 호출 가능
+
+**MMKV 기반 알림 설정**
+
+Supabase에 사용자별 알림 설정을 저장할 수도 있지만, 로컬 MMKV에 저장하여:
+- 빠른 토글 응답성 (로컬 먼저 업데이트)
+- 오프라인 지원
+- 나중에 서버 동기화 추가 가능 (향후 작업)
+
+### 다음 단계 (Next Steps)
+
+1. **오프라인 지원 구현** (별도 SPEC 또는 SPEC-MOBILE-007 확장)
+   - 네트워크 상태 감지
+   - 오프라인 큐 및 자동 동기화
+   - 자막 캐싱 및 cache-first 읽기
+
+2. **서버 사이드 푸시 알림 로직** (별도 SPEC)
+   - Supabase Edge Functions으로 사용자의 알림 설정에 맞춰 푸시 발송
+   - 학습 리마인더 스케줄링
+
+3. **릴리스 자동화** (추가 구현)
+   - `eas.json` 설정 (development, preview, production 프로필)
+   - GitHub Actions CI/CD 워크플로우 (태그 푸시 시 EAS Build 트리거)
+
+4. **디자인 에셋 준비** (디자인 팀)
+   - 앱 아이콘 (1024x1024)
+   - Android adaptive icon
+   - 스플래시 스크린 이미지
+
+---
+
+## 8. Traceability
+
+| 요구사항 ID | 파일 | 상태 | 테스트 시나리오 |
+|-------------|------|------|-----------------|
+| REQ-OFF-001 | `network-monitor.ts`, `useNetworkStatus.ts` | Not Started | AC-OFF-001 |
+| REQ-OFF-002 | `offline-queue.ts` | Not Started | AC-OFF-002 |
+| REQ-OFF-003 | `useOfflineSync.ts` | Not Started | AC-OFF-003 |
+| REQ-OFF-004 | `transcript-cache.ts` | Not Started | AC-OFF-004 |
+| REQ-OFF-005 | `transcript-cache.ts` | Not Started | AC-OFF-005 |
+| REQ-OFF-006 | `offline-queue.ts` | Not Started | AC-OFF-006 |
+| REQ-OFF-007 | UI 컴포넌트 | Not Started | AC-OFF-007 |
+| REQ-OFF-008 | - | Compliance | AC-OFF-008 |
+| REQ-PUSH-001 | `push-notifications.ts` | Completed | AC-PUSH-001 |
+| REQ-PUSH-002 | `push-notifications.ts` | Completed | AC-PUSH-002 |
+| REQ-PUSH-003 | iOS 설정 파일 | Completed | AC-PUSH-003 |
+| REQ-PUSH-004 | `push-notifications.ts` | Deferred (Server-side) | AC-PUSH-004 |
+| REQ-PUSH-005 | `push-notifications.ts` | Completed | AC-PUSH-005 |
+| REQ-PUSH-006 | `NotificationPreferences.tsx` | Completed | AC-PUSH-006 |
+| REQ-REL-001 | `eas.json` | Not Started | AC-REL-001 |
+| REQ-REL-002 | App Store 메타데이터 | Deferred (Non-code) | AC-REL-002 |
+| REQ-REL-003 | Play Store 메타데이터 | Deferred (Non-code) | AC-REL-003 |
+| REQ-REL-004 | `deploy-mobile.yml` | Not Started | AC-REL-004 |
+| REQ-REL-005 | `app.json` | Completed | AC-REL-005 |
+| REQ-REL-006 | 에셋 파일 | Deferred (Design assets) | AC-REL-006 |
