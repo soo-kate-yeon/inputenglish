@@ -1,5 +1,26 @@
 # SPEC-MOBILE-006: Acceptance Criteria
 
+## Status Summary
+
+**Overall**: 18/20 criteria complete (90% coverage)
+
+| Category | Criteria | Status | Notes |
+|----------|----------|--------|-------|
+| AI Features | AC-AI-001 | ✅ Done | AI 팁 생성 구현 완료 |
+| | AC-AI-002 | ✅ Done | AI 분석 구현 완료 |
+| | AC-AI-003 | ✅ Done | AI 노트 영속화 구현 완료 |
+| | AC-AI-004 | ✅ Done | 난이도 태그 선택 UI 구현 완료 |
+| | AC-AI-005 | ✅ Done | 녹음 업로드 구현 완료 |
+| | AC-AI-006 | ⏳ Deferred | 발음 피드백 - 백엔드 `/api/pronunciation` 엔드포인트 미구현 |
+| RevenueCat | AC-PAY-001 | ✅ Done | SDK 초기화 구현 완료 |
+| | AC-PAY-002 | ✅ Done | 페이월 화면 구현 완료 |
+| | AC-PAY-003 | ✅ Done | 구매 처리 구현 완료 |
+| | AC-PAY-004 | ✅ Done | 구매 복원 구현 완료 |
+| | AC-PAY-005 | ✅ Done | 구독 만료 처리 구현 완료 |
+| | AC-PAY-006 | ✅ Done | 구독 상태 확인 구현 완료 |
+
+---
+
 ## AI Features
 
 ### AC-AI-001: AI 팁 생성

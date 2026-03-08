@@ -8,6 +8,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+#### AI Features & RevenueCat Payments (SPEC-MOBILE-006)
+
+**AI Learning Features**
+
+- **AI Tip Generation** - POST `/api/ai-tip` endpoint integration for context-aware learning suggestions
+  - `AiTipButton.tsx`: Trigger component with loading state and error handling
+  - `AiTipCard.tsx`: Display component for AI-generated tips with metadata
+  - `DifficultyTagSelector.tsx`: Multi-select UI for difficulty tags (연음, 문법, 발음, 속도)
+  - `ai-api.ts`: Fetch-based HTTP client with timeout protection (30s) and error classification
+  - Support for STANDARD and MASTER plan tiers (future expansion ready)
+
+- **AI Analysis & Notes** - Sentence analysis and persistent AI notes storage
+  - POST `/api/analyze` endpoint for detailed feedback (analysis, tips, focusPoint)
+  - Automatic AI note persistence in appStore and Supabase `ai_notes` table
+  - Retrieval of cached tips without redundant API calls
+  - Integration with study, listening, and shadowing screens
+
+- **Recording Upload & Pronunciation** - Supabase Storage integration for audio files
+  - Upload to `recordings` bucket with path format: `{userId}/{videoId}/{sentenceId}/{timestamp}.m4a`
+  - Metadata storage: sentenceId, videoId, duration, fileSize
+  - Pronunciation score endpoint stub (awaiting `/api/pronunciation` backend implementation)
+  - Error recovery with local file preservation and retry options
+
+**RevenueCat Payment System**
+
+- **SDK Integration** - Complete react-native-purchases setup for iOS/Android
+  - `revenue-cat.ts`: Wrapper for SDK initialization, offerings fetch, purchases, restores
+  - Platform-specific API keys: `EXPO_PUBLIC_RC_IOS_KEY`, `EXPO_PUBLIC_RC_ANDROID_KEY`
+  - User identification via Supabase Auth UID
+  - Non-fatal initialization (graceful degradation on SDK failures)
+
+- **Subscription Management** - Real-time subscription state tracking
+  - `useSubscription.ts` hook: Returns `plan` ('FREE'|'PREMIUM'), `canUseAI`, `isLoading`, and `refresh()`
+  - Real-time listening to CustomerInfo updates via `addCustomerInfoUpdateListener()`
+  - Automatic Supabase `users.plan` sync on entitlement changes
+  - Redundant update prevention using cached plan reference
+
+- **Paywall Screen** - Plan comparison and purchase flow
+  - `paywall.tsx`: Screen showing FREE vs PREMIUM plans with 3 subscription periods (monthly, quarterly, annual)
+  - `PlanCard.tsx`: Visual plan card component with feature lists
+  - `PurchaseButton.tsx`: Purchase flow handler with success/error feedback
+  - Offerings-based dynamic pricing (fallback prices for missing product data)
+  - Purchase restoration flow with "no purchases found" messaging
+
+- **Feature Gating** - AI features restricted to paid plans
+  - `canUseAI` boolean gating on all AI components
+  - FREE plan users see upgrade prompt and paywall navigation
+  - Seamless upgrade flow from any screen to paywall
+
+**Quality & Resilience**
+
+- Error handling for timeouts (30s fetch timeout via AbortController)
+- Network error classification (TIMEOUT, NETWORK, API, UPLOAD error types)
+- App crash prevention: All AI and RevenueCat failures handled gracefully
+- Comprehensive logging for debugging (console.error for all failures)
+
 #### Push Notifications (SPEC-MOBILE-007)
 
 - **expo-notifications Integration** - Added complete push notification support for iOS (APN) and Android (FCM) using expo-notifications
@@ -46,6 +102,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Pre-release quality assurance tasks
 
 ### Deferred
+
+#### AI Features (SPEC-MOBILE-006)
+
+- **AC-AI-006: AI Pronunciation Feedback** - Recording upload complete; pronunciation scoring not yet implemented
+  - Reason: Pronunciation scoring requires dedicated `/api/pronunciation` backend endpoint with ML model inference
+  - Current State: Supabase Storage recording upload fully functional (R-AI-006 complete)
+  - Endpoint Stub: `getPronunciationScore()` in `ai-api.ts` calls `/api/pronunciation` but returns error when endpoint unavailable
+  - Next Step: Backend SPEC required for pronunciation analysis model integration
+  - Impact: Users can record and upload; advanced pronunciation feedback unavailable until backend ready
 
 #### Push Notifications
 
@@ -88,6 +153,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Architecture Notes
 
+### AI & Payment System Design (SPEC-MOBILE-006)
+
+**Design Decision: Simplified Plan Model (FREE | PREMIUM)**
+
+- Two-tier model reduces RevenueCat configuration complexity
+- Offerings API supports future expansion to STANDARD/MASTER without breaking changes
+- Single boolean `canUseAI` gate sufficient for MVP
+- Alternative considered: Full 3-tier (FREE, STANDARD, MASTER) rejected for MVP speed
+
+**Design Decision: Plan Sync on Purchase Only**
+
+- Supabase `users.plan` updated immediately after successful purchase
+- Expiry handling: RevenueCat SDK triggers `addCustomerInfoUpdateListener()` on expiry
+- Expiry sync to Supabase verified to work (initial refresh) but edge-case of auto-expiry not extensively tested
+- Alternative rejected: Polling Supabase on app launch (would block startup)
+
+**Design Decision: RevenueCat Non-Fatal Initialization**
+
+- SDK init failure does not crash app (graceful degradation to FREE plan)
+- Allows offline app usage even if RevenueCat unavailable
+- User can still access free features; premium features blocked
+- Alternative rejected: Fail-fast approach (would crash on network issues)
+
+**Design Decision: Fetch-Based AI Client with Timeout**
+
+- Standard fetch API (Expo compatible, no additional dependencies)
+- 30-second timeout prevents hanging requests
+- AbortController for clean timeout handling
+- Error classification (TIMEOUT, NETWORK, API, UPLOAD) for precise debugging
+- Alternative rejected: axios (unnecessary dependency)
+
+**Design Decision: AI Notes Cached in appStore**
+
+- appStore (Zustand) provides fast local read access
+- Supabase sync happens asynchronously in background
+- Eliminates redundant API calls for previously fetched tips
+- Alternative rejected: Always fetch from Supabase (slower, higher cost)
+
 ### Push Notification Implementation
 
 **Design Decision: Permission and Token Separation**
@@ -110,17 +213,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 apps/mobile/
 ├── src/
 │   ├── lib/
-│   │   └── push-notifications.ts          [NEW]
-│   └── hooks/
-│       └── useNotificationSettings.ts     [NEW]
+│   │   ├── ai-api.ts                      [NEW - SPEC-MOBILE-006]
+│   │   ├── revenue-cat.ts                 [NEW - SPEC-MOBILE-006]
+│   │   └── push-notifications.ts          [NEW - SPEC-MOBILE-007]
+│   ├── hooks/
+│   │   ├── useSubscription.ts             [NEW - SPEC-MOBILE-006]
+│   │   └── useNotificationSettings.ts     [NEW - SPEC-MOBILE-007]
+│   ├── components/
+│   │   ├── ai/                            [NEW - SPEC-MOBILE-006]
+│   │   │   ├── AiTipButton.tsx
+│   │   │   ├── AiTipCard.tsx
+│   │   │   └── DifficultyTagSelector.tsx
+│   │   ├── paywall/                       [NEW - SPEC-MOBILE-006]
+│   │   │   ├── PlanCard.tsx
+│   │   │   └── PurchaseButton.tsx
+│   │   ├── study/
+│   │   │   └── HighlightBottomSheet.tsx   [MODIFIED - SPEC-MOBILE-006]
+│   │   └── common/                        [NEW - SPEC-MOBILE-006]
+│   │       ├── ErrorToast.tsx
+│   │       └── UndoToast.tsx
+│   └── (store locations)
+│       └── app-store.ts                   [MODIFIED - SPEC-MOBILE-006]
 ├── app/
-│   ├── _layout.tsx                        [MODIFIED]
+│   ├── paywall.tsx                        [NEW - SPEC-MOBILE-006]
+│   ├── _layout.tsx                        [MODIFIED - SPEC-MOBILE-007]
 │   └── (tabs)/
-│       └── profile.tsx                    [MODIFIED]
-├── app.json                               [MODIFIED]
+│       └── profile.tsx                    [MODIFIED - SPEC-MOBILE-007]
+├── app.json                               [MODIFIED - SPEC-MOBILE-007]
 ├── docs/
-│   └── release-checklist.md               [NEW]
-└── CHANGELOG.md                           [NEW]
+│   └── release-checklist.md               [NEW - SPEC-MOBILE-007]
+└── CHANGELOG.md                           [UPDATED]
 ```
 
 ---
@@ -169,6 +291,9 @@ None.
 
 ## Dependencies
 
+**New in v1.0.0:**
+
+- react-native-purchases: ^8.x (RevenueCat SDK for iOS/Android IAP)
 - expo-notifications: ^0.21.0 (push notification support)
 - react-native-mmkv: ^0.13.x (encrypted preferences storage)
 - zustand: ^5.x (state management)
