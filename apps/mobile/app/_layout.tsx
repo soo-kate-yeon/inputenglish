@@ -6,6 +6,7 @@ import * as Linking from "expo-linking";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { initRevenueCat } from "@/lib/revenue-cat";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import "react-native-url-polyfill/auto";
 
 SplashScreen.preventAutoHideAsync();
@@ -19,6 +20,16 @@ function RootLayoutNav() {
       SplashScreen.hideAsync();
     }
   }, [isInitialized]);
+
+  // Setup notification handler after app is mounted (avoids module-level native crash)
+  useEffect(() => {
+    try {
+      const { setupNotificationHandler } = require("@/lib/push-notifications");
+      setupNotificationHandler();
+    } catch (e) {
+      console.warn("[Notifications] setupNotificationHandler failed:", e);
+    }
+  }, []);
 
   // Initialize RevenueCat when user is available
   useEffect(() => {
@@ -55,26 +66,29 @@ function RootLayoutNav() {
   }, []);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen
-        name="study/[videoId]"
-        options={{ headerShown: true, title: "Study" }}
-      />
-      <Stack.Screen
-        name="listening/[videoId]"
-        options={{ headerShown: true, title: "Listening" }}
-      />
-      <Stack.Screen
-        name="shadowing/[videoId]"
-        options={{ headerShown: true, title: "Shadowing" }}
-      />
-      <Stack.Screen
-        name="paywall"
-        options={{ headerShown: false, presentation: "modal" }}
-      />
-    </Stack>
+    <>
+      <OfflineBanner />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen
+          name="study/[videoId]"
+          options={{ headerShown: true, title: "Study" }}
+        />
+        <Stack.Screen
+          name="listening/[videoId]"
+          options={{ headerShown: true, title: "Listening" }}
+        />
+        <Stack.Screen
+          name="shadowing/[videoId]"
+          options={{ headerShown: true, title: "Shadowing" }}
+        />
+        <Stack.Screen
+          name="paywall"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
+      </Stack>
+    </>
   );
 }
 

@@ -91,14 +91,17 @@ open http://localhost:3000
 ## 트러블슈팅
 
 ### 빌드 실패
+
 ```bash
 npm run build  # 로컬에서 테스트
 ```
 
 ### 환경 변수 누락
+
 `.env.example` 파일 참고하여 모든 변수 설정 확인
 
 ### Health Check
+
 ```bash
 curl http://localhost:3000/api/health
 ```
@@ -106,3 +109,34 @@ curl http://localhost:3000/api/health
 ---
 
 자세한 내용은 [DEPLOYMENT.md](./DEPLOYMENT.md)를 참조하세요.
+
+<!-- #빌드 명령어
+⏺ 네이티브 모듈(native module) 빌드 명령어:
+
+  # iOS 네이티브 빌드
+  cd apps/mobile
+  npx expo run:ios
+
+  # Android 네이티브 빌드
+  npx expo run:android
+
+  # 또는 pnpm 스크립트로
+  pnpm ios
+  pnpm android
+
+  prebuild만 필요한 경우 (native 프로젝트 생성, 빌드 없이):
+
+  npx expo prebuild
+  # 또는 캐시 초기화
+  npx expo prebuild --clean
+
+  EAS Build (클라우드 빌드):
+
+  # 개발용
+  eas build --profile development --platform ios
+
+  # 프로덕션
+  eas build --profile production --platform ios
+
+  eas.json이 있으니 EAS Build도 설정되어 있습니다. 어떤 용도로
+  빌드하시나요? -->

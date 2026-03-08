@@ -39,15 +39,38 @@ pnpm dev
 
 ## 🛠️ 기술 스택
 
+### 웹 앱
+
 - **Frontend**: Next.js 15, React 18, TailwindCSS 4
 - **Backend**: Next.js API Routes
-- **Database**: Supabase (PostgreSQL)
 - **AI**: Google Generative AI
+
+### 모바일 앱
+
+- **Framework**: React Native 0.76.3, Expo SDK 52
+- **Language**: TypeScript 5.7
+- **State Management**: Zustand 5
+- **Offline Support**: MMKV (로컬 저장소)
+- **Network**: `@react-native-community/netinfo`
+- **Push Notifications**: Expo Push + APNs/FCM
+- **Payments**: RevenueCat (react-native-purchases)
+- **Build**: EAS Build + GitHub Actions
+
+### 공통
+
+- **Database**: Supabase (PostgreSQL, Auth, Storage)
 - **패키지 관리**: pnpm + Turborepo (모노레포)
-- **배포**: Vercel
+- **배포**: Vercel (웹), EAS/App Store/Play Store (모바일)
 - **CI/CD**: GitHub Actions
 
 ## 📖 문서
+
+### 모바일 앱 문서
+
+- **[모바일 아키텍처](./.moai/docs/MOBILE-ARCHITECTURE.md)** - 오프라인 지원, 푸시 알림, 결제 시스템 아키텍처
+- **[모바일 구현 가이드](./.moai/docs/MOBILE-IMPLEMENTATION-GUIDE.md)** - SPEC-MOBILE-007 (오프라인 + 푸시) 구현 상세 가이드
+- **[모바일 AI + 결제](./.moai/docs/MOBILE-AI-PAYMENTS.md)** - SPEC-MOBILE-006 (AI 기능 + RevenueCat) 설명서
+- **[모바일 코드맵](./.moai/docs/MOBILE-CODEMAP.md)** - 파일 구조 및 의존성 맵
 
 ### 배포 관련 문서
 

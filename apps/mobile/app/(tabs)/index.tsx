@@ -35,7 +35,7 @@ function VideoCard({ item }: { item: VideoListItem }) {
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/listening/${item.video_id}`)}
+      onPress={() => router.push(`/study/${item.video_id}`)}
       activeOpacity={0.75}
     >
       {item.thumbnail_url ? (

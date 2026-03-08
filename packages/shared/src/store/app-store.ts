@@ -54,10 +54,10 @@ interface AppState {
     step: 1 | 2,
     sentenceIndex?: number,
   ) => void;
-  addHighlight: (highlight: AppHighlight) => void;
-  removeHighlight: (id: string) => void;
-  addSavedSentence: (sentence: SavedSentence) => void;
-  removeSavedSentence: (id: string) => void;
+  addHighlight: (highlight: AppHighlight) => Promise<void>;
+  removeHighlight: (id: string) => Promise<void>;
+  addSavedSentence: (sentence: SavedSentence) => Promise<void>;
+  removeSavedSentence: (id: string) => Promise<void>;
   pendingSentenceOps: Array<
     { type: "add"; sentence: SavedSentence } | { type: "remove"; id: string }
   >;

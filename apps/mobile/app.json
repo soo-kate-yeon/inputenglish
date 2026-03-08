@@ -11,7 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "kr.shadowoo.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Recording your voice for shadowing practice"
+        "NSMicrophoneUsageDescription": "Recording your voice for shadowing practice",
+        "NSLocalNetworkUsageDescription": "Connect to the local development server while testing on your device"
       }
     },
     "android": {
