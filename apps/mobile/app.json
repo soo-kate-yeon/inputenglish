@@ -10,6 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "kr.shadowoo.app",
+      "buildNumber": "1",
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Recording your voice for shadowing practice",
         "NSLocalNetworkUsageDescription": "Connect to the local development server while testing on your device"
@@ -21,6 +25,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "kr.shadowoo.app",
+      "versionCode": 1,
       "permissions": ["RECORD_AUDIO"]
     },
     "plugins": ["expo-router", "expo-secure-store", "expo-av"],
