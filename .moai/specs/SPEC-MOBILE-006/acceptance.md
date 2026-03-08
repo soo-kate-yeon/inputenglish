@@ -130,17 +130,6 @@ Then 로컬 녹음 파일은 보존되고
   And 재시도 옵션이 제공된다
 ```
 
-### AC-AI-006: AI 발음 피드백
-
-**Scenario: 기본 발음 점수 제공**
-
-```gherkin
-Given 녹음 파일이 성공적으로 업로드되었을 때
-When AI 발음 분석이 완료되면
-Then 유사도 기반 발음 점수가 표시되고
-  And 점수에 대한 간단한 피드백이 제공된다
-```
-
 ---
 
 ## RevenueCat Payments
