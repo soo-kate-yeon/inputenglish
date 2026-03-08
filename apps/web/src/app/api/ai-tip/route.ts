@@ -1,39 +1,41 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(request: NextRequest) {
-    try {
-        const { sentence, tags } = await request.json();
+  try {
+    const { sentence, tags } = await request.json();
 
-        if (!sentence || !tags || tags.length === 0) {
-            return NextResponse.json(
-                { error: 'Sentence and tags are required' },
-                { status: 400 }
-            );
-        }
+    if (!sentence || !tags || tags.length === 0) {
+      return NextResponse.json(
+        { error: "Sentence and tags are required" },
+        { status: 400 },
+      );
+    }
 
-        if (!process.env.GEMINI_API_KEY) {
-            return NextResponse.json(
-                { error: 'Gemini API key not configured' },
-                { status: 500 }
-            );
-        }
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: "Gemini API key not configured" },
+        { status: 500 },
+      );
+    }
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-        // Build prompt based on difficulty tags
-        const tagDescriptions: Record<string, string> = {
-            '연음': 'liaison (linking sounds between words)',
-            '문법': 'grammar structure',
-            '발음': 'pronunciation',
-            '속도': 'speaking speed',
-        };
+    // Build prompt based on difficulty tags
+    const tagDescriptions: Record<string, string> = {
+      연음: "liaison (linking sounds between words)",
+      문법: "grammar structure",
+      발음: "pronunciation",
+      속도: "speaking speed",
+    };
 
-        const tagList = tags.map((tag: string) => tagDescriptions[tag] || tag).join(', ');
+    const tagList = tags
+      .map((tag: string) => tagDescriptions[tag] || tag)
+      .join(", ");
 
-        const prompt = `You are an English learning assistant. A Korean student is having difficulty understanding this English sentence:
+    const prompt = `You are an English learning assistant. A Korean student is having difficulty understanding this English sentence:
 
 "${sentence}"
 
@@ -48,22 +50,22 @@ If it's about speed/속도, suggest how to break it down.
 
 Keep your response practical and encouraging.`;
 
-        const result = await model.generateContent(prompt);
-        const tip = result.response.text();
+    const result = await model.generateContent(prompt);
+    const tip = result.response.text();
 
-        return NextResponse.json({
-            success: true,
-            tip,
-        });
-    } catch (error) {
-        console.error('AI tip generation error:', error);
+    return NextResponse.json({
+      success: true,
+      tip,
+    });
+  } catch (error) {
+    console.error("AI tip generation error:", error);
 
-        return NextResponse.json(
-            {
-                error: 'Failed to generate AI tip',
-                message: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 }
-        );
-    }
+    return NextResponse.json(
+      {
+        error: "Failed to generate AI tip",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    );
+  }
 }

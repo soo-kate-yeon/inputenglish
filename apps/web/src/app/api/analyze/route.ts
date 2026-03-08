@@ -1,35 +1,35 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
 
 // Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(request: Request) {
-    try {
-        const { sentence, feedbackTypes } = await request.json();
+  try {
+    const { sentence, feedbackTypes } = await request.json();
 
-        if (!sentence || !feedbackTypes || feedbackTypes.length === 0) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
-        }
+    if (!sentence || !feedbackTypes || feedbackTypes.length === 0) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
+    }
 
-        if (!process.env.GEMINI_API_KEY) {
-            return NextResponse.json(
-                { error: 'API key not configured' },
-                { status: 500 }
-            );
-        }
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: "API key not configured" },
+        { status: 500 },
+      );
+    }
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-        const prompt = `
+    const prompt = `
         You are a Professional English Tutor specializing in shadowing and pronunciation.
         
         Analyze the following English sentence based on the user's difficulties:
         Sentence: "${sentence}"
-        User's Difficulties: ${feedbackTypes.join(', ')}
+        User's Difficulties: ${feedbackTypes.join(", ")}
 
         Please provide a structured response in JSON format with the following fields:
         1. "analysis": Explain why this sentence might be difficult based on the user's feedback (e.g., specific linking sounds, difficult vocabulary nuances, speed factors).
@@ -46,30 +46,32 @@ export async function POST(request: Request) {
         }
         `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-        // Extract JSON from the response (in case of markdown formatting)
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('Failed to parse AI response');
-        }
-
-        const jsonResponse = JSON.parse(jsonMatch[0]);
-
-        return NextResponse.json(jsonResponse);
-
-    } catch (error) {
-        console.error('AI Analysis Error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-        if (error instanceof Error) {
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
-        }
-        return NextResponse.json(
-            { error: 'Failed to generate analysis', details: error instanceof Error ? error.message : 'Unknown error' },
-            { status: 500 }
-        );
+    // Extract JSON from the response (in case of markdown formatting)
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Failed to parse AI response");
     }
+
+    const jsonResponse = JSON.parse(jsonMatch[0]);
+
+    return NextResponse.json(jsonResponse);
+  } catch (error) {
+    console.error("AI Analysis Error:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
+    return NextResponse.json(
+      {
+        error: "Failed to generate analysis",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    );
+  }
 }
