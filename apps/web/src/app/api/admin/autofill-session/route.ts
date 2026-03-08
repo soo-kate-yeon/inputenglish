@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     // Format sentences text
     const sentencesText = sentences.map((s: Sentence) => s.text).join(" ");
