@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash-preview-04-17",
+    });
 
     // Build prompt based on difficulty tags
     const tagDescriptions: Record<string, string> = {

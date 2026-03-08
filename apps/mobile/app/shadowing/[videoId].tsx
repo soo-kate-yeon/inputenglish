@@ -1,6 +1,8 @@
 // @MX:ANCHOR: ShadowingScreen - core YouTube + script + recording screen
 // @MX:REASON: [AUTO] fan_in >= 3: navigated from HomeScreen, deeplinks, and study flow
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-U-001 through REQ-C-002
+// @MX:NOTE: [AUTO] SPEC-MOBILE-006 additions: AI panel (DifficultyTagSelector, AiTipButton, AiTipCard)
+// and background recording upload after confirm. AI panel appears at bottom for the active sentence.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -28,6 +30,12 @@ import ShadowingScriptLine, {
 } from "../../src/components/shadowing/ShadowingScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
+import { uploadRecording } from "../../src/lib/ai-api";
+import DifficultyTagSelector from "../../src/components/ai/DifficultyTagSelector";
+import AiTipButton from "../../src/components/ai/AiTipButton";
+import AiTipCard from "../../src/components/ai/AiTipCard";
+import { useAuth } from "../../src/contexts/AuthContext";
+import { useSubscription } from "../../src/hooks/useSubscription";
 
 export default function ShadowingScreen() {
   const { videoId } = useLocalSearchParams<{ videoId: string }>();
@@ -46,6 +54,17 @@ export default function ShadowingScreen() {
   >({}); // sentenceId -> fileUri
   const [mode, setMode] = useState<ShadowingMode>("sentence");
   const [sentences, setSentences] = useState<Sentence[]>([]);
+
+  // AI panel state - keyed by sentenceId
+  const [aiTipsBySentenceId, setAiTipsBySentenceId] = useState<
+    Record<string, { tip: string; tags: string[] }>
+  >({});
+  const [selectedTagsBySentenceId, setSelectedTagsBySentenceId] = useState<
+    Record<string, string[]>
+  >({});
+  const [aiErrorBySentenceId, setAiErrorBySentenceId] = useState<
+    Record<string, string | null>
+  >({});
 
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const flatListRef = useRef<FlatList<Sentence>>(null);
@@ -68,6 +87,8 @@ export default function ShadowingScreen() {
   } = useAudioRecorder();
 
   const currentSession = studyStore((s) => s.currentSession);
+  const { user } = useAuth();
+  const { canUseAI } = useSubscription();
 
   // Load video and update session phase on mount - REQ-C-001
   useEffect(() => {
@@ -82,11 +103,12 @@ export default function ShadowingScreen() {
       .catch((e: Error) => setError(e.message ?? "Failed to load video"))
       .finally(() => setLoading(false));
 
-    // Update study session phase
-    if (currentSession) {
-      studyStore.getState().updateSessionPhase(currentSession.id, "shadowing");
+    // Update study session phase - read currentSession directly to avoid infinite loop
+    const session = studyStore.getState().currentSession;
+    if (session) {
+      studyStore.getState().updateSessionPhase(session.id, "shadowing");
     }
-  }, [videoId, currentSession]);
+  }, [videoId]);
 
   // Background pause + recording stop - REQ-E-006
   useEffect(() => {
@@ -187,19 +209,44 @@ export default function ShadowingScreen() {
     }
   }, [lastError, stopRecording]);
 
-  // Confirm recording: save to state - REQ-C-002
+  // Confirm recording: save to state and upload in background - REQ-C-002
   const handleConfirm = useCallback(async () => {
     if (!currentRecordingSentenceId || !audioUri) {
       Alert.alert("오류", "녹음 파일이 없습니다.");
       return;
     }
+    const sentenceIdForUpload = currentRecordingSentenceId;
+    const uriForUpload = audioUri;
     setRecordedSentences((prev) => ({
       ...prev,
-      [currentRecordingSentenceId]: audioUri,
+      [sentenceIdForUpload]: uriForUpload,
     }));
     setCurrentRecordingSentenceId(null);
     await resetRecording();
-  }, [currentRecordingSentenceId, audioUri, resetRecording]);
+
+    // Upload recording in background - do not block UI
+    if (user?.id && videoId) {
+      uploadRecording(
+        uriForUpload,
+        user.id,
+        videoId,
+        sentenceIdForUpload,
+        duration,
+      ).catch((err) => {
+        console.warn(
+          "[ShadowingScreen] Background recording upload failed:",
+          err,
+        );
+      });
+    }
+  }, [
+    currentRecordingSentenceId,
+    audioUri,
+    resetRecording,
+    user?.id,
+    videoId,
+    duration,
+  ]);
 
   // Re-record: reset to idle - REQ-E-004
   const handleReRecord = useCallback(async () => {
@@ -229,6 +276,22 @@ export default function ShadowingScreen() {
   const handleExit = useCallback(() => {
     router.back();
   }, []);
+
+  // AI panel handlers
+  const handleTagsChange = useCallback((sentenceId: string, tags: string[]) => {
+    setSelectedTagsBySentenceId((prev) => ({ ...prev, [sentenceId]: tags }));
+  }, []);
+
+  const handleTipGenerated = useCallback(
+    (sentenceId: string, tip: string, tags: string[]) => {
+      setAiTipsBySentenceId((prev) => ({
+        ...prev,
+        [sentenceId]: { tip, tags },
+      }));
+      setAiErrorBySentenceId((prev) => ({ ...prev, [sentenceId]: null }));
+    },
+    [],
+  );
 
   if (loading) {
     return (
@@ -306,6 +369,36 @@ export default function ShadowingScreen() {
         onReRecord={handleReRecord}
         onConfirm={handleConfirm}
       />
+      {/* AI panel: visible when a sentence is active */}
+      {activeSentenceId ? (
+        <View style={styles.aiPanel}>
+          <DifficultyTagSelector
+            selectedTags={selectedTagsBySentenceId[activeSentenceId] ?? []}
+            onTagsChange={(tags) => handleTagsChange(activeSentenceId, tags)}
+          />
+          <AiTipButton
+            sentenceId={activeSentenceId}
+            videoId={videoId ?? ""}
+            sentenceText={
+              video?.transcript?.find((s) => s.id === activeSentenceId)?.text ??
+              ""
+            }
+            selectedTags={selectedTagsBySentenceId[activeSentenceId] ?? []}
+            onTipGenerated={(tip, tags) =>
+              handleTipGenerated(activeSentenceId, tip, tags)
+            }
+            canUseAI={canUseAI}
+          />
+          {aiTipsBySentenceId[activeSentenceId] ||
+          aiErrorBySentenceId[activeSentenceId] ? (
+            <AiTipCard
+              tip={aiTipsBySentenceId[activeSentenceId]?.tip ?? ""}
+              tags={aiTipsBySentenceId[activeSentenceId]?.tags ?? []}
+              error={aiErrorBySentenceId[activeSentenceId]}
+            />
+          ) : null}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -333,5 +426,11 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 100, // Space for RecordingBar
+  },
+  aiPanel: {
+    backgroundColor: "#FAFAFA",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#C6C6C8",
+    paddingVertical: 8,
   },
 });

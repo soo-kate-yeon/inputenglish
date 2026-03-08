@@ -1,16 +1,17 @@
-import { useEffect } from 'react';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
-import * as Linking from 'expo-linking';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import 'react-native-url-polyfill/auto';
+import { useEffect } from "react";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
+import * as Linking from "expo-linking";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { initRevenueCat } from "@/lib/revenue-cat";
+import "react-native-url-polyfill/auto";
 
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { isInitialized } = useAuth();
+  const { isInitialized, user } = useAuth();
 
   // Hide splash screen once auth state is resolved to prevent flash of protected content
   useEffect(() => {
@@ -19,12 +20,19 @@ function RootLayoutNav() {
     }
   }, [isInitialized]);
 
+  // Initialize RevenueCat when user is available
+  useEffect(() => {
+    if (user?.id) {
+      void initRevenueCat(user.id);
+    }
+  }, [user?.id]);
+
   // Handle deep links for OAuth callback (PKCE code exchange)
   useEffect(() => {
     const handleUrl = async (url: string) => {
-      if (url.includes('auth/callback')) {
+      if (url.includes("auth/callback")) {
         const urlObj = new URL(url);
-        const code = urlObj.searchParams.get('code');
+        const code = urlObj.searchParams.get("code");
         if (code) {
           await supabase.auth.exchangeCodeForSession(code);
         }
@@ -37,7 +45,9 @@ function RootLayoutNav() {
     });
 
     // Handle subsequent URLs (app foregrounded via deep link)
-    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    const subscription = Linking.addEventListener("url", ({ url }) =>
+      handleUrl(url),
+    );
 
     return () => {
       subscription.remove();
@@ -50,15 +60,19 @@ function RootLayoutNav() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen
         name="study/[videoId]"
-        options={{ headerShown: true, title: 'Study' }}
+        options={{ headerShown: true, title: "Study" }}
       />
       <Stack.Screen
         name="listening/[videoId]"
-        options={{ headerShown: true, title: 'Listening' }}
+        options={{ headerShown: true, title: "Listening" }}
       />
       <Stack.Screen
         name="shadowing/[videoId]"
-        options={{ headerShown: true, title: 'Shadowing' }}
+        options={{ headerShown: true, title: "Shadowing" }}
+      />
+      <Stack.Screen
+        name="paywall"
+        options={{ headerShown: false, presentation: "modal" }}
       />
     </Stack>
   );
