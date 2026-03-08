@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { initRevenueCat } from "@/lib/revenue-cat";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import "react-native-url-polyfill/auto";
+import * as Notifications from "expo-notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +30,22 @@ function RootLayoutNav() {
     } catch (e) {
       console.warn("[Notifications] setupNotificationHandler failed:", e);
     }
+  }, []);
+
+  // Register push token when user logs in (AC-PUSH-001, 002)
+  useEffect(() => {
+    if (!user?.id) return;
+    const { initPushNotifications } = require("@/lib/push-notifications");
+    void initPushNotifications();
+  }, [user?.id]);
+
+  // Handle notification tap for deep linking (AC-PUSH-005)
+  useEffect(() => {
+    const { handleNotificationResponse } = require("@/lib/push-notifications");
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse,
+    );
+    return () => sub.remove();
   }, []);
 
   // Initialize RevenueCat when user is available
