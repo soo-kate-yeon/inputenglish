@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -37,6 +38,33 @@ const DIFFICULTY_BG: Record<string, string> = {
   advanced: "#111111",
 };
 
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  keynote: "KEYNOTE",
+  demo: "DEMO",
+  "earnings-call": "EARNINGS",
+  podcast: "PODCAST",
+  interview: "INTERVIEW",
+  panel: "PANEL",
+};
+
+const SPEAKING_FUNCTION_LABELS: Record<string, string> = {
+  persuade: "PERSUADE",
+  "explain-metric": "EXPLAIN METRIC",
+  summarize: "SUMMARIZE",
+  hedge: "HEDGE",
+  disagree: "DISAGREE",
+  propose: "PROPOSE",
+  "answer-question": "Q&A",
+};
+
+const ROLE_RELEVANCE_LABELS: Record<string, string> = {
+  engineer: "ENGINEER",
+  pm: "PM",
+  designer: "DESIGNER",
+  founder: "FOUNDER",
+  marketer: "MARKETER",
+};
+
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
@@ -46,6 +74,14 @@ function formatDuration(seconds: number): string {
 function SessionCard({ item }: { item: SessionListItem }) {
   const diffLabel = item.difficulty ? DIFFICULTY_LABELS[item.difficulty] : null;
   const diffBg = item.difficulty ? DIFFICULTY_BG[item.difficulty] : "#111111";
+  const sourceLabel = item.source_type
+    ? SOURCE_TYPE_LABELS[item.source_type]
+    : null;
+  const speakingLabel = item.speaking_function
+    ? SPEAKING_FUNCTION_LABELS[item.speaking_function]
+    : null;
+  const roleLabels =
+    item.role_relevance?.map((role) => ROLE_RELEVANCE_LABELS[role]) ?? [];
 
   return (
     <TouchableOpacity
@@ -87,6 +123,36 @@ function SessionCard({ item }: { item: SessionListItem }) {
           </Text>
         ) : null}
 
+        {sourceLabel || speakingLabel || item.premium_required ? (
+          <View style={styles.taxonomyRow}>
+            {sourceLabel ? (
+              <View style={styles.taxonomyBadge}>
+                <Text style={styles.taxonomyText}>{sourceLabel}</Text>
+              </View>
+            ) : null}
+            {speakingLabel ? (
+              <View style={styles.taxonomyBadge}>
+                <Text style={styles.taxonomyText}>{speakingLabel}</Text>
+              </View>
+            ) : null}
+            {item.premium_required ? (
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumText}>PREMIUM</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {roleLabels.length ? (
+          <View style={styles.roleRow}>
+            {roleLabels.map((role) => (
+              <View key={role} style={styles.roleBadge}>
+                <Text style={styles.roleText}>{role}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {item.channel_name ? (
           <Text style={styles.channel} numberOfLines={1}>
             {item.channel_name}
@@ -101,6 +167,8 @@ export default function HomeScreen() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFunction, setSelectedFunction] = useState<string>("all");
+  const [selectedSourceType, setSelectedSourceType] = useState<string>("all");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -114,6 +182,36 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const speakingFunctionOptions = Array.from(
+    new Set(
+      sessions
+        .map((session) => session.speaking_function)
+        .filter(
+          (value): value is NonNullable<SessionListItem["speaking_function"]> =>
+            Boolean(value),
+        ),
+    ),
+  );
+  const sourceTypeOptions = Array.from(
+    new Set(
+      sessions
+        .map((session) => session.source_type)
+        .filter((value): value is NonNullable<SessionListItem["source_type"]> =>
+          Boolean(value),
+        ),
+    ),
+  );
+  const filteredSessions = sessions.filter((session) => {
+    const matchesFunction =
+      selectedFunction === "all" ||
+      session.speaking_function === selectedFunction;
+    const matchesSourceType =
+      selectedSourceType === "all" ||
+      session.source_type === selectedSourceType;
+
+    return matchesFunction && matchesSourceType;
+  });
 
   const renderItem = useCallback(
     ({ item }: { item: SessionListItem }) => <SessionCard item={item} />,
@@ -159,13 +257,123 @@ export default function HomeScreen() {
         <Text style={styles.headerLabel}>SESSIONS</Text>
       </View>
 
+      <View style={styles.filters}>
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>SPEAKING FUNCTION</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContent}
+          >
+            <TouchableOpacity
+              testID="function-filter-all"
+              style={[
+                styles.filterChip,
+                selectedFunction === "all" && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedFunction("all")}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedFunction === "all" && styles.filterChipTextActive,
+                ]}
+              >
+                ALL
+              </Text>
+            </TouchableOpacity>
+
+            {speakingFunctionOptions.map((value) => (
+              <TouchableOpacity
+                key={value}
+                testID={`function-filter-${value}`}
+                style={[
+                  styles.filterChip,
+                  selectedFunction === value && styles.filterChipActive,
+                ]}
+                onPress={() => setSelectedFunction(value)}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    selectedFunction === value && styles.filterChipTextActive,
+                  ]}
+                >
+                  {SPEAKING_FUNCTION_LABELS[value]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>SOURCE TYPE</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContent}
+          >
+            <TouchableOpacity
+              testID="source-filter-all"
+              style={[
+                styles.filterChip,
+                selectedSourceType === "all" && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedSourceType("all")}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedSourceType === "all" && styles.filterChipTextActive,
+                ]}
+              >
+                ALL
+              </Text>
+            </TouchableOpacity>
+
+            {sourceTypeOptions.map((value) => (
+              <TouchableOpacity
+                key={value}
+                testID={`source-filter-${value}`}
+                style={[
+                  styles.filterChip,
+                  selectedSourceType === value && styles.filterChipActive,
+                ]}
+                onPress={() => setSelectedSourceType(value)}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    selectedSourceType === value && styles.filterChipTextActive,
+                  ]}
+                >
+                  {SOURCE_TYPE_LABELS[value]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+
       <FlatList
-        data={sessions}
+        data={filteredSessions}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>NO MATCHING SESSIONS</Text>
+            <Text style={styles.emptyStateText}>
+              다른 speaking function 또는 source type을 선택해보세요.
+            </Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -222,6 +430,47 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: COLOR.textMuted,
     fontWeight: "500",
+  },
+  filters: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLOR.borderLight,
+  },
+  filterSection: {
+    gap: 8,
+  },
+  filterLabel: {
+    fontSize: 10,
+    letterSpacing: 1.6,
+    color: COLOR.textMuted,
+    fontWeight: "700",
+  },
+  filterScrollContent: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: COLOR.borderLight,
+    backgroundColor: COLOR.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  filterChipActive: {
+    borderColor: COLOR.border,
+    backgroundColor: COLOR.border,
+  },
+  filterChipText: {
+    fontSize: 10,
+    letterSpacing: 1.1,
+    color: COLOR.textMuted,
+    fontWeight: "700",
+  },
+  filterChipTextActive: {
+    color: COLOR.textInverse,
   },
   listContent: {
     paddingBottom: 120,
@@ -286,10 +535,79 @@ const styles = StyleSheet.create({
     color: COLOR.textMuted,
     lineHeight: 18,
   },
+  taxonomyRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 2,
+  },
+  roleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 2,
+  },
+  taxonomyBadge: {
+    borderWidth: 1,
+    borderColor: COLOR.borderLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: "#F7F7F7",
+  },
+  taxonomyText: {
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: COLOR.textMuted,
+    fontWeight: "600",
+  },
+  premiumBadge: {
+    borderWidth: 1,
+    borderColor: COLOR.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: COLOR.text,
+  },
+  premiumText: {
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: COLOR.textInverse,
+    fontWeight: "700",
+  },
+  roleBadge: {
+    borderWidth: 1,
+    borderColor: COLOR.borderLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: "#F7F7F7",
+  },
+  roleText: {
+    fontSize: 9,
+    letterSpacing: 1.1,
+    color: COLOR.textMuted,
+    fontWeight: "600",
+  },
   channel: {
     fontSize: 12,
     color: COLOR.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
+  },
+  emptyState: {
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    alignItems: "center",
+    gap: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 12,
+    letterSpacing: 1.8,
+    color: COLOR.text,
+    fontWeight: "700",
+  },
+  emptyStateText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: COLOR.textMuted,
+    textAlign: "center",
   },
 });

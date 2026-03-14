@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
         thumbnail_url: s.thumbnail_url,
         difficulty: s.difficulty,
         order_index: index,
+        source_type: s.source_type,
+        speaking_function: s.speaking_function,
+        role_relevance: s.role_relevance ?? [],
+        premium_required: s.premium_required ?? false,
         created_by: null,
         // duration is generated column
       }),
@@ -70,7 +74,8 @@ export async function POST(request: NextRequest) {
     if (sessionsToUpsert.length > 0) {
       const { error } = await supabase
         .from("learning_sessions")
-        .upsert(sessionsToUpsert);
+        .upsert(sessionsToUpsert)
+        .select("id");
 
       if (error) {
         console.error("❌ [API] Upsert error:", {
@@ -81,6 +86,70 @@ export async function POST(request: NextRequest) {
           sessionsToUpsert,
         });
         throw error;
+      }
+
+      const contextsToUpsert = sessions
+        .filter(
+          (session: LearningSession) =>
+            session.context &&
+            typeof session.id === "string" &&
+            UUID_PATTERN.test(session.id),
+        )
+        .map((session: LearningSession) => ({
+          session_id: session.id,
+          strategic_intent: session.context?.strategic_intent ?? "",
+          speaking_function:
+            session.context?.speaking_function ?? session.speaking_function,
+          reusable_scenarios: session.context?.reusable_scenarios ?? [],
+          key_vocabulary: session.context?.key_vocabulary ?? [],
+          grammar_rhetoric_note: session.context?.grammar_rhetoric_note ?? "",
+          expected_takeaway: session.context?.expected_takeaway ?? "",
+          generated_by: session.context?.generated_by ?? "manual",
+          updated_by: null,
+        }));
+
+      const sessionIdsWithoutContext = sessions
+        .filter(
+          (session: LearningSession) =>
+            typeof session.id === "string" &&
+            UUID_PATTERN.test(session.id) &&
+            !session.context,
+        )
+        .map((session: LearningSession) => session.id);
+
+      if (sessionIdsWithoutContext.length > 0) {
+        const { error: deleteContextError } = await supabase
+          .from("session_contexts")
+          .delete()
+          .in("session_id", sessionIdsWithoutContext);
+
+        if (deleteContextError) {
+          console.error("❌ [API] Session context delete error:", {
+            message: deleteContextError.message,
+            details: deleteContextError.details,
+            hint: deleteContextError.hint,
+            code: deleteContextError.code,
+            sessionIdsWithoutContext,
+          });
+          throw deleteContextError;
+        }
+      }
+
+      if (contextsToUpsert.length > 0) {
+        const { error: contextError } = await supabase
+          .from("session_contexts")
+          .upsert(contextsToUpsert);
+
+        if (contextError) {
+          console.error("❌ [API] Session context upsert error:", {
+            message: contextError.message,
+            details: contextError.details,
+            hint: contextError.hint,
+            code: contextError.code,
+            contextsToUpsert,
+          });
+          throw contextError;
+        }
       }
     }
 

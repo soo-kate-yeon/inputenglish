@@ -18,9 +18,23 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
-import type { Sentence, SavedSentence, CuratedVideo } from "@shadowoo/shared";
+import type {
+  CuratedVideo,
+  PracticeCoachingSummary,
+  PracticeMode,
+  PracticePrompt,
+  SavedSentence,
+  Sentence,
+} from "@shadowoo/shared";
 import { groupSentencesByMode } from "@shadowoo/shared";
-import { fetchCuratedVideo } from "../../src/lib/api";
+import {
+  ensurePracticePrompts,
+  fetchCuratedVideo,
+  fetchLearningSessionDetail,
+  savePlaybookEntry,
+  savePracticeAttempt,
+  type SessionListItem,
+} from "../../src/lib/api";
 import { appStore, studyStore } from "../../src/lib/stores";
 import YouTubePlayer, {
   YouTubePlayerHandle,
@@ -28,9 +42,18 @@ import YouTubePlayer, {
 import ScriptLine from "../../src/components/listening/ScriptLine";
 import ShadowingScriptLine from "../../src/components/shadowing/ShadowingScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
+import ContextBriefCard from "../../src/components/study/ContextBriefCard";
+import TransformationPracticePanel from "../../src/components/study/TransformationPracticePanel";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
-import { uploadRecording } from "../../src/lib/ai-api";
+import { getPronunciationScore, uploadRecording } from "../../src/lib/ai-api";
+import { trackEvent } from "../../src/lib/analytics";
+import {
+  buildPracticeDraft,
+  generateRewriteCoaching,
+  generateVoiceCoachingSummary,
+} from "../../src/lib/professional-practice";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { useSubscription } from "../../src/hooks/useSubscription";
 
 const C = {
   bg: "#FFFFFF",
@@ -40,7 +63,7 @@ const C = {
   muted: "#AAAAAA",
 };
 
-type MainTab = "listening" | "shadowing";
+type MainTab = "listening" | "shadowing" | "transformation";
 type ShadowingMode = "sentence" | "paragraph" | "total";
 const SHADOWING_MODES: Array<{ key: ShadowingMode; label: string }> = [
   { key: "sentence", label: "SENTENCE" },
@@ -49,11 +72,33 @@ const SHADOWING_MODES: Array<{ key: ShadowingMode; label: string }> = [
 ];
 
 export default function StudyScreen() {
-  const { videoId } = useLocalSearchParams<{ videoId: string }>();
+  const { videoId, sessionId } = useLocalSearchParams<{
+    videoId: string;
+    sessionId?: string;
+  }>();
 
   const [video, setVideo] = useState<CuratedVideo | null>(null);
+  const [sessionDetail, setSessionDetail] = useState<SessionListItem | null>(
+    null,
+  );
+  const [practicePrompts, setPracticePrompts] = useState<PracticePrompt[]>([]);
+  const [practiceLoading, setPracticeLoading] = useState(false);
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>("slot-in");
+  const [selectedPracticeSentenceId, setSelectedPracticeSentenceId] = useState<
+    string | null
+  >(null);
+  const [practiceDraft, setPracticeDraft] = useState("");
+  const [coachingSummary, setCoachingSummary] =
+    useState<PracticeCoachingSummary | null>(null);
+  const [coachingLoading, setCoachingLoading] = useState(false);
+  const [voiceCoachingLoading, setVoiceCoachingLoading] = useState(false);
+  const [playbookMessage, setPlaybookMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [briefExpanded, setBriefExpanded] = useState(true);
+  const [uploadedRecordingUrls, setUploadedRecordingUrls] = useState<
+    Record<string, string>
+  >({});
 
   // Shared state
   const [mainTab, setMainTab] = useState<MainTab>("listening");
@@ -88,6 +133,7 @@ export default function StudyScreen() {
   const addSavedSentence = appStore((s) => s.addSavedSentence);
   const removeSavedSentence = appStore((s) => s.removeSavedSentence);
   const { user } = useAuth();
+  const { plan } = useSubscription();
 
   const {
     recordingState,
@@ -107,9 +153,14 @@ export default function StudyScreen() {
   // ── Load video ──
   useEffect(() => {
     if (!videoId) return;
-    fetchCuratedVideo(videoId)
-      .then((v) => {
+    Promise.all([
+      fetchCuratedVideo(videoId),
+      sessionId ? fetchLearningSessionDetail(sessionId) : Promise.resolve(null),
+    ])
+      .then(([v, detail]) => {
         setVideo(v);
+        setSessionDetail(detail);
+        setSelectedPracticeSentenceId(v.transcript?.[0]?.id ?? null);
         setShadowingSentences(
           groupSentencesByMode(v.transcript ?? [], "sentence"),
         );
@@ -120,7 +171,76 @@ export default function StudyScreen() {
       })
       .catch((e: Error) => setError(e.message ?? "Failed to load video"))
       .finally(() => setLoading(false));
-  }, [videoId]);
+  }, [videoId, sessionId]);
+
+  useEffect(() => {
+    if (!sessionDetail) return;
+    setBriefExpanded(
+      Boolean(sessionDetail.context || sessionDetail.premium_required),
+    );
+    setPracticePrompts([]);
+    setPracticeMode("slot-in");
+    setPracticeDraft("");
+    setCoachingSummary(null);
+    setPlaybookMessage(null);
+    trackEvent("context_open", {
+      sessionId: sessionDetail.id,
+      premiumRequired: sessionDetail.premium_required,
+      speakingFunction: sessionDetail.speaking_function,
+    });
+  }, [sessionDetail]);
+
+  useEffect(() => {
+    if (
+      mainTab !== "transformation" ||
+      !sessionDetail ||
+      practicePrompts.length
+    ) {
+      return;
+    }
+
+    setPracticeLoading(true);
+    ensurePracticePrompts(
+      sessionDetail,
+      user?.user_metadata?.full_name || user?.email || null,
+    )
+      .then(setPracticePrompts)
+      .catch((loadError) => {
+        console.error(
+          "[StudyScreen] Failed to load practice prompts:",
+          loadError,
+        );
+      })
+      .finally(() => setPracticeLoading(false));
+  }, [
+    mainTab,
+    practicePrompts.length,
+    sessionDetail,
+    user?.email,
+    user?.user_metadata?.full_name,
+  ]);
+
+  useEffect(() => {
+    if (!video?.transcript?.length) return;
+    const sourceSentence =
+      video.transcript.find(
+        (sentence) => sentence.id === selectedPracticeSentenceId,
+      ) ?? video.transcript[0];
+    const activePrompt = practicePrompts.find(
+      (prompt) => prompt.mode === practiceMode,
+    );
+
+    setPracticeDraft(
+      buildPracticeDraft(practiceMode, sourceSentence.text, activePrompt),
+    );
+    setCoachingSummary(null);
+    setPlaybookMessage(null);
+  }, [
+    practiceMode,
+    practicePrompts,
+    selectedPracticeSentenceId,
+    video?.transcript,
+  ]);
 
   // ── Background pause ──
   useEffect(() => {
@@ -302,7 +422,11 @@ export default function StudyScreen() {
     setCurrentRecordingSentenceId(null);
     await resetRecording();
     if (user?.id && videoId) {
-      uploadRecording(uri, user.id, videoId, sid, recDuration).catch(() => {});
+      uploadRecording(uri, user.id, videoId, sid, recDuration)
+        .then((publicUrl) => {
+          setUploadedRecordingUrls((prev) => ({ ...prev, [sid]: publicUrl }));
+        })
+        .catch(() => {});
     }
   }, [
     currentRecordingSentenceId,
@@ -317,6 +441,178 @@ export default function StudyScreen() {
     await resetRecording();
     setCurrentRecordingSentenceId(null);
   }, [resetRecording]);
+
+  const handleTransformationTabPress = useCallback(() => {
+    if (plan === "FREE") {
+      router.push("/paywall");
+      return;
+    }
+
+    setMainTab("transformation");
+  }, [plan]);
+
+  const handlePracticeModeChange = useCallback((mode: PracticeMode) => {
+    setPracticeMode(mode);
+  }, []);
+
+  const handlePracticeSentenceChange = useCallback((sentenceId: string) => {
+    setSelectedPracticeSentenceId(sentenceId);
+  }, []);
+
+  const handlePracticeCoach = useCallback(async () => {
+    if (!sessionDetail || !video?.transcript?.length) return;
+
+    const sourceSentence =
+      video.transcript.find(
+        (sentence) => sentence.id === selectedPracticeSentenceId,
+      ) ?? video.transcript[0];
+
+    const summary = generateRewriteCoaching({
+      sourceSentence: sourceSentence.text,
+      rewrite: practiceDraft,
+      mode: practiceMode,
+      speakingFunction: sessionDetail.speaking_function,
+    });
+
+    setCoachingLoading(true);
+    setCoachingSummary(summary);
+    setPlaybookMessage(null);
+
+    try {
+      if (user?.id) {
+        await savePracticeAttempt(user.id, {
+          sessionId: sessionDetail.id,
+          sourceVideoId: sessionDetail.source_video_id,
+          sourceSentence: sourceSentence.text,
+          speakingFunction: sessionDetail.speaking_function,
+          mode: practiceMode,
+          responseText: practiceDraft,
+          coachingSummary: summary,
+          attemptMetadata: {
+            promptTitle:
+              practicePrompts.find((prompt) => prompt.mode === practiceMode)
+                ?.title ?? null,
+          },
+        });
+      }
+    } catch (attemptError) {
+      console.error(
+        "[StudyScreen] Failed to save practice attempt:",
+        attemptError,
+      );
+    } finally {
+      setCoachingLoading(false);
+    }
+  }, [
+    practiceDraft,
+    practiceMode,
+    practicePrompts,
+    selectedPracticeSentenceId,
+    sessionDetail,
+    user?.id,
+    video?.transcript,
+  ]);
+
+  const handleVoiceCoaching = useCallback(async () => {
+    if (!sessionDetail || !video?.transcript?.length) return;
+
+    const sourceSentence =
+      video.transcript.find(
+        (sentence) => sentence.id === selectedPracticeSentenceId,
+      ) ?? video.transcript[0];
+    const recordingUrl = uploadedRecordingUrls[sourceSentence.id];
+    if (!recordingUrl) return;
+
+    setVoiceCoachingLoading(true);
+    setPlaybookMessage(null);
+
+    try {
+      const result = await getPronunciationScore(
+        recordingUrl,
+        sourceSentence.text,
+      );
+      const summary = generateVoiceCoachingSummary(result);
+      setCoachingSummary(summary);
+
+      if (user?.id) {
+        await savePracticeAttempt(user.id, {
+          sessionId: sessionDetail.id,
+          sourceVideoId: sessionDetail.source_video_id,
+          sourceSentence: sourceSentence.text,
+          speakingFunction: sessionDetail.speaking_function,
+          mode: practiceMode,
+          responseText: practiceDraft,
+          recordingUrl,
+          coachingSummary: summary,
+          attemptMetadata: { source: "shadowing-recording" },
+        });
+      }
+    } catch (voiceError) {
+      console.error(
+        "[StudyScreen] Failed to generate voice coaching:",
+        voiceError,
+      );
+    } finally {
+      setVoiceCoachingLoading(false);
+    }
+  }, [
+    practiceDraft,
+    practiceMode,
+    selectedPracticeSentenceId,
+    sessionDetail,
+    uploadedRecordingUrls,
+    user?.id,
+    video?.transcript,
+  ]);
+
+  const handleSavePlaybook = useCallback(async () => {
+    if (!sessionDetail || !video?.transcript?.length || !user?.id) return;
+
+    const sourceSentence =
+      video.transcript.find(
+        (sentence) => sentence.id === selectedPracticeSentenceId,
+      ) ?? video.transcript[0];
+    const summary =
+      coachingSummary ??
+      generateRewriteCoaching({
+        sourceSentence: sourceSentence.text,
+        rewrite: practiceDraft,
+        mode: practiceMode,
+        speakingFunction: sessionDetail.speaking_function,
+      });
+
+    try {
+      await savePlaybookEntry(user.id, {
+        sessionId: sessionDetail.id,
+        sourceVideoId: sessionDetail.source_video_id,
+        sourceSentence: sourceSentence.text,
+        speakingFunction: sessionDetail.speaking_function,
+        practiceMode,
+        userRewrite: practiceDraft,
+        attemptMetadata: {
+          coachingSummary: summary,
+          promptTitle:
+            practicePrompts.find((prompt) => prompt.mode === practiceMode)
+              ?.title ?? null,
+        },
+      });
+      setPlaybookMessage(
+        "Saved to Playbook. Archive > Playbook에서 다시 볼 수 있어요.",
+      );
+      setCoachingSummary(summary);
+    } catch (saveError) {
+      console.error("[StudyScreen] Failed to save playbook entry:", saveError);
+    }
+  }, [
+    coachingSummary,
+    practiceDraft,
+    practiceMode,
+    practicePrompts,
+    selectedPracticeSentenceId,
+    sessionDetail,
+    user?.id,
+    video?.transcript,
+  ]);
 
   // ── Render ──
 
@@ -355,171 +651,239 @@ export default function StudyScreen() {
         startSeconds={video.snippet_start_time}
       />
 
-      {/* Main tabs: LISTENING / SHADOWING */}
-      <View style={styles.mainTabs}>
-        <TouchableOpacity
-          style={[
-            styles.mainTab,
-            mainTab === "listening" && styles.mainTabActive,
-          ]}
-          onPress={() => setMainTab("listening")}
-        >
-          <Text
-            style={[
-              styles.mainTabText,
-              mainTab === "listening" && styles.mainTabTextActive,
-            ]}
-          >
-            LISTENING
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.mainTab,
-            mainTab === "shadowing" && styles.mainTabActive,
-          ]}
-          onPress={() => setMainTab("shadowing")}
-        >
-          <Text
-            style={[
-              styles.mainTabText,
-              mainTab === "shadowing" && styles.mainTabTextActive,
-            ]}
-          >
-            SHADOWING
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <ContextBriefCard
+        context={sessionDetail?.context ?? null}
+        sourceType={sessionDetail?.source_type}
+        speakingFunction={sessionDetail?.speaking_function}
+        premiumRequired={sessionDetail?.premium_required}
+        locked={Boolean(sessionDetail?.premium_required && plan === "FREE")}
+        onUnlock={() => router.push("/paywall")}
+        onStartLearning={() => {
+          if (sessionDetail) {
+            trackEvent("session_start", {
+              sessionId: sessionDetail.id,
+              sourceType: sessionDetail.source_type,
+              speakingFunction: sessionDetail.speaking_function,
+            });
+          }
+          setBriefExpanded(false);
+        }}
+      />
 
-      {/* Sub tabs for shadowing mode */}
-      {mainTab === "shadowing" && (
-        <View style={styles.subTabs}>
-          {SHADOWING_MODES.map(({ key, label }) => (
+      {briefExpanded ? null : (
+        <>
+          {/* Main tabs: LISTENING / SHADOWING */}
+          <View style={styles.mainTabs}>
             <TouchableOpacity
-              key={key}
               style={[
-                styles.subTab,
-                shadowingMode === key && styles.subTabActive,
+                styles.mainTab,
+                mainTab === "listening" && styles.mainTabActive,
               ]}
-              onPress={() => handleShadowingModeChange(key)}
+              onPress={() => setMainTab("listening")}
             >
               <Text
                 style={[
-                  styles.subTabText,
-                  shadowingMode === key && styles.subTabTextActive,
+                  styles.mainTabText,
+                  mainTab === "listening" && styles.mainTabTextActive,
                 ]}
               >
-                {label}
+                LISTENING
               </Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Script area */}
-      {!scriptVisible ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>SCRIPT HIDDEN</Text>
-        </View>
-      ) : mainTab === "listening" ? (
-        /* ── Listening list ── */
-        listeningData.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
+            <TouchableOpacity
+              style={[
+                styles.mainTab,
+                mainTab === "shadowing" && styles.mainTabActive,
+              ]}
+              onPress={() => setMainTab("shadowing")}
+            >
+              <Text
+                style={[
+                  styles.mainTabText,
+                  mainTab === "shadowing" && styles.mainTabTextActive,
+                ]}
+              >
+                SHADOWING
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.mainTab,
+                mainTab === "transformation" && styles.mainTabActive,
+              ]}
+              onPress={handleTransformationTabPress}
+            >
+              <Text
+                style={[
+                  styles.mainTabText,
+                  mainTab === "transformation" && styles.mainTabTextActive,
+                ]}
+              >
+                TRANSFORM
+              </Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={listeningData}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ScriptLine
-                sentence={item}
-                isActive={item.id === activeSentenceId}
-                isLooping={item.id === loopingSentenceId}
-                isSaved={savedSentences.some(
-                  (s) => s.sentenceId === item.id && s.videoId === videoId,
+
+          {/* Sub tabs for shadowing mode */}
+          {mainTab === "shadowing" && (
+            <View style={styles.subTabs}>
+              {SHADOWING_MODES.map(({ key, label }) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.subTab,
+                    shadowingMode === key && styles.subTabActive,
+                  ]}
+                  onPress={() => handleShadowingModeChange(key)}
+                >
+                  <Text
+                    style={[
+                      styles.subTabText,
+                      shadowingMode === key && styles.subTabTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Script area */}
+          {mainTab === "transformation" ? (
+            <TransformationPracticePanel
+              prompts={practicePrompts}
+              sentences={video.transcript ?? []}
+              selectedMode={practiceMode}
+              selectedSentenceId={selectedPracticeSentenceId}
+              draftText={practiceDraft}
+              speakingFunction={sessionDetail?.speaking_function}
+              coachingSummary={coachingSummary}
+              coachingLoading={coachingLoading || practiceLoading}
+              voiceCoachingLoading={voiceCoachingLoading}
+              saveMessage={playbookMessage}
+              canRunVoiceCoaching={Boolean(
+                selectedPracticeSentenceId &&
+                uploadedRecordingUrls[selectedPracticeSentenceId],
+              )}
+              onModeChange={handlePracticeModeChange}
+              onSentenceChange={handlePracticeSentenceChange}
+              onDraftChange={setPracticeDraft}
+              onCoach={handlePracticeCoach}
+              onVoiceCoach={handleVoiceCoaching}
+              onSave={handleSavePlaybook}
+            />
+          ) : !scriptVisible ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>SCRIPT HIDDEN</Text>
+            </View>
+          ) : mainTab === "listening" ? (
+            /* ── Listening list ── */
+            listeningData.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
+              </View>
+            ) : (
+              <FlatList
+                ref={listRef}
+                data={listeningData}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <ScriptLine
+                    sentence={item}
+                    isActive={item.id === activeSentenceId}
+                    isLooping={item.id === loopingSentenceId}
+                    isSaved={savedSentences.some(
+                      (s) => s.sentenceId === item.id && s.videoId === videoId,
+                    )}
+                    scriptHidden={false}
+                    onTap={handleSentenceTap}
+                    onLoopToggle={handleLoopToggle}
+                    onSaveToggle={handleSaveToggle}
+                  />
                 )}
-                scriptHidden={false}
-                onTap={handleSentenceTap}
-                onLoopToggle={handleLoopToggle}
-                onSaveToggle={handleSaveToggle}
+                onScrollToIndexFailed={() => {}}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
               />
-            )}
-            onScrollToIndexFailed={() => {}}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-          />
-        )
-      ) : /* ── Shadowing list ── */
-      shadowingSentences.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={listRef}
-          data={shadowingSentences}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <ShadowingScriptLine
-              sentence={item}
-              isActive={item.id === activeSentenceId}
-              hasRecording={!!recordedSentences[item.id]}
-              isCurrentRecording={item.id === currentRecordingSentenceId}
-              onRecord={handleRecord}
-              onSeek={handleSeek}
-              index={index}
+            )
+          ) : /* ── Shadowing list ── */
+          shadowingSentences.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
+            </View>
+          ) : (
+            <FlatList
+              ref={listRef}
+              data={shadowingSentences}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item, index }) => (
+                <ShadowingScriptLine
+                  sentence={item}
+                  isActive={item.id === activeSentenceId}
+                  hasRecording={!!recordedSentences[item.id]}
+                  isCurrentRecording={item.id === currentRecordingSentenceId}
+                  onRecord={handleRecord}
+                  onSeek={handleSeek}
+                  index={index}
+                />
+              )}
+              onScrollToIndexFailed={() => {}}
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
             />
           )}
-          onScrollToIndexFailed={() => {}}
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-        />
-      )}
 
-      {/* Recording bar (shadowing, when recording) */}
-      {mainTab === "shadowing" && isRecording ? (
-        <RecordingBar
-          recordingState={recordingState}
-          duration={recDuration}
-          isPlaying={isPlayingRec}
-          playbackProgress={playbackProgress}
-          onStop={handleStop}
-          onPlay={playRecording}
-          onPause={pauseRecording}
-          onReRecord={handleReRecord}
-          onConfirm={handleConfirm}
-        />
-      ) : null}
-
-      {/* Bottom bar: script toggle (left) + end CTA (right) */}
-      {!isRecording ? (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.bottomBtn}
-            onPress={() => setScriptVisible((v) => !v)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={scriptVisible ? "document-text" : "document-text-outline"}
-              size={18}
-              color={C.text}
+          {/* Recording bar (shadowing, when recording) */}
+          {mainTab === "shadowing" && isRecording ? (
+            <RecordingBar
+              recordingState={recordingState}
+              duration={recDuration}
+              isPlaying={isPlayingRec}
+              playbackProgress={playbackProgress}
+              onStop={handleStop}
+              onPlay={playRecording}
+              onPause={pauseRecording}
+              onReRecord={handleReRecord}
+              onConfirm={handleConfirm}
             />
-            <Text style={styles.bottomBtnText}>
-              {scriptVisible ? "HIDE SCRIPT" : "SHOW SCRIPT"}
-            </Text>
-          </TouchableOpacity>
+          ) : null}
 
-          <TouchableOpacity
-            style={styles.endBtn}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.endBtnText}>END</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
+          {/* Bottom bar: script toggle (left) + end CTA (right) */}
+          {!isRecording ? (
+            <View style={styles.bottomBar}>
+              {mainTab === "transformation" ? (
+                <View style={styles.bottomBtnPlaceholder} />
+              ) : (
+                <TouchableOpacity
+                  style={styles.bottomBtn}
+                  onPress={() => setScriptVisible((v) => !v)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={
+                      scriptVisible ? "document-text" : "document-text-outline"
+                    }
+                    size={18}
+                    color={C.text}
+                  />
+                  <Text style={styles.bottomBtnText}>
+                    {scriptVisible ? "HIDE SCRIPT" : "SHOW SCRIPT"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.endBtn}
+                onPress={() => router.back()}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.endBtnText}>END</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -596,6 +960,9 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   bottomBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+  bottomBtnPlaceholder: {
+    width: 100,
+  },
   bottomBtnText: {
     fontSize: 10,
     letterSpacing: 2,

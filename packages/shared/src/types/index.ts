@@ -75,6 +75,114 @@ export interface CuratedVideo {
   created_by?: string;
 }
 
+export const SESSION_SOURCE_TYPES = [
+  "keynote",
+  "demo",
+  "earnings-call",
+  "podcast",
+  "interview",
+  "panel",
+] as const;
+
+export type SessionSourceType = (typeof SESSION_SOURCE_TYPES)[number];
+
+export const SESSION_SPEAKING_FUNCTIONS = [
+  "persuade",
+  "explain-metric",
+  "summarize",
+  "hedge",
+  "disagree",
+  "propose",
+  "answer-question",
+] as const;
+
+export type SessionSpeakingFunction =
+  (typeof SESSION_SPEAKING_FUNCTIONS)[number];
+
+export const SESSION_ROLE_RELEVANCE = [
+  "engineer",
+  "pm",
+  "designer",
+  "founder",
+  "marketer",
+] as const;
+
+export type SessionRoleRelevance = (typeof SESSION_ROLE_RELEVANCE)[number];
+
+export const PRACTICE_MODES = ["slot-in", "role-play", "my-briefing"] as const;
+
+export type PracticeMode = (typeof PRACTICE_MODES)[number];
+
+export const PLAYBOOK_MASTERY_STATUSES = [
+  "new",
+  "practicing",
+  "mastered",
+] as const;
+
+export type PlaybookMasteryStatus = (typeof PLAYBOOK_MASTERY_STATUSES)[number];
+
+export interface SessionContext {
+  session_id?: string;
+  strategic_intent: string;
+  speaking_function?: SessionSpeakingFunction;
+  reusable_scenarios: string[];
+  key_vocabulary: string[];
+  grammar_rhetoric_note: string;
+  expected_takeaway: string;
+  generated_by?: string;
+  updated_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PracticePrompt {
+  id: string;
+  session_id: string;
+  mode: PracticeMode;
+  title: string;
+  prompt_text: string;
+  guidance: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PracticeCoachingSummary {
+  summary: string;
+  clarity_feedback: string;
+  usefulness_feedback: string;
+  next_step: string;
+  pronunciation_feedback?: string;
+  score?: number;
+}
+
+export interface PracticeAttempt {
+  id: string;
+  session_id: string;
+  source_video_id: string;
+  source_sentence: string;
+  speaking_function?: SessionSpeakingFunction;
+  mode: PracticeMode;
+  response_text?: string;
+  recording_url?: string;
+  coaching_summary?: PracticeCoachingSummary | null;
+  attempt_metadata?: Record<string, unknown>;
+  created_at?: string;
+}
+
+export interface PlaybookEntry {
+  id: string;
+  session_id: string;
+  source_video_id: string;
+  source_sentence: string;
+  speaking_function?: SessionSpeakingFunction;
+  practice_mode: PracticeMode;
+  user_rewrite: string;
+  attempt_metadata?: Record<string, unknown>;
+  mastery_status: PlaybookMasteryStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface LearningSession {
   id: string;
   source_video_id: string;
@@ -87,12 +195,17 @@ export interface LearningSession {
   thumbnail_url?: string;
   difficulty?: "beginner" | "intermediate" | "advanced";
   order_index: number;
+  source_type?: SessionSourceType;
+  speaking_function?: SessionSpeakingFunction;
+  role_relevance?: SessionRoleRelevance[];
+  premium_required?: boolean;
   created_at: string;
   created_by?: string;
 
   // Populated fields (optional, for UI convenience)
   sentences?: Sentence[];
   source_video?: CuratedVideo;
+  context?: SessionContext | null;
 }
 
 export interface SceneRecommendation {

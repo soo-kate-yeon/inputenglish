@@ -2,7 +2,20 @@
 // @MX:REASON: [AUTO] fan_in >= 3: used by HomeScreen, ListeningScreen, and future screens
 // @MX:SPEC: SPEC-MOBILE-003 - direct Supabase queries bypassing web API server
 import { supabase } from "./supabase";
-import type { CuratedVideo } from "@shadowoo/shared";
+import type {
+  CuratedVideo,
+  PlaybookEntry,
+  PlaybookMasteryStatus,
+  PracticeAttempt,
+  PracticeCoachingSummary,
+  PracticeMode,
+  PracticePrompt,
+  SessionContext,
+  SessionRoleRelevance,
+  SessionSourceType,
+  SessionSpeakingFunction,
+} from "@shadowoo/shared";
+import { buildDefaultPracticePrompts } from "./professional-practice";
 
 export interface VideoListItem {
   video_id: string;
@@ -35,6 +48,11 @@ export interface SessionListItem {
   thumbnail_url?: string;
   order_index: number;
   channel_name?: string;
+  source_type?: SessionSourceType;
+  speaking_function?: SessionSpeakingFunction;
+  role_relevance?: SessionRoleRelevance[];
+  premium_required?: boolean;
+  context?: SessionContext | null;
 }
 
 export async function fetchLearningSessions(): Promise<SessionListItem[]> {
@@ -42,7 +60,7 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   const { data: sessions, error: sessionsError } = await supabase
     .from("learning_sessions")
     .select(
-      "id, source_video_id, title, description, duration, difficulty, thumbnail_url, order_index",
+      "id, source_video_id, title, description, duration, difficulty, thumbnail_url, order_index, source_type, speaking_function, role_relevance, premium_required",
     )
     .order("created_at", { ascending: false });
 
@@ -67,6 +85,12 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
       description: s.description || undefined,
       duration: Number(s.duration),
       difficulty: s.difficulty as SessionListItem["difficulty"],
+      source_type: s.source_type as SessionListItem["source_type"],
+      speaking_function:
+        s.speaking_function as SessionListItem["speaking_function"],
+      role_relevance:
+        (s.role_relevance as SessionListItem["role_relevance"]) || [],
+      premium_required: Boolean(s.premium_required),
       thumbnail_url:
         s.thumbnail_url ||
         video?.thumbnail_url ||
@@ -75,6 +99,77 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
       channel_name: video?.channel_name || undefined,
     };
   });
+}
+
+export async function fetchLearningSessionDetail(
+  sessionId: string,
+): Promise<SessionListItem | null> {
+  const { data, error } = await supabase
+    .from("learning_sessions")
+    .select(
+      `
+        id,
+        source_video_id,
+        title,
+        description,
+        duration,
+        difficulty,
+        thumbnail_url,
+        order_index,
+        source_type,
+        speaking_function,
+        role_relevance,
+        premium_required,
+        context:session_contexts (
+          session_id,
+          strategic_intent,
+          speaking_function,
+          reusable_scenarios,
+          key_vocabulary,
+          grammar_rhetoric_note,
+          expected_takeaway,
+          generated_by,
+          updated_by,
+          created_at,
+          updated_at
+        )
+      `,
+    )
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  const context = Array.isArray(data.context)
+    ? (data.context[0] as SessionContext | undefined)
+    : (data.context as SessionContext | null);
+
+  return {
+    id: data.id,
+    source_video_id: data.source_video_id,
+    title: data.title,
+    description: data.description || undefined,
+    duration: Number(data.duration),
+    difficulty: data.difficulty as SessionListItem["difficulty"],
+    thumbnail_url:
+      data.thumbnail_url ||
+      `https://img.youtube.com/vi/${data.source_video_id}/hqdefault.jpg`,
+    order_index: data.order_index,
+    source_type: data.source_type as SessionListItem["source_type"],
+    speaking_function:
+      data.speaking_function as SessionListItem["speaking_function"],
+    role_relevance:
+      (data.role_relevance as SessionListItem["role_relevance"]) || [],
+    premium_required: Boolean(data.premium_required),
+    context: context
+      ? {
+          ...context,
+          reusable_scenarios: context.reusable_scenarios || [],
+          key_vocabulary: context.key_vocabulary || [],
+        }
+      : null,
+  };
 }
 
 export async function fetchCuratedVideo(
@@ -88,4 +183,213 @@ export async function fetchCuratedVideo(
 
   if (error) throw error;
   return data as CuratedVideo;
+}
+
+export async function ensurePracticePrompts(
+  session: SessionListItem,
+  userDisplayName?: string | null,
+): Promise<PracticePrompt[]> {
+  const { data, error } = await supabase
+    .from("practice_prompts")
+    .select(
+      "id, session_id, mode, title, prompt_text, guidance, created_at, updated_at",
+    )
+    .eq("session_id", session.id)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  if (data && data.length > 0) {
+    return data.map((item) => ({
+      id: item.id,
+      session_id: item.session_id,
+      mode: item.mode as PracticeMode,
+      title: item.title,
+      prompt_text: item.prompt_text,
+      guidance: Array.isArray(item.guidance) ? (item.guidance as string[]) : [],
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    }));
+  }
+
+  const defaults = buildDefaultPracticePrompts({
+    sessionId: session.id,
+    title: session.title,
+    description: session.description,
+    speakingFunction: session.speaking_function,
+    roleRelevance: session.role_relevance,
+    context: session.context,
+    userDisplayName,
+  });
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("practice_prompts")
+    .upsert(defaults, { onConflict: "session_id,mode" })
+    .select(
+      "id, session_id, mode, title, prompt_text, guidance, created_at, updated_at",
+    );
+
+  if (insertError) throw insertError;
+
+  return (inserted ?? []).map((item) => ({
+    id: item.id,
+    session_id: item.session_id,
+    mode: item.mode as PracticeMode,
+    title: item.title,
+    prompt_text: item.prompt_text,
+    guidance: Array.isArray(item.guidance) ? (item.guidance as string[]) : [],
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+  }));
+}
+
+export async function savePracticeAttempt(
+  userId: string,
+  payload: {
+    sessionId: string;
+    sourceVideoId: string;
+    sourceSentence: string;
+    speakingFunction?: SessionSpeakingFunction;
+    mode: PracticeMode;
+    responseText?: string;
+    recordingUrl?: string;
+    coachingSummary?: PracticeCoachingSummary | null;
+    attemptMetadata?: Record<string, unknown>;
+  },
+): Promise<PracticeAttempt> {
+  const { data, error } = await supabase
+    .from("practice_attempts")
+    .insert({
+      user_id: userId,
+      session_id: payload.sessionId,
+      source_video_id: payload.sourceVideoId,
+      source_sentence: payload.sourceSentence,
+      speaking_function: payload.speakingFunction,
+      mode: payload.mode,
+      response_text: payload.responseText,
+      recording_url: payload.recordingUrl,
+      coaching_summary: payload.coachingSummary ?? null,
+      attempt_metadata: payload.attemptMetadata ?? {},
+    })
+    .select(
+      "id, session_id, source_video_id, source_sentence, speaking_function, mode, response_text, recording_url, coaching_summary, attempt_metadata, created_at",
+    )
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    session_id: data.session_id,
+    source_video_id: data.source_video_id,
+    source_sentence: data.source_sentence,
+    speaking_function:
+      data.speaking_function as PracticeAttempt["speaking_function"],
+    mode: data.mode as PracticeMode,
+    response_text: data.response_text || undefined,
+    recording_url: data.recording_url || undefined,
+    coaching_summary:
+      (data.coaching_summary as PracticeCoachingSummary | null) ?? null,
+    attempt_metadata:
+      (data.attempt_metadata as Record<string, unknown> | undefined) ?? {},
+    created_at: data.created_at,
+  };
+}
+
+export async function savePlaybookEntry(
+  userId: string,
+  payload: {
+    sessionId: string;
+    sourceVideoId: string;
+    sourceSentence: string;
+    speakingFunction?: SessionSpeakingFunction;
+    practiceMode: PracticeMode;
+    userRewrite: string;
+    attemptMetadata?: Record<string, unknown>;
+  },
+): Promise<PlaybookEntry> {
+  const { data, error } = await supabase
+    .from("playbook_entries")
+    .insert({
+      user_id: userId,
+      session_id: payload.sessionId,
+      source_video_id: payload.sourceVideoId,
+      source_sentence: payload.sourceSentence,
+      speaking_function: payload.speakingFunction,
+      practice_mode: payload.practiceMode,
+      user_rewrite: payload.userRewrite,
+      attempt_metadata: payload.attemptMetadata ?? {},
+    })
+    .select(
+      "id, session_id, source_video_id, source_sentence, speaking_function, practice_mode, user_rewrite, attempt_metadata, mastery_status, created_at, updated_at",
+    )
+    .single();
+
+  if (error) throw error;
+
+  return mapPlaybookEntry(data);
+}
+
+export async function fetchPlaybookEntries(
+  userId: string,
+): Promise<PlaybookEntry[]> {
+  const { data, error } = await supabase
+    .from("playbook_entries")
+    .select(
+      "id, user_id, session_id, source_video_id, source_sentence, speaking_function, practice_mode, user_rewrite, attempt_metadata, mastery_status, created_at, updated_at",
+    )
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map(mapPlaybookEntry);
+}
+
+export async function updatePlaybookEntryMastery(
+  userId: string,
+  entryId: string,
+  masteryStatus: PlaybookMasteryStatus,
+): Promise<void> {
+  const { error } = await supabase
+    .from("playbook_entries")
+    .update({
+      mastery_status: masteryStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("id", entryId);
+
+  if (error) throw error;
+}
+
+function mapPlaybookEntry(item: {
+  id: string;
+  session_id: string;
+  source_video_id: string;
+  source_sentence: string;
+  speaking_function?: string | null;
+  practice_mode: string;
+  user_rewrite: string;
+  attempt_metadata?: Record<string, unknown> | null;
+  mastery_status: string;
+  created_at: string;
+  updated_at: string;
+}): PlaybookEntry {
+  return {
+    id: item.id,
+    session_id: item.session_id,
+    source_video_id: item.source_video_id,
+    source_sentence: item.source_sentence,
+    speaking_function:
+      (item.speaking_function as PlaybookEntry["speaking_function"]) ||
+      undefined,
+    practice_mode: item.practice_mode as PracticeMode,
+    user_rewrite: item.user_rewrite,
+    attempt_metadata:
+      (item.attempt_metadata as Record<string, unknown> | undefined) ?? {},
+    mastery_status: item.mastery_status as PlaybookMasteryStatus,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+  };
 }

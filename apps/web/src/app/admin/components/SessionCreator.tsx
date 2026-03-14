@@ -3,17 +3,66 @@ import type {
   Sentence,
   SceneRecommendation,
   LearningSession,
+  SessionContext,
+  SessionRoleRelevance,
+  SessionSourceType,
+  SessionSpeakingFunction,
 } from "@shadowoo/shared";
 import {
-  Check,
-  X,
-  GripVertical,
-  Plus,
-  Trash2,
-  Clock,
-  Edit2,
-  Sparkles,
-} from "lucide-react";
+  SESSION_ROLE_RELEVANCE,
+  SESSION_SOURCE_TYPES,
+  SESSION_SPEAKING_FUNCTIONS,
+} from "@shadowoo/shared";
+import { Check, Plus, Trash2, Clock, Edit2, Sparkles } from "lucide-react";
+
+const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
+  keynote: "Keynote",
+  demo: "Demo",
+  "earnings-call": "Earnings Call",
+  podcast: "Podcast",
+  interview: "Interview",
+  panel: "Panel",
+};
+
+const SPEAKING_FUNCTION_LABELS: Record<SessionSpeakingFunction, string> = {
+  persuade: "Persuade",
+  "explain-metric": "Explain Metric",
+  summarize: "Summarize",
+  hedge: "Hedge",
+  disagree: "Disagree",
+  propose: "Propose",
+  "answer-question": "Answer Question",
+};
+
+const ROLE_LABELS: Record<SessionRoleRelevance, string> = {
+  engineer: "Engineer",
+  pm: "PM",
+  designer: "Designer",
+  founder: "Founder",
+  marketer: "Marketer",
+};
+
+function createEmptyContext(): SessionContext {
+  return {
+    strategic_intent: "",
+    reusable_scenarios: [],
+    key_vocabulary: [],
+    grammar_rhetoric_note: "",
+    expected_takeaway: "",
+    generated_by: "manual",
+  };
+}
+
+function arrayToMultiline(value: string[]): string {
+  return value.join("\n");
+}
+
+function multilineToArray(value: string): string[] {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 interface SessionCreatorProps {
   sentences: Sentence[];
@@ -40,12 +89,20 @@ export function SessionCreator({
   const [difficulty, setDifficulty] = useState<
     "beginner" | "intermediate" | "advanced"
   >("intermediate");
+  const [sourceType, setSourceType] = useState<SessionSourceType>("podcast");
+  const [speakingFunction, setSpeakingFunction] =
+    useState<SessionSpeakingFunction>("summarize");
+  const [roleRelevance, setRoleRelevance] = useState<SessionRoleRelevance[]>([
+    "pm",
+  ]);
+  const [premiumRequired, setPremiumRequired] = useState(true);
+  const [context, setContext] = useState<SessionContext>(createEmptyContext());
   const [isAutofilling, setIsAutofilling] = useState(false);
+  const [isGeneratingContext, setIsGeneratingContext] = useState(false);
 
   // List State
   const [createdSessions, setCreatedSessions] =
     useState<LearningSession[]>(initialSessions);
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
 
   // Effect to notify parent
   useEffect(() => {
@@ -183,8 +240,16 @@ export function SessionCreator({
       sentence_ids: sortedSelectedSentences.map((s) => s.id),
       difficulty,
       order_index: createdSessions.length,
+      source_type: sourceType,
+      speaking_function: speakingFunction,
+      role_relevance: roleRelevance,
+      premium_required: premiumRequired,
       created_at: new Date().toISOString(),
       sentences: sortedSelectedSentences, // Store for preview
+      context: {
+        ...context,
+        speaking_function: speakingFunction,
+      },
     };
 
     setCreatedSessions([...createdSessions, newSession]);
@@ -192,6 +257,11 @@ export function SessionCreator({
     // Reset form
     setTitle("");
     setDescription("");
+    setSourceType("podcast");
+    setSpeakingFunction("summarize");
+    setRoleRelevance(["pm"]);
+    setPremiumRequired(true);
+    setContext(createEmptyContext());
     setSelectedIds(new Set());
     setLastClickedId(null);
   };
@@ -205,6 +275,11 @@ export function SessionCreator({
     setTitle(session.title);
     setDescription(session.description || "");
     setDifficulty(session.difficulty || "intermediate");
+    setSourceType(session.source_type || "podcast");
+    setSpeakingFunction(session.speaking_function || "summarize");
+    setRoleRelevance(session.role_relevance || ["pm"]);
+    setPremiumRequired(session.premium_required ?? true);
+    setContext(session.context ?? createEmptyContext());
     setSelectedIds(new Set(session.sentence_ids));
     setCreatedSessions((prev) => prev.filter((s) => s.id !== session.id));
   };
@@ -237,8 +312,13 @@ export function SessionCreator({
         sentence_ids: sceneSentences.map((s) => s.id),
         difficulty: "intermediate" as const,
         order_index: createdSessions.length + idx,
+        source_type: "podcast" as const,
+        speaking_function: "summarize" as const,
+        role_relevance: ["pm"] as SessionRoleRelevance[],
+        premium_required: true,
         created_at: new Date().toISOString(),
         sentences: sceneSentences,
+        context: null,
       };
     });
     setCreatedSessions([...createdSessions, ...newSessions]);
@@ -267,11 +347,62 @@ export function SessionCreator({
       const data = await response.json();
       setTitle(data.title);
       setDescription(data.description);
+      setSourceType(data.sourceType || "podcast");
+      setSpeakingFunction(data.speakingFunction || "summarize");
+      setRoleRelevance(data.roleRelevance || ["pm"]);
+      setPremiumRequired(Boolean(data.premiumRequired));
+      setContext((prev) => ({
+        ...prev,
+        speaking_function: data.speakingFunction || "summarize",
+      }));
     } catch (error) {
       console.error("Autofill error:", error);
       alert("AI 자동 완성에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setIsAutofilling(false);
+    }
+  };
+
+  const toggleRole = (role: SessionRoleRelevance) => {
+    setRoleRelevance((prev) =>
+      prev.includes(role)
+        ? prev.filter((item) => item !== role)
+        : [...prev, role],
+    );
+  };
+
+  const handleGenerateContext = async () => {
+    if (!title.trim() || sortedSelectedSentences.length === 0) return;
+
+    setIsGeneratingContext(true);
+    try {
+      const response = await fetch("/api/admin/generate-session-context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title,
+          description,
+          speakingFunction,
+          sentences: sortedSelectedSentences,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate context");
+      }
+
+      const data = (await response.json()) as SessionContext;
+      setContext(data);
+      if (data.speaking_function) {
+        setSpeakingFunction(data.speaking_function);
+      }
+    } catch (error) {
+      console.error("Context generation error:", error);
+      alert("프리러닝 컨텍스트 생성에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsGeneratingContext(false);
     }
   };
 
@@ -549,6 +680,235 @@ export function SessionCreator({
               }}
             />
 
+            <div className="grid grid-cols-2" style={{ gap: 8 }}>
+              <select
+                value={sourceType}
+                onChange={(e) =>
+                  setSourceType(e.target.value as SessionSourceType)
+                }
+                className="text-xs focus:outline-none"
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                }}
+              >
+                {SESSION_SOURCE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {SOURCE_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={speakingFunction}
+                onChange={(e) => {
+                  const next = e.target.value as SessionSpeakingFunction;
+                  setSpeakingFunction(next);
+                  setContext((prev) => ({
+                    ...prev,
+                    speaking_function: next,
+                  }));
+                }}
+                className="text-xs focus:outline-none"
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                }}
+              >
+                {SESSION_SPEAKING_FUNCTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {SPEAKING_FUNCTION_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ gap: 6, display: "flex", flexDirection: "column" }}>
+              <span
+                className="text-[10px] font-bold uppercase tracking-wider"
+                style={{ color: "#737373" }}
+              >
+                Role Relevance
+              </span>
+              <div className="flex flex-wrap" style={{ gap: 6 }}>
+                {SESSION_ROLE_RELEVANCE.map((role) => {
+                  const selected = roleRelevance.includes(role);
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => toggleRole(role)}
+                      style={{
+                        padding: "4px 8px",
+                        border: `1px solid ${selected ? "#0a0a0a" : "#e5e5e5"}`,
+                        backgroundColor: selected ? "#0a0a0a" : "#ffffff",
+                        color: selected ? "#ffffff" : "#525252",
+                        fontSize: 10,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {ROLE_LABELS[role]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label
+              className="flex items-center justify-between text-xs"
+              style={{
+                border: "1px solid #e5e5e5",
+                padding: "6px 8px",
+                color: "#525252",
+              }}
+            >
+              <span>Premium context required</span>
+              <input
+                type="checkbox"
+                checked={premiumRequired}
+                onChange={(e) => setPremiumRequired(e.target.checked)}
+              />
+            </label>
+
+            <div
+              className="flex flex-col"
+              style={{
+                padding: 10,
+                border: "1px solid #e5e5e5",
+                backgroundColor: "#fcfcfc",
+                gap: 8,
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wider"
+                  style={{ color: "#737373" }}
+                >
+                  Professional Context
+                </span>
+                <button
+                  type="button"
+                  onClick={handleGenerateContext}
+                  disabled={
+                    isGeneratingContext ||
+                    sortedSelectedSentences.length === 0 ||
+                    !title.trim()
+                  }
+                  style={{
+                    padding: "3px 8px",
+                    border: "none",
+                    backgroundColor:
+                      isGeneratingContext ||
+                      sortedSelectedSentences.length === 0 ||
+                      !title.trim()
+                        ? "#d4d4d4"
+                        : "#2563eb",
+                    color: "#ffffff",
+                    fontSize: 10,
+                    cursor:
+                      isGeneratingContext ||
+                      sortedSelectedSentences.length === 0 ||
+                      !title.trim()
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
+                >
+                  {isGeneratingContext ? "..." : "Generate Context"}
+                </button>
+              </div>
+
+              <textarea
+                value={context.strategic_intent}
+                onChange={(e) =>
+                  setContext((prev) => ({
+                    ...prev,
+                    strategic_intent: e.target.value,
+                  }))
+                }
+                placeholder="Strategic intent"
+                rows={2}
+                className="w-full text-xs focus:outline-none resize-none"
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                }}
+              />
+
+              <textarea
+                value={context.expected_takeaway}
+                onChange={(e) =>
+                  setContext((prev) => ({
+                    ...prev,
+                    expected_takeaway: e.target.value,
+                  }))
+                }
+                placeholder="Expected takeaway"
+                rows={2}
+                className="w-full text-xs focus:outline-none resize-none"
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                }}
+              />
+
+              <textarea
+                value={context.grammar_rhetoric_note}
+                onChange={(e) =>
+                  setContext((prev) => ({
+                    ...prev,
+                    grammar_rhetoric_note: e.target.value,
+                  }))
+                }
+                placeholder="Grammar / rhetoric note"
+                rows={2}
+                className="w-full text-xs focus:outline-none resize-none"
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                }}
+              />
+
+              <textarea
+                value={arrayToMultiline(context.reusable_scenarios)}
+                onChange={(e) =>
+                  setContext((prev) => ({
+                    ...prev,
+                    reusable_scenarios: multilineToArray(e.target.value),
+                  }))
+                }
+                placeholder="Reusable scenarios (one per line)"
+                rows={3}
+                className="w-full text-xs focus:outline-none resize-none"
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                }}
+              />
+
+              <textarea
+                value={arrayToMultiline(context.key_vocabulary)}
+                onChange={(e) =>
+                  setContext((prev) => ({
+                    ...prev,
+                    key_vocabulary: multilineToArray(e.target.value),
+                  }))
+                }
+                placeholder="Key vocabulary (one per line)"
+                rows={3}
+                className="w-full text-xs focus:outline-none resize-none"
+                style={{
+                  padding: "6px 8px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                }}
+              />
+            </div>
+
             <div className="flex items-center" style={{ gap: 8 }}>
               <select
                 value={difficulty}
@@ -673,6 +1033,16 @@ export function SessionCreator({
                       </span>
                       <span>{session.sentence_ids.length} sent.</span>
                       <span className="capitalize">{session.difficulty}</span>
+                      {session.source_type ? (
+                        <span>{SOURCE_TYPE_LABELS[session.source_type]}</span>
+                      ) : null}
+                      {session.speaking_function ? (
+                        <span>
+                          {SPEAKING_FUNCTION_LABELS[session.speaking_function]}
+                        </span>
+                      ) : null}
+                      {session.premium_required ? <span>Premium</span> : null}
+                      {session.context ? <span>Context</span> : null}
                     </div>
                   </div>
                   <div
