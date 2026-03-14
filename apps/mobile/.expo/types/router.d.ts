@@ -14,6 +14,7 @@ declare module "expo-router" {
             pathname: Router.ExternalPathString;
             params?: Router.UnknownInputParams;
           }
+        | { pathname: `/paywall`; params?: Router.UnknownInputParams }
         | { pathname: `/_sitemap`; params?: Router.UnknownInputParams }
         | {
             pathname: `${"/(auth)"}/login` | `/login`;
@@ -53,6 +54,7 @@ declare module "expo-router" {
             pathname: Router.ExternalPathString;
             params?: Router.UnknownOutputParams;
           }
+        | { pathname: `/paywall`; params?: Router.UnknownOutputParams }
         | { pathname: `/_sitemap`; params?: Router.UnknownOutputParams }
         | {
             pathname: `${"/(auth)"}/login` | `/login`;
@@ -89,6 +91,7 @@ declare module "expo-router" {
       href:
         | Router.RelativePathString
         | Router.ExternalPathString
+        | `/paywall${`?${string}` | `#${string}` | ""}`
         | `/_sitemap${`?${string}` | `#${string}` | ""}`
         | `${"/(auth)"}/login${`?${string}` | `#${string}` | ""}`
         | `/login${`?${string}` | `#${string}` | ""}`
@@ -108,6 +111,7 @@ declare module "expo-router" {
             pathname: Router.ExternalPathString;
             params?: Router.UnknownInputParams;
           }
+        | { pathname: `/paywall`; params?: Router.UnknownInputParams }
         | { pathname: `/_sitemap`; params?: Router.UnknownInputParams }
         | {
             pathname: `${"/(auth)"}/login` | `/login`;

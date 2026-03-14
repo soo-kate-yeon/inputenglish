@@ -12,7 +12,8 @@ Before generating screens, authenticate with your FramingUI account:
 framingui-mcp login
 ```
 
-This opens your browser for OAuth authentication. Your credentials are stored in `~/.framingui/credentials.json`.
+This opens your browser for OAuth authentication. Your credentials are stored in
+`~/.framingui/credentials.json`.
 
 **Why authentication is required:**
 
@@ -40,17 +41,21 @@ Claude Code calls `get-screen-generation-context` with your screen description:
 "Create a user dashboard with profile card and recent activity"
 ```
 
-Returns: Template matches, component suggestions with inline props/variants, Screen Definition schema
+Returns: Template matches, component suggestions with inline props/variants,
+Screen Definition schema
 
 ### Step 2/3: Validate Definition
 
-Claude Code generates a Screen Definition JSON and calls `validate-screen-definition`:
+Claude Code generates a Screen Definition JSON and calls
+`validate-screen-definition`:
 
-Returns: Validation results, errors with auto-fix patches (if any), improvement suggestions
+Returns: Validation results, errors with auto-fix patches (if any), improvement
+suggestions
 
 ### After Validation: Write Code
 
-Claude Code writes React code directly using the components and props from Step 1 context.
+Claude Code writes React code directly using the components and props from Step
+1 context.
 
 ### Step 3/3: Validate Environment (Optional)
 
@@ -58,7 +63,8 @@ Claude Code calls `validate-environment` to check your project:
 
 Returns: Missing packages, install commands, Tailwind CSS config validation
 
-**Important:** Always check the dependencies and Tailwind configuration before running generated code.
+**Important:** Always check the dependencies and Tailwind configuration before
+running generated code.
 
 ---
 
@@ -71,9 +77,9 @@ Returns: Missing packages, install commands, Tailwind CSS config validation
 import {
   Button,
   Card,
+  CardContent,
   CardHeader,
   CardTitle,
-  CardContent,
 } from "@framingui/ui";
 
 export default function HomePage() {
@@ -108,11 +114,13 @@ Claude Code에서 MCP 서버가 연결되어 있으면, 자연어로 화면을 �
 
 ### Core
 
-Button, Input, Label, Card, Badge, Avatar, Separator, Checkbox, RadioGroup, Switch, Textarea, Skeleton, ScrollArea, Select, Progress
+Button, Input, Label, Card, Badge, Avatar, Separator, Checkbox, RadioGroup,
+Switch, Textarea, Skeleton, ScrollArea, Select, Progress
 
 ### Complex
 
-Dialog, DropdownMenu, Table, Tabs, Toast, Tooltip, Popover, Sheet, AlertDialog, NavigationMenu
+Dialog, DropdownMenu, Table, Tabs, Toast, Tooltip, Popover, Sheet, AlertDialog,
+NavigationMenu
 
 ### Advanced
 
@@ -121,7 +129,7 @@ Sidebar, Breadcrumb, Command, Calendar, Form
 ### Usage
 
 ```tsx
-import { Button, Dialog, DialogTrigger, DialogContent } from "@framingui/ui";
+import { Button, Dialog, DialogContent, DialogTrigger } from "@framingui/ui";
 ```
 
 ---
@@ -153,7 +161,7 @@ import { Button, Dialog, DialogTrigger, DialogContent } from "@framingui/ui";
 ### Applying a Theme
 
 ```tsx
-import { themeToCSS, injectThemeCSS } from "@framingui/ui";
+import { injectThemeCSS, themeToCSS } from "@framingui/ui";
 
 // Inject theme CSS at runtime
 injectThemeCSS(themeData);
@@ -170,6 +178,13 @@ import { cn } from "@framingui/ui";
 ```
 
 ---
+
+## Prompt
+
+/Users/sooyeon/Developer/shadowoo/apps/mobile 를 기준으로 FramingUI MCP를 써서
+React Native direct-write workflow로 진행해. 먼저 detect-project-context를
+실행하고, 그 결과를 바탕으로 회원가입 화면에 필요한 가이드를 모아줘. 웹 전용
+가정은 쓰지 말고 Expo + React Native + StyleSheet 기준으로만 답해.
 
 ## Links
 

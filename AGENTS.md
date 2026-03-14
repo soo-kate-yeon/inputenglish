@@ -1,195 +1,149 @@
 # AI Agent Instructions
 
-## FramingUI Workflow (AI Agents)
+## FramingUI Workflow For Shadowoo Mobile
 
 ### Overview
 
-FramingUI MCP server provides 15 tools for screen generation via Model Context Protocol (MCP). This guide is for AI agents on platforms like OpenAI Codex, Cursor, Windsurf, and other MCP-compatible clients.
+Shadowoo mobile is an Expo + React Native app. In this repository, FramingUI is used as a direct-write design system assistant, not as a React Native runtime component library.
 
-### Prerequisites
+The expected workflow is:
 
-1. **MCP Server Running:** Ensure `@framingui/mcp-server` is running and connected
-2. **Authentication:** User must run `framingui-mcp login` before generating screens
-3. **Project Setup:** `@framingui/ui` and `tailwindcss-animate` must be installed
+1. detect project context
+2. gather React Native screen guidance
+3. write React Native code directly
+4. run environment and source validation
 
-### Required Authentication Flow
+### Local MCP Setup
 
-**Step 1:** Check authentication status
+- Use the workspace `.mcp.json` at the repository root.
+- It points to the local FramingUI worktree build:
+
+```json
+{
+  "mcpServers": {
+    "framingui": {
+      "command": "node",
+      "args": [
+        "/Users/sooyeon/Developer/worktrees/framingui-rn-direct-write/packages/mcp-server/dist/index.js"
+      ]
+    }
+  }
+}
+```
+
+- If the local server is rebuilt, use the updated `dist` output from that worktree.
+
+### Authentication
+
+Some FramingUI discovery APIs still require login.
+
+Check status:
 
 ```bash
 framingui-mcp status
 ```
 
-**Step 2:** If not authenticated, instruct user:
+If needed:
 
 ```bash
 framingui-mcp login
 ```
 
-**Important:** All 6 themes require valid licenses. There are no free themes available.
+### Required Workflow
 
-### Screen Generation Workflow (3 Steps)
+#### Step 1. Detect Project Context
 
-Follow this exact sequence for production-ready screens:
+Run `detect-project-context` first.
 
-#### Step 1/3: Gather Context
-
-**Tool:** `get-screen-generation-context`
-
-**Purpose:** Get all context needed to create Screen Definition
-
-**Input:**
+Example input:
 
 ```json
 {
-  "description": "user dashboard with profile card",
-  "themeId": "minimal-workspace",
+  "projectPath": "/Users/sooyeon/Developer/shadowoo/apps/mobile"
+}
+```
+
+Expected result:
+
+- `platform: "react-native"`
+- `runtime: "expo"`
+- recommended defaults for subsequent tools
+
+After this step, downstream tools can inherit the detected platform defaults.
+
+#### Step 2. Gather Screen Guidance
+
+Run `get-screen-generation-context`.
+
+Example input:
+
+```json
+{
+  "description": "signup screen with email, password, CTA, error state",
   "includeExamples": true
 }
 ```
 
-**Output:** Template matches, component suggestions with inline props/variants, schema, examples
+For Shadowoo mobile, this should resolve to the React Native direct-write workflow. Do not assume Tailwind, CSS imports, or `@framingui/ui` runtime components.
 
-#### Step 2/3: Validate Definition
+Use discovery tools as needed:
 
-**Tool:** `validate-screen-definition`
+- `list-components`
+- `preview-component`
+- `list_tokens`
 
-**Purpose:** Ensure Screen Definition JSON is correct
+#### Step 3. Write React Native Code Directly
 
-**Input:**
+Write RN code in the existing Shadowoo style:
 
-```json
-{
-  "definition": {
-    "id": "user-dashboard",
-    "shell": "shell.web.dashboard",
-    "page": "page.dashboard",
-    "sections": [...]
-  },
-  "strict": true
-}
-```
+- `StyleSheet.create`
+- Expo / `expo-router`
+- `View`, `Text`, `Pressable`, `TextInput`, `ScrollView`
+- existing local primitives and theme patterns when available
 
-**Output:** Validation results with errors, warnings, suggestions, and autoFix patches
+Do not introduce:
 
-**Critical:** Always validate before writing code. Apply autoFixPatches or fix all errors.
+- web-only `className`
+- Tailwind-specific guidance
+- `@framingui/ui` imports
+- raw hex values when project tokens or shared constants already exist
 
-#### After Validation: Write React Code Directly
+#### Step 4. Validate Environment And Source Files
 
-**No tool needed** - Write production-ready React code using components from Step 1 context.
+Run `validate-environment` after writing code.
 
-Use the import statements and props provided in the context response.
-
-#### Step 3/3: Validate Environment (Optional)
-
-**Tool:** `validate-environment`
-
-**Purpose:** Verify project has required packages and Tailwind config
-
-**Input:**
+Example input:
 
 ```json
 {
-  "projectPath": "/path/to/package.json",
-  "requiredPackages": ["@radix-ui/react-slot", "@radix-ui/react-avatar"],
-  "checkTailwind": true
+  "projectPath": "/Users/sooyeon/Developer/shadowoo/apps/mobile",
+  "sourceFiles": [
+    "/Users/sooyeon/Developer/shadowoo/apps/mobile/app/(auth)/signup.tsx"
+  ]
 }
 ```
 
-**Output:** Missing packages, install commands, Tailwind validation
+This should:
 
-**Critical:** Always inform user about missing packages and Tailwind config issues.
+- confirm Expo / React Native environment detection
+- avoid web-only Tailwind requirements
+- flag RN direct-write issues such as:
+  - raw hex or rgb colors
+  - hardcoded spacing or radius
+  - web-only patterns like `className`
 
-### Discovery Tools
+### Shadowoo-Specific Rules
 
-Before generating screens, explore available resources:
-
-**Themes (6 total, all require authentication):**
-
-- `list-themes` → See all 6 themes
-- `preview-theme` → Get theme design tokens
-
-**Components (30+ available):**
-
-- `list-components` → Browse component catalog
-- `preview-component` → Get component props, variants, examples
-
-**Templates (13 available):**
-
-- `list-screen-templates` → Browse screen templates
-- `preview-screen-template` → Get template structure
-
-### Component Usage Example
-
-```tsx
-// app/page.tsx
-import {
-  Button,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@framingui/ui";
-
-export default function Page() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Welcome</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Button variant="default">Get Started</Button>
-      </CardContent>
-    </Card>
-  );
-}
-```
-
-### MCP Prompts (Universal Guidance)
-
-Your MCP client may support prompts. If available:
-
-- `getting-started` - Complete onboarding guide
-- `screen-workflow` - Detailed 3-step workflow
-
-These provide context to help you guide users effectively.
-
-### Error Handling
-
-**Authentication errors:**
-
-- Instruct user to run `framingui-mcp login`
-- Verify with `framingui-mcp status`
-
-**Validation errors (Step 2):**
-
-- Read error messages - they include suggestions
-- Fix errors in Screen Definition
-- Re-run `validate-screen-definition`
-
-**Missing dependencies (Step 3):**
-
-- Always run Step 4 to check environment
-- Show user install commands from `validate-environment`
-
-**Missing styles (runtime):**
-
-- Run `validate-environment` to diagnose
-- Check Tailwind config includes `@framingui/ui` content paths
-- Check `tailwindcss-animate` plugin is configured
+1. Prefer direct-write React Native screens over screen-definition export.
+2. Treat FramingUI as contract, guidance, and QC.
+3. Preserve existing Expo and `StyleSheet` patterns.
+4. Validate with FramingUI MCP before considering a screen done.
+5. If a tool response looks web-first, re-run after `detect-project-context` and keep the mobile `projectPath` explicit.
 
 ### Best Practices
 
-1. ✅ Always authenticate before generating screens
-2. ✅ Follow all 3 workflow steps in order
-3. ✅ Validate before writing code (Step 2)
-4. ✅ Check environment before delivering code (Step 3)
-5. ✅ Inform user about missing dependencies and Tailwind issues
-6. ✅ Use `strict: true` for production validation
-
-### Quick Reference: All 15 Tools
-
-**Discovery:** list-themes, preview-theme, list-components, preview-component, list-screen-templates, preview-screen-template
-**Workflow:** get-screen-generation-context, validate-screen-definition, validate-environment
-**Quick:** generate-blueprint, export-screen, validate_screen, list_tokens
-**Icons:** list-icon-libraries, preview-icon-library
+1. Always run `detect-project-context` first in this repo.
+2. Keep mobile work in `apps/mobile`.
+3. Prefer RN primitives and existing shared helpers over new abstractions.
+4. Use FramingUI for tokens, constraints, and review guidance.
+5. Run `validate-environment` on changed RN files before finishing.
