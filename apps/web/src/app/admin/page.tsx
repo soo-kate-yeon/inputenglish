@@ -260,6 +260,7 @@ function AdminPageContent() {
     const refined = rawScript
       .replace(/^>.*$/gm, "")
       .replace(/\[.*?\]/g, "")
+      .replace(/^.+?:\s*/gm, "")
       .replace(/\n\s*\n/g, "\n")
       .trim();
 
