@@ -1,6 +1,7 @@
 // @MX:SPEC: SPEC-MOBILE-003 - REQ-E-004, REQ-S-002, AC-003
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 interface LoopToggleProps {
   active: boolean;
@@ -13,29 +14,29 @@ export default function LoopToggle({ active, onPress }: LoopToggleProps) {
       style={[styles.button, active && styles.buttonActive]}
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      activeOpacity={0.7}
     >
-      <Text style={[styles.icon, active && styles.iconActive]}>↺</Text>
+      <Ionicons
+        name="repeat"
+        size={14}
+        color={active ? "#FFFFFF" : "#888888"}
+      />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f0f0f0",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    backgroundColor: "#FFFFFF",
   },
   buttonActive: {
     backgroundColor: "#111111",
-  },
-  icon: {
-    fontSize: 16,
-    color: "#666",
-  },
-  iconActive: {
-    color: "#fff",
+    borderColor: "#111111",
   },
 });

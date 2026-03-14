@@ -72,19 +72,17 @@ export default function PurchaseButton({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#007AFF",
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: "#111111",
+    paddingVertical: 16,
     alignItems: "center",
-    marginHorizontal: 16,
-    marginVertical: 6,
   },
   buttonDisabled: {
-    backgroundColor: "#C7C7CC",
+    backgroundColor: "#CCCCCC",
   },
   buttonText: {
-    color: "#fff",
-    fontSize: 16,
+    color: "#FFFFFF",
+    fontSize: 14,
     fontWeight: "700",
+    letterSpacing: 1.5,
   },
 });
