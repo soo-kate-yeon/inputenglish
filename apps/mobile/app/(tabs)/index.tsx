@@ -4,8 +4,9 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Modal,
+  Pressable,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -14,6 +15,12 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { fetchLearningSessions, SessionListItem } from "../../src/lib/api";
+import {
+  DIFFICULTY_LABELS,
+  ROLE_RELEVANCE_LABELS,
+  SOURCE_TYPE_LABELS,
+  SPEAKING_FUNCTION_LABELS,
+} from "../../src/lib/professional-labels";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -26,43 +33,10 @@ const COLOR = {
   textInverse: "#FFFFFF",
 };
 
-const DIFFICULTY_LABELS: Record<string, string> = {
-  beginner: "BEGINNER",
-  intermediate: "INTERMEDIATE",
-  advanced: "ADVANCED",
-};
-
 const DIFFICULTY_BG: Record<string, string> = {
   beginner: "#111111",
   intermediate: "#555555",
   advanced: "#111111",
-};
-
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  keynote: "KEYNOTE",
-  demo: "DEMO",
-  "earnings-call": "EARNINGS",
-  podcast: "PODCAST",
-  interview: "INTERVIEW",
-  panel: "PANEL",
-};
-
-const SPEAKING_FUNCTION_LABELS: Record<string, string> = {
-  persuade: "PERSUADE",
-  "explain-metric": "EXPLAIN METRIC",
-  summarize: "SUMMARIZE",
-  hedge: "HEDGE",
-  disagree: "DISAGREE",
-  propose: "PROPOSE",
-  "answer-question": "Q&A",
-};
-
-const ROLE_RELEVANCE_LABELS: Record<string, string> = {
-  engineer: "ENGINEER",
-  pm: "PM",
-  designer: "DESIGNER",
-  founder: "FOUNDER",
-  marketer: "MARKETER",
 };
 
 function formatDuration(seconds: number): string {
@@ -70,6 +44,96 @@ function formatDuration(seconds: number): string {
   const s = Math.floor(seconds % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+// ── FilterDropdown ──
+
+interface FilterDropdownProps {
+  label: string;
+  value: string;
+  options: { key: string; label: string }[];
+  onSelect: (key: string) => void;
+}
+
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onSelect,
+}: FilterDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.key === value);
+  const isFiltered = value !== "all";
+
+  return (
+    <>
+      <TouchableOpacity
+        style={[
+          styles.dropdownTrigger,
+          isFiltered && styles.dropdownTriggerActive,
+        ]}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.8}
+      >
+        <Text
+          style={[
+            styles.dropdownTriggerText,
+            isFiltered && styles.dropdownTriggerTextActive,
+          ]}
+          numberOfLines={1}
+        >
+          {selected?.label ?? label}
+        </Text>
+        <Text
+          style={[
+            styles.dropdownArrow,
+            isFiltered && styles.dropdownArrowActive,
+          ]}
+        >
+          ▾
+        </Text>
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade">
+        <Pressable
+          style={styles.dropdownOverlay}
+          onPress={() => setOpen(false)}
+        >
+          <View style={styles.dropdownMenu}>
+            <Text style={styles.dropdownMenuTitle}>{label}</Text>
+            {options.map((opt) => {
+              const active = opt.key === value;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.dropdownItem,
+                    active && styles.dropdownItemActive,
+                  ]}
+                  onPress={() => {
+                    onSelect(opt.key);
+                    setOpen(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      active && styles.dropdownItemTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
+// ── SessionCard ──
 
 function SessionCard({ item }: { item: SessionListItem }) {
   const diffLabel = item.difficulty ? DIFFICULTY_LABELS[item.difficulty] : null;
@@ -137,7 +201,7 @@ function SessionCard({ item }: { item: SessionListItem }) {
             ) : null}
             {item.premium_required ? (
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumText}>PREMIUM</Text>
+                <Text style={styles.premiumText}>프리미엄</Text>
               </View>
             ) : null}
           </View>
@@ -163,10 +227,13 @@ function SessionCard({ item }: { item: SessionListItem }) {
   );
 }
 
+// ── HomeScreen ──
+
 export default function HomeScreen() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [selectedFunction, setSelectedFunction] = useState<string>("all");
   const [selectedSourceType, setSelectedSourceType] = useState<string>("all");
 
@@ -183,35 +250,62 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
-  const speakingFunctionOptions = Array.from(
-    new Set(
-      sessions
-        .map((session) => session.speaking_function)
-        .filter(
-          (value): value is NonNullable<SessionListItem["speaking_function"]> =>
-            Boolean(value),
-        ),
-    ),
-  );
-  const sourceTypeOptions = Array.from(
-    new Set(
-      sessions
-        .map((session) => session.source_type)
-        .filter((value): value is NonNullable<SessionListItem["source_type"]> =>
-          Boolean(value),
-        ),
-    ),
-  );
+  const difficultyOptions: { key: string; label: string }[] = [
+    { key: "all", label: "전체" },
+    ...Array.from(
+      new Set(
+        sessions
+          .map((s) => s.difficulty)
+          .filter((v): v is NonNullable<SessionListItem["difficulty"]> =>
+            Boolean(v),
+          ),
+      ),
+    ).map((v) => ({ key: v, label: DIFFICULTY_LABELS[v] })),
+  ];
+
+  const speakingFunctionOpts: { key: string; label: string }[] = [
+    { key: "all", label: "전체" },
+    ...Array.from(
+      new Set(
+        sessions
+          .map((s) => s.speaking_function)
+          .filter((v): v is NonNullable<SessionListItem["speaking_function"]> =>
+            Boolean(v),
+          ),
+      ),
+    ).map((v) => ({ key: v, label: SPEAKING_FUNCTION_LABELS[v] })),
+  ];
+
+  const sourceTypeOpts: { key: string; label: string }[] = [
+    { key: "all", label: "전체" },
+    ...Array.from(
+      new Set(
+        sessions
+          .map((s) => s.source_type)
+          .filter((v): v is NonNullable<SessionListItem["source_type"]> =>
+            Boolean(v),
+          ),
+      ),
+    ).map((v) => ({ key: v, label: SOURCE_TYPE_LABELS[v] })),
+  ];
+
   const filteredSessions = sessions.filter((session) => {
+    const matchesDifficulty =
+      selectedDifficulty === "all" || session.difficulty === selectedDifficulty;
     const matchesFunction =
       selectedFunction === "all" ||
       session.speaking_function === selectedFunction;
     const matchesSourceType =
       selectedSourceType === "all" ||
       session.source_type === selectedSourceType;
-
-    return matchesFunction && matchesSourceType;
+    return matchesDifficulty && matchesFunction && matchesSourceType;
   });
+
+  const activeFilterCount = [
+    selectedDifficulty,
+    selectedFunction,
+    selectedSourceType,
+  ].filter((v) => v !== "all").length;
 
   const renderItem = useCallback(
     ({ item }: { item: SessionListItem }) => <SessionCard item={item} />,
@@ -233,7 +327,7 @@ export default function HomeScreen() {
         <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
         <Text style={styles.stateText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={load}>
-          <Text style={styles.retryText}>RETRY</Text>
+          <Text style={styles.retryText}>다시 시도</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -243,7 +337,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.stateContainer}>
         <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
-        <Text style={styles.stateText}>NO SESSIONS</Text>
+        <Text style={styles.stateText}>아직 등록된 세션이 없어요</Text>
       </SafeAreaView>
     );
   }
@@ -254,109 +348,42 @@ export default function HomeScreen() {
 
       <View style={styles.header}>
         <Text style={styles.headerWordmark}>SHADOWOO</Text>
-        <Text style={styles.headerLabel}>SESSIONS</Text>
+        <Text style={styles.headerLabel}>업무 영어 세션</Text>
       </View>
 
-      <View style={styles.filters}>
-        <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>SPEAKING FUNCTION</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScrollContent}
+      {/* ── Filter dropdowns ── */}
+      <View style={styles.filterBar}>
+        <FilterDropdown
+          label="난이도"
+          value={selectedDifficulty}
+          options={difficultyOptions}
+          onSelect={setSelectedDifficulty}
+        />
+        <FilterDropdown
+          label="말하기 목적"
+          value={selectedFunction}
+          options={speakingFunctionOpts}
+          onSelect={setSelectedFunction}
+        />
+        <FilterDropdown
+          label="콘텐츠 형식"
+          value={selectedSourceType}
+          options={sourceTypeOpts}
+          onSelect={setSelectedSourceType}
+        />
+        {activeFilterCount > 0 && (
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={() => {
+              setSelectedDifficulty("all");
+              setSelectedFunction("all");
+              setSelectedSourceType("all");
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <TouchableOpacity
-              testID="function-filter-all"
-              style={[
-                styles.filterChip,
-                selectedFunction === "all" && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedFunction("all")}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedFunction === "all" && styles.filterChipTextActive,
-                ]}
-              >
-                ALL
-              </Text>
-            </TouchableOpacity>
-
-            {speakingFunctionOptions.map((value) => (
-              <TouchableOpacity
-                key={value}
-                testID={`function-filter-${value}`}
-                style={[
-                  styles.filterChip,
-                  selectedFunction === value && styles.filterChipActive,
-                ]}
-                onPress={() => setSelectedFunction(value)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    selectedFunction === value && styles.filterChipTextActive,
-                  ]}
-                >
-                  {SPEAKING_FUNCTION_LABELS[value]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>SOURCE TYPE</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScrollContent}
-          >
-            <TouchableOpacity
-              testID="source-filter-all"
-              style={[
-                styles.filterChip,
-                selectedSourceType === "all" && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedSourceType("all")}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedSourceType === "all" && styles.filterChipTextActive,
-                ]}
-              >
-                ALL
-              </Text>
-            </TouchableOpacity>
-
-            {sourceTypeOptions.map((value) => (
-              <TouchableOpacity
-                key={value}
-                testID={`source-filter-${value}`}
-                style={[
-                  styles.filterChip,
-                  selectedSourceType === value && styles.filterChipActive,
-                ]}
-                onPress={() => setSelectedSourceType(value)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    selectedSourceType === value && styles.filterChipTextActive,
-                  ]}
-                >
-                  {SOURCE_TYPE_LABELS[value]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+            <Text style={styles.resetText}>초기화</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -368,9 +395,11 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>NO MATCHING SESSIONS</Text>
+            <Text style={styles.emptyStateTitle}>
+              조건에 맞는 세션이 없어요
+            </Text>
             <Text style={styles.emptyStateText}>
-              다른 speaking function 또는 source type을 선택해보세요.
+              필터를 변경하거나 초기화해보세요.
             </Text>
           </View>
         }
@@ -393,9 +422,9 @@ const styles = StyleSheet.create({
   },
   stateText: {
     fontSize: 13,
-    letterSpacing: 2,
     color: COLOR.textMuted,
     fontWeight: "500",
+    textAlign: "center",
   },
   retryButton: {
     borderWidth: 1,
@@ -405,7 +434,6 @@ const styles = StyleSheet.create({
   },
   retryText: {
     fontSize: 11,
-    letterSpacing: 2,
     color: COLOR.text,
     fontWeight: "600",
   },
@@ -426,52 +454,107 @@ const styles = StyleSheet.create({
     color: COLOR.text,
   },
   headerLabel: {
-    fontSize: 10,
-    letterSpacing: 2,
+    fontSize: 12,
     color: COLOR.textMuted,
     fontWeight: "500",
   },
-  filters: {
+
+  // ── Filter bar ──
+  filterBar: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    gap: 12,
+    paddingVertical: 10,
+    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: COLOR.borderLight,
   },
-  filterSection: {
-    gap: 8,
-  },
-  filterLabel: {
-    fontSize: 10,
-    letterSpacing: 1.6,
-    color: COLOR.textMuted,
-    fontWeight: "700",
-  },
-  filterScrollContent: {
-    gap: 8,
-    paddingRight: 16,
-  },
-  filterChip: {
+
+  // ── Dropdown trigger ──
+  dropdownTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: COLOR.borderLight,
-    backgroundColor: COLOR.bg,
     paddingHorizontal: 10,
     paddingVertical: 7,
+    gap: 4,
   },
-  filterChipActive: {
+  dropdownTriggerActive: {
     borderColor: COLOR.border,
     backgroundColor: COLOR.border,
   },
-  filterChipText: {
-    fontSize: 10,
-    letterSpacing: 1.1,
-    color: COLOR.textMuted,
+  dropdownTriggerText: {
+    fontSize: 11,
     fontWeight: "700",
+    color: COLOR.textMuted,
+    letterSpacing: 0.5,
   },
-  filterChipTextActive: {
+  dropdownTriggerTextActive: {
     color: COLOR.textInverse,
   },
+  dropdownArrow: {
+    fontSize: 10,
+    color: COLOR.textMuted,
+  },
+  dropdownArrowActive: {
+    color: COLOR.textInverse,
+  },
+
+  // ── Dropdown overlay / menu ──
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  dropdownMenu: {
+    backgroundColor: COLOR.bg,
+    borderWidth: 1,
+    borderColor: COLOR.border,
+    width: "100%",
+    maxWidth: 280,
+    paddingVertical: 8,
+  },
+  dropdownMenuTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 2,
+    color: COLOR.textMuted,
+    textTransform: "uppercase",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  dropdownItemActive: {
+    backgroundColor: COLOR.text,
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLOR.text,
+  },
+  dropdownItemTextActive: {
+    color: COLOR.textInverse,
+  },
+
+  // ── Reset ──
+  resetButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  resetText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLOR.textMuted,
+    textDecorationLine: "underline",
+  },
+
+  // ── List ──
   listContent: {
     paddingBottom: 120,
   },
@@ -479,6 +562,8 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: COLOR.borderLight,
   },
+
+  // ── Card ──
   card: {
     backgroundColor: COLOR.bg,
   },
@@ -512,8 +597,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   levelText: {
-    fontSize: 9,
-    letterSpacing: 2,
+    fontSize: 10,
     fontWeight: "700",
     color: COLOR.textInverse,
   },
@@ -556,7 +640,6 @@ const styles = StyleSheet.create({
   },
   taxonomyText: {
     fontSize: 10,
-    letterSpacing: 1.2,
     color: COLOR.textMuted,
     fontWeight: "600",
   },
@@ -569,7 +652,6 @@ const styles = StyleSheet.create({
   },
   premiumText: {
     fontSize: 10,
-    letterSpacing: 1.2,
     color: COLOR.textInverse,
     fontWeight: "700",
   },
@@ -581,8 +663,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7F7F7",
   },
   roleText: {
-    fontSize: 9,
-    letterSpacing: 1.1,
+    fontSize: 10,
     color: COLOR.textMuted,
     fontWeight: "600",
   },
@@ -599,8 +680,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyStateTitle: {
-    fontSize: 12,
-    letterSpacing: 1.8,
+    fontSize: 14,
     color: COLOR.text,
     fontWeight: "700",
   },

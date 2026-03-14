@@ -1,4 +1,4 @@
-// @MX:ANCHOR: ArchiveScreen - saved sentences + highlights with undo delete
+// @MX:ANCHOR: ArchiveScreen - saved sentences + highlights + playbook with swipe-to-delete
 // @MX:REASON: [AUTO] fan_in >= 3: tab navigator, deep links, and study flow navigation
 // @MX:SPEC: SPEC-MOBILE-005 - REQ-E-004, REQ-E-005, REQ-N-001, REQ-C-002
 import React, { useCallback, useState } from "react";
@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   FlatList,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,29 +14,25 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchPlaybookEntries, updatePlaybookEntryMastery } from "@/lib/api";
+import {
+  fetchLearningSessions,
+  fetchPlaybookEntries,
+  updatePlaybookEntryMastery,
+  SessionListItem,
+} from "@/lib/api";
 import { appStore } from "@/lib/stores";
 import type {
   AppHighlight,
   PlaybookEntry,
+  PlaybookMasteryStatus,
   SavedSentence,
 } from "@shadowoo/shared";
 import UndoToast from "@/components/common/UndoToast";
 import ErrorToast from "@/components/common/ErrorToast";
+import SwipeableRow from "@/components/common/SwipeableRow";
 import PlaybookCard from "@/components/study/PlaybookCard";
-import { getNextMasteryStatus } from "@/lib/professional-practice";
 
 type Tab = "sentences" | "highlights" | "playbook";
-
-const FUNCTION_LABELS: Record<string, string> = {
-  persuade: "PERSUADE",
-  "explain-metric": "EXPLAIN METRIC",
-  summarize: "SUMMARIZE",
-  hedge: "HEDGE",
-  disagree: "DISAGREE",
-  propose: "PROPOSE",
-  "answer-question": "Q&A",
-};
 
 interface PendingDelete {
   id: string;
@@ -60,8 +55,7 @@ export default function ArchiveScreen() {
   );
   const [playbookEntries, setPlaybookEntries] = useState<PlaybookEntry[]>([]);
   const [playbookLoading, setPlaybookLoading] = useState(false);
-  const [selectedFunctionFilter, setSelectedFunctionFilter] =
-    useState<string>("all");
+  const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
   const [errorToast, setErrorToast] = useState<{
     message: string;
     retry?: () => void;
@@ -69,14 +63,21 @@ export default function ArchiveScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!isAuthenticated || !user?.id) {
-        return;
-      }
+      if (!isAuthenticated || !user?.id) return;
 
       setPlaybookLoading(true);
-      Promise.all([loadUserData(), fetchPlaybookEntries(user.id)])
-        .then(([, entries]) => {
+      Promise.all([
+        loadUserData(),
+        fetchPlaybookEntries(user.id),
+        fetchLearningSessions(),
+      ])
+        .then(([, entries, sessions]) => {
           setPlaybookEntries(entries);
+          const map: Record<string, string> = {};
+          for (const s of sessions as SessionListItem[]) {
+            map[s.id] = s.title;
+          }
+          setSessionMap(map);
         })
         .catch((error) => {
           console.error("[MobileArchive] Failed to load archive data:", error);
@@ -88,34 +89,43 @@ export default function ArchiveScreen() {
   // REQ-E-004, REQ-C-002: undo delete with 3-second timer
   const handleDelete = useCallback(
     (id: string, type: Tab) => {
-      // Cancel any existing pending delete
       if (pendingDelete) {
         clearTimeout(pendingDelete.timer);
-        // Actually execute the previously pending delete immediately
         const prevType = pendingDelete.type;
         const prevId = pendingDelete.id;
         if (prevType === "sentences") {
           removeSavedSentence(prevId).catch(() => {
             setErrorToast({ message: "삭제에 실패했습니다." });
           });
-        } else {
+        } else if (prevType === "highlights") {
           removeHighlight(prevId).catch(() => {
             setErrorToast({ message: "삭제에 실패했습니다." });
           });
+        } else {
+          // playbook — remove from local state immediately
+          setPlaybookEntries((prev) => prev.filter((e) => e.id !== prevId));
         }
       }
 
       const timer = setTimeout(() => {
-        const doDelete =
-          type === "sentences" ? removeSavedSentence(id) : removeHighlight(id);
-        doDelete
-          .catch(() => {
+        if (type === "sentences") {
+          removeSavedSentence(id).catch(() => {
             setErrorToast({
               message: "삭제에 실패했습니다.",
               retry: () => handleDelete(id, type),
             });
-          })
-          .finally(() => setPendingDelete(null));
+          });
+        } else if (type === "highlights") {
+          removeHighlight(id).catch(() => {
+            setErrorToast({
+              message: "삭제에 실패했습니다.",
+              retry: () => handleDelete(id, type),
+            });
+          });
+        } else {
+          setPlaybookEntries((prev) => prev.filter((e) => e.id !== id));
+        }
+        setPendingDelete(null);
       }, 3000);
 
       setPendingDelete({ id, type, timer });
@@ -130,50 +140,59 @@ export default function ArchiveScreen() {
     }
   }, [pendingDelete]);
 
+  const handleSetMastery = useCallback(
+    async (entry: PlaybookEntry, status: PlaybookMasteryStatus) => {
+      if (!user?.id) return;
+
+      setPlaybookEntries((prev) =>
+        prev.map((item) =>
+          item.id === entry.id
+            ? {
+                ...item,
+                mastery_status: status,
+                updated_at: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+
+      try {
+        await updatePlaybookEntryMastery(user.id, entry.id, status);
+      } catch (error) {
+        console.error("[MobileArchive] Failed to update mastery:", error);
+        setPlaybookEntries((prev) =>
+          prev.map((item) => (item.id === entry.id ? entry : item)),
+        );
+      }
+    },
+    [user?.id],
+  );
+
   const visibleSentences = savedSentences.filter(
     (s) => s.id !== pendingDelete?.id || pendingDelete.type !== "sentences",
   );
   const visibleHighlights = highlights.filter(
     (h) => h.id !== pendingDelete?.id || pendingDelete.type !== "highlights",
   );
-  const speakingFunctionOptions = Array.from(
-    new Set(
-      playbookEntries
-        .map((entry) => entry.speaking_function)
-        .filter(
-          (value): value is NonNullable<PlaybookEntry["speaking_function"]> =>
-            Boolean(value),
-        ),
-    ),
+  const visiblePlaybookEntries = playbookEntries.filter(
+    (e) => e.id !== pendingDelete?.id || pendingDelete.type !== "playbook",
   );
-  const visiblePlaybookEntries = playbookEntries.filter((entry) => {
-    return (
-      selectedFunctionFilter === "all" ||
-      entry.speaking_function === selectedFunctionFilter
-    );
-  });
 
   const renderSentenceItem = useCallback(
     ({ item }: { item: SavedSentence }) => {
       const videoTitle = getVideo(item.videoId)?.title ?? item.videoId;
       return (
-        <View style={styles.card}>
-          <Text style={styles.videoTitle} numberOfLines={1}>
-            {videoTitle}
-          </Text>
-          <Text style={styles.sentenceText}>{item.sentenceText}</Text>
-          <View style={styles.cardFooter}>
+        <SwipeableRow onDelete={() => handleDelete(item.id, "sentences")}>
+          <View style={styles.card}>
+            <Text style={styles.videoTitle} numberOfLines={1}>
+              {videoTitle}
+            </Text>
+            <Text style={styles.sentenceText}>{item.sentenceText}</Text>
             <Text style={styles.timestamp}>
               {new Date(item.createdAt).toLocaleString("ko-KR")}
             </Text>
-            <TouchableOpacity
-              onPress={() => handleDelete(item.id, "sentences")}
-              style={styles.deleteButton}
-            >
-              <Text style={styles.deleteButtonText}>삭제</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </SwipeableRow>
       );
     },
     [getVideo, handleDelete],
@@ -183,68 +202,36 @@ export default function ArchiveScreen() {
     ({ item }: { item: AppHighlight }) => {
       const videoTitle = getVideo(item.videoId)?.title ?? item.videoId;
       return (
-        <View style={styles.card}>
-          <Text style={styles.videoTitle} numberOfLines={1}>
-            {videoTitle}
-          </Text>
-          <Text style={styles.sentenceText}>{item.originalText}</Text>
-          {item.userNote ? (
-            <Text style={styles.userNote}>📝 {item.userNote}</Text>
-          ) : null}
-          <View style={styles.cardFooter}>
+        <SwipeableRow onDelete={() => handleDelete(item.id, "highlights")}>
+          <View style={styles.card}>
+            <Text style={styles.videoTitle} numberOfLines={1}>
+              {videoTitle}
+            </Text>
+            <Text style={styles.sentenceText}>{item.originalText}</Text>
+            {item.userNote ? (
+              <Text style={styles.userNote}>{item.userNote}</Text>
+            ) : null}
             <Text style={styles.timestamp}>
               {new Date(item.createdAt).toLocaleString("ko-KR")}
             </Text>
-            <TouchableOpacity
-              onPress={() => handleDelete(item.id, "highlights")}
-              style={styles.deleteButton}
-            >
-              <Text style={styles.deleteButtonText}>삭제</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </SwipeableRow>
       );
     },
     [getVideo, handleDelete],
   );
 
-  const handleCycleMastery = useCallback(
-    async (entry: PlaybookEntry) => {
-      if (!user?.id) return;
-
-      const nextStatus = getNextMasteryStatus(entry.mastery_status);
-      setPlaybookEntries((prev) =>
-        prev.map((item) =>
-          item.id === entry.id
-            ? {
-                ...item,
-                mastery_status: nextStatus,
-                updated_at: new Date().toISOString(),
-              }
-            : item,
-        ),
-      );
-
-      try {
-        await updatePlaybookEntryMastery(user.id, entry.id, nextStatus);
-      } catch (error) {
-        console.error(
-          "[MobileArchive] Failed to update playbook entry:",
-          error,
-        );
-        setPlaybookEntries((prev) =>
-          prev.map((item) => (item.id === entry.id ? entry : item)),
-        );
-      }
-    },
-    [user?.id],
-  );
-
   const renderPlaybookItem = useCallback(
     ({ item }: { item: PlaybookEntry }) => (
-      <PlaybookCard entry={item} onCycleMastery={handleCycleMastery} />
+      <SwipeableRow onDelete={() => handleDelete(item.id, "playbook")}>
+        <PlaybookCard
+          entry={item}
+          sessionTitle={sessionMap[item.session_id]}
+          onSetMastery={handleSetMastery}
+        />
+      </SwipeableRow>
     ),
-    [handleCycleMastery],
+    [handleSetMastery, handleDelete, sessionMap],
   );
 
   if (isLoading) {
@@ -260,7 +247,7 @@ export default function ArchiveScreen() {
     return (
       <SafeAreaView style={styles.stateContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <Text style={styles.stateLabel}>ARCHIVE</Text>
+        <Text style={styles.stateLabel}>보관함</Text>
         <Text style={styles.stateSubtext}>
           로그인 후 저장한 문장을 볼 수 있어요.
         </Text>
@@ -273,13 +260,19 @@ export default function ArchiveScreen() {
   const emptyText = isSentencesTab
     ? "저장한 문장이 없습니다."
     : isPlaybookTab
-      ? "Playbook entry가 없습니다."
+      ? "플레이북에 저장된 문장이 없습니다."
       : "하이라이트가 없습니다.";
   const emptySubtext = isSentencesTab
     ? "리스닝 화면에서 북마크한 문장이 여기에 표시됩니다."
     : isPlaybookTab
-      ? "Transformation Practice에서 저장한 rewrite가 여기에 표시됩니다."
+      ? "변형 연습에서 저장한 문장이 여기에 표시됩니다."
       : "학습 화면에서 문장을 꾹 눌러 하이라이트를 추가하세요.";
+
+  const currentData = isSentencesTab
+    ? visibleSentences
+    : isPlaybookTab
+      ? visiblePlaybookEntries
+      : visibleHighlights;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -287,10 +280,10 @@ export default function ArchiveScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerWordmark}>ARCHIVE</Text>
+        <Text style={styles.headerWordmark}>보관함</Text>
       </View>
 
-      {/* Tab bar - REQ-E-005 */}
+      {/* Tab bar */}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tab, isSentencesTab && styles.tabActive]}
@@ -299,7 +292,7 @@ export default function ArchiveScreen() {
           <Text
             style={[styles.tabText, isSentencesTab && styles.tabTextActive]}
           >
-            SENTENCES
+            문장
           </Text>
           <Text
             style={[styles.tabCount, isSentencesTab && styles.tabCountActive]}
@@ -317,7 +310,7 @@ export default function ArchiveScreen() {
               activeTab === "highlights" && styles.tabTextActive,
             ]}
           >
-            HIGHLIGHTS
+            하이라이트
           </Text>
           <Text
             style={[
@@ -333,7 +326,7 @@ export default function ArchiveScreen() {
           onPress={() => setActiveTab("playbook")}
         >
           <Text style={[styles.tabText, isPlaybookTab && styles.tabTextActive]}>
-            PLAYBOOK
+            플레이북
           </Text>
           <Text
             style={[styles.tabCount, isPlaybookTab && styles.tabCountActive]}
@@ -343,112 +336,33 @@ export default function ArchiveScreen() {
         </TouchableOpacity>
       </View>
 
-      {isSentencesTab ? (
-        visibleSentences.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>{emptyText}</Text>
-            <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={visibleSentences}
-            keyExtractor={(item) => item.id}
-            renderItem={renderSentenceItem}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            showsVerticalScrollIndicator={false}
-          />
-        )
-      ) : activeTab === "highlights" ? (
-        visibleHighlights.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>{emptyText}</Text>
-            <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={visibleHighlights}
-            keyExtractor={(item) => item.id}
-            renderItem={renderHighlightItem}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            showsVerticalScrollIndicator={false}
-          />
-        )
-      ) : playbookLoading ? (
+      {playbookLoading && isPlaybookTab ? (
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="small" color="#111111" />
         </View>
-      ) : (
-        <View style={styles.playbookContainer}>
-          <View style={styles.playbookFilters}>
-            <Text style={styles.filterLabel}>FUNCTION FILTER</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterRow}
-            >
-              <TouchableOpacity
-                testID="playbook-filter-all"
-                style={[
-                  styles.filterChip,
-                  selectedFunctionFilter === "all" && styles.filterChipActive,
-                ]}
-                onPress={() => setSelectedFunctionFilter("all")}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    selectedFunctionFilter === "all" &&
-                      styles.filterChipTextActive,
-                  ]}
-                >
-                  ALL
-                </Text>
-              </TouchableOpacity>
-              {speakingFunctionOptions.map((value) => (
-                <TouchableOpacity
-                  key={value}
-                  testID={`playbook-filter-${value}`}
-                  style={[
-                    styles.filterChip,
-                    selectedFunctionFilter === value && styles.filterChipActive,
-                  ]}
-                  onPress={() => setSelectedFunctionFilter(value)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      selectedFunctionFilter === value &&
-                        styles.filterChipTextActive,
-                    ]}
-                  >
-                    {FUNCTION_LABELS[value] ?? value.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {visiblePlaybookEntries.length === 0 ? (
-            <>
-              <Text style={styles.emptyTitle}>{emptyText}</Text>
-              <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
-            </>
-          ) : (
-            <FlatList
-              data={visiblePlaybookEntries}
-              keyExtractor={(item) => item.id}
-              renderItem={renderPlaybookItem}
-              contentContainerStyle={styles.listContent}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
+      ) : currentData.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>{emptyText}</Text>
+          <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
         </View>
+      ) : (
+        <FlatList
+          data={currentData as (SavedSentence | AppHighlight | PlaybookEntry)[]}
+          keyExtractor={(item) => item.id}
+          renderItem={
+            isSentencesTab
+              ? (renderSentenceItem as never)
+              : isPlaybookTab
+                ? (renderPlaybookItem as never)
+                : (renderHighlightItem as never)
+          }
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          showsVerticalScrollIndicator={false}
+        />
       )}
 
-      {/* Undo Toast - REQ-E-004, REQ-N-001 */}
+      {/* Undo Toast */}
       <UndoToast
         visible={pendingDelete !== null}
         message="삭제되었습니다."
@@ -466,7 +380,7 @@ export default function ArchiveScreen() {
   );
 }
 
-// --- Design tokens (square minimalism — matches home screen) ---
+// --- Design tokens (square minimalism) ---
 const COLOR = {
   bg: "#FFFFFF",
   border: "#111111",
@@ -489,8 +403,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   stateLabel: {
-    fontSize: 13,
-    letterSpacing: 3,
+    fontSize: 15,
     color: COLOR.text,
     fontWeight: "700",
   },
@@ -511,7 +424,6 @@ const styles = StyleSheet.create({
   headerWordmark: {
     fontSize: 18,
     fontWeight: "800",
-    letterSpacing: 4,
     color: COLOR.text,
   },
 
@@ -535,8 +447,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLOR.border,
   },
   tabText: {
-    fontSize: 10,
-    letterSpacing: 2,
+    fontSize: 11,
     fontWeight: "600",
     color: COLOR.textMuted,
   },
@@ -557,53 +468,12 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 120,
   },
-  playbookContainer: {
-    flex: 1,
-  },
-  playbookFilters: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR.borderLight,
-  },
-  filterLabel: {
-    fontSize: 10,
-    letterSpacing: 1.4,
-    color: COLOR.textMuted,
-    fontWeight: "700",
-  },
-  filterRow: {
-    gap: 8,
-    paddingRight: 16,
-  },
-  filterChip: {
-    borderWidth: 1,
-    borderColor: COLOR.borderLight,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: COLOR.bg,
-  },
-  filterChipActive: {
-    borderColor: COLOR.border,
-    backgroundColor: COLOR.border,
-  },
-  filterChipText: {
-    fontSize: 10,
-    letterSpacing: 1.1,
-    color: COLOR.textMuted,
-    fontWeight: "700",
-  },
-  filterChipTextActive: {
-    color: COLOR.bg,
-  },
   separator: {
     height: 1,
     backgroundColor: COLOR.borderLight,
   },
 
-  // Card
+  // Card (sentences / highlights)
   card: {
     backgroundColor: COLOR.bg,
     padding: 16,
@@ -631,28 +501,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: COLOR.border,
   },
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 2,
-  },
   timestamp: {
     fontSize: 11,
     color: COLOR.textMuted,
     letterSpacing: 0.3,
-  },
-  deleteButton: {
-    borderWidth: 1,
-    borderColor: COLOR.border,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  deleteButtonText: {
-    fontSize: 10,
-    letterSpacing: 1.5,
-    color: COLOR.text,
-    fontWeight: "600",
+    marginTop: 2,
   },
 
   // Empty state
