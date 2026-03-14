@@ -1,5 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import type { Sentence, SceneRecommendation, LearningSession } from "@shadowoo/shared";
+import type {
+  Sentence,
+  SceneRecommendation,
+  LearningSession,
+} from "@shadowoo/shared";
 import {
   Check,
   X,
@@ -273,324 +277,432 @@ export function SessionCreator({
 
   return (
     <div
-      className="flex flex-col h-full rounded-2xl overflow-hidden"
+      className="flex flex-col flex-1 overflow-hidden min-h-0"
       style={{
-        backgroundColor: "#f0efeb",
-        border: "1px solid #f0efeb",
-        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
-        padding: 24,
-        gap: 24,
+        backgroundColor: "#fafafa",
+        gap: 0,
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary-100 text-primary-700 text-xs">
-            3
-          </span>
-          Create Learning Sessions
-        </h2>
-        <div className="text-sm text-secondary-500">
+      <div
+        className="shrink-0 flex items-center justify-between"
+        style={{
+          backgroundColor: "#fafafa",
+          borderBottom: "1px solid #e5e5e5",
+          padding: "6px 12px",
+        }}
+      >
+        <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
+          Step 3: Create Sessions
+        </span>
+        <span className="text-xs" style={{ color: "#737373" }}>
           {createdSessions.length} sessions created
-        </div>
+        </span>
       </div>
 
       {/* AI Suggestions Banner */}
       {suggestedScenes.length > 0 && (
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                <h3 className="font-semibold text-purple-900">
-                  AI Recommended Scenes
-                </h3>
-              </div>
-              <p className="text-sm text-purple-700 mb-3">
-                Based on analysis, these {suggestedScenes.length} scenes are
-                ideal for English learning practice.
-              </p>
-              <div className="space-y-2">
-                {suggestedScenes.map((scene, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white/60 rounded-lg p-3 border border-purple-100"
-                  >
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-medium text-sm text-purple-900">
-                        {scene.title}
-                      </h4>
-                      <button
-                        onClick={() => handleUseSuggestion(scene)}
-                        className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded transition-colors"
-                      >
-                        Use This
-                      </button>
-                    </div>
-                    <p className="text-xs text-purple-600 mb-2">
-                      {scene.reason}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {scene.learningPoints.map((point, pidx) => (
-                        <span
-                          key={pidx}
-                          className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded"
+        <div className="shrink-0" style={{ padding: "8px 12px 0 12px" }}>
+          <div
+            style={{
+              backgroundColor: "#f5f3ff",
+              border: "1px solid #ddd6fe",
+              padding: 12,
+            }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  <h3 className="font-semibold text-purple-900">
+                    AI Recommended Scenes
+                  </h3>
+                </div>
+                <p className="text-sm text-purple-700 mb-3">
+                  Based on analysis, these {suggestedScenes.length} scenes are
+                  ideal for English learning practice.
+                </p>
+                <div className="space-y-2">
+                  {suggestedScenes.map((scene, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white/60 rounded-lg p-3 border border-purple-100"
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <h4 className="font-medium text-sm text-purple-900">
+                          {scene.title}
+                        </h4>
+                        <button
+                          onClick={() => handleUseSuggestion(scene)}
+                          className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded transition-colors"
                         >
-                          {point}
-                        </span>
-                      ))}
+                          Use This
+                        </button>
+                      </div>
+                      <p className="text-xs text-purple-600 mb-2">
+                        {scene.reason}
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {scene.learningPoints.map((point, pidx) => (
+                          <span
+                            key={pidx}
+                            className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded"
+                          >
+                            {point}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+              <button
+                onClick={handleUseAllSuggestions}
+                className="shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 shadow-md"
+              >
+                <Sparkles className="w-4 h-4" />
+                Create All 3
+              </button>
             </div>
-            <button
-              onClick={handleUseAllSuggestions}
-              className="shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 shadow-md"
-            >
-              <Sparkles className="w-4 h-4" />
-              Create All 3
-            </button>
           </div>
         </div>
       )}
 
-      <div className="flex gap-6 h-full min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: Sentence Selector */}
         <div
-          className="w-1/2 flex flex-col rounded-xl overflow-hidden"
+          className="flex flex-col overflow-hidden"
           style={{
+            flex: 1,
             backgroundColor: "#ffffff",
-            border: "1px solid #f0efeb",
-            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
-            gap: 8,
+            borderRight: "1px solid #e5e5e5",
           }}
         >
-          <div className="p-3 border-b border-secondary-100 bg-secondary-50 flex justify-between items-center">
-            <span className="font-medium text-sm">
+          <div
+            className="shrink-0 flex justify-between items-center"
+            style={{ padding: "4px 12px", borderBottom: "1px solid #f0f0f0" }}
+          >
+            <span className="text-xs font-medium" style={{ color: "#0a0a0a" }}>
               Transcript ({sentences.length})
             </span>
-            <span className="text-xs text-secondary-400">
-              Shift+Click to select range
+            <span className="text-[10px]" style={{ color: "#a3a3a3" }}>
+              Shift+Click range
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1 select-none">
-            {sentences.map((s, i) => {
+          <div className="flex-1 overflow-y-auto select-none">
+            {sentences.map((s) => {
               const isSelected = selectedIds.has(s.id);
               return (
                 <div
                   key={s.id}
                   onClick={(e) => handleSentenceClick(s.id, e)}
-                  className={`
-                                        group flex flex-col p-3 rounded-lg text-sm cursor-pointer transition-all border relative
-                                        ${
-                                          isSelected
-                                            ? "bg-primary-50 border-primary-200 shadow-sm z-10"
-                                            : "hover:bg-secondary-50 border-transparent hover:border-secondary-200"
-                                        }
-                                    `}
-                  style={{ gap: 6 }}
+                  className="flex items-start cursor-pointer transition-colors"
+                  style={{
+                    padding: "6px 12px",
+                    gap: 8,
+                    backgroundColor: isSelected ? "#fff7ed" : "transparent",
+                    borderBottom: "1px solid #f5f5f5",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected)
+                      e.currentTarget.style.backgroundColor = "#fafafa";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected)
+                      e.currentTarget.style.backgroundColor = "transparent";
+                  }}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs font-mono text-secondary-400">
-                      {Math.floor(s.startTime / 60)}:
-                      {String(Math.floor(s.startTime % 60)).padStart(2, "0")}
-                    </div>
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-primary-500 shrink-0" />
-                    )}
-                  </div>
+                  {/* Checkbox */}
                   <div
-                    className={`${isSelected ? "text-secondary-900 font-medium" : "text-secondary-600"}`}
+                    className="shrink-0 flex items-center"
+                    style={{ paddingTop: 2 }}
+                  >
+                    <div
+                      style={{
+                        width: 14,
+                        height: 14,
+                        border: isSelected ? "none" : "1px solid #d4d4d4",
+                        backgroundColor: isSelected ? "#b45000" : "transparent",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </div>
+                  {/* Time */}
+                  <span
+                    className="shrink-0 text-[10px] font-mono"
+                    style={{ color: "#a3a3a3", width: 32, paddingTop: 3 }}
+                  >
+                    {Math.floor(s.startTime / 60)}:
+                    {String(Math.floor(s.startTime % 60)).padStart(2, "0")}
+                  </span>
+                  {/* Text */}
+                  <span
+                    className="flex-1 text-xs"
+                    style={{
+                      color: isSelected ? "#0a0a0a" : "#525252",
+                      fontWeight: isSelected ? 500 : 400,
+                      lineHeight: 1.5,
+                    }}
                   >
                     {s.text}
-                  </div>
+                  </span>
                 </div>
               );
             })}
           </div>
-          {/* Selection Summary Footer */}
-          <div className="p-3 border-t border-secondary-100 bg-secondary-50 flex justify-between items-center text-sm">
-            <span className="text-secondary-600">
-              {selectedIds.size} sentences selected
+          {/* Footer */}
+          <div
+            className="shrink-0 flex justify-between items-center"
+            style={{
+              padding: "4px 12px",
+              borderTop: "1px solid #e5e5e5",
+              backgroundColor: "#fafafa",
+            }}
+          >
+            <span className="text-[10px]" style={{ color: "#737373" }}>
+              {selectedIds.size} selected
             </span>
-            <span className="font-mono font-medium text-primary-700">
-              Duration: {Math.floor(selectionDuration / 60)}:
+            <span
+              className="text-[10px] font-mono font-medium"
+              style={{ color: "#b45000" }}
+            >
+              {Math.floor(selectionDuration / 60)}:
               {String(Math.floor(selectionDuration % 60)).padStart(2, "0")}
             </span>
           </div>
         </div>
 
-        {/* Right: Creator Form & List */}
-        <div className="w-1/2 flex flex-col gap-6">
-          {/* Creator Form */}
+        {/* Right: Form + Sessions List */}
+        <div className="flex flex-col overflow-hidden" style={{ flex: 1 }}>
+          {/* New Session Form */}
           <div
-            className="rounded-xl flex flex-col"
+            className="shrink-0 flex flex-col"
             style={{
-              backgroundColor: "#ffffff",
-              padding: 20,
-              border: "1px solid #f0efeb",
-              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
-              gap: 16,
+              padding: 12,
+              borderBottom: "1px solid #e5e5e5",
+              gap: 8,
             }}
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-secondary-900">
-                New Session Details
-              </h3>
+              <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
+                New Session
+              </span>
               <button
                 onClick={handleAutofill}
                 disabled={isAutofilling || selectedIds.size === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-all shadow-sm"
-                title="AI가 선택한 문장을 분석해 제목과 설명을 자동 생성합니다"
+                className="flex items-center transition-colors"
+                style={{
+                  gap: 4,
+                  padding: "2px 8px",
+                  backgroundColor:
+                    isAutofilling || selectedIds.size === 0
+                      ? "#d4d4d4"
+                      : "#8b5cf6",
+                  color: "#ffffff",
+                  fontSize: 10,
+                  border: "none",
+                  cursor:
+                    isAutofilling || selectedIds.size === 0
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isAutofilling && selectedIds.size > 0)
+                    e.currentTarget.style.backgroundColor = "#7c3aed";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isAutofilling && selectedIds.size > 0)
+                    e.currentTarget.style.backgroundColor = "#8b5cf6";
+                }}
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                {isAutofilling ? "Generating..." : "AI Autofill"}
+                <Sparkles className="w-3 h-3" />
+                {isAutofilling ? "..." : "AI Autofill"}
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-secondary-500 mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Introduction to Shadowing"
-                  className="w-full px-3 py-2 rounded-lg border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm"
-                />
-              </div>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Session title"
+              className="w-full text-sm focus:outline-none"
+              style={{
+                padding: "6px 8px",
+                border: "1px solid #e5e5e5",
+                color: "#0a0a0a",
+              }}
+            />
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description (optional)"
+              rows={3}
+              className="w-full text-xs focus:outline-none resize-none"
+              style={{
+                padding: "6px 8px",
+                border: "1px solid #e5e5e5",
+                color: "#525252",
+              }}
+            />
 
-              <div>
-                <label className="block text-xs font-medium text-secondary-500 mb-1">
-                  Description (Optional)
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What will users learn in this session?"
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-lg border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm resize-none"
-                />
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-secondary-500 mb-1">
-                    Difficulty
-                  </label>
-                  <select
-                    value={difficulty}
-                    onChange={(e) => setDifficulty(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg border border-secondary-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm"
-                  >
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-secondary-500 mb-1">
-                    Duration
-                  </label>
-                  <div className="px-3 py-2 rounded-lg bg-secondary-50 border border-secondary-200 text-secondary-500 text-sm font-mono flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    {Math.floor(selectionDuration / 60)}:
-                    {String(Math.floor(selectionDuration % 60)).padStart(
-                      2,
-                      "0",
-                    )}
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center" style={{ gap: 8 }}>
+              <select
+                value={difficulty}
+                onChange={(e) =>
+                  setDifficulty(
+                    e.target.value as "beginner" | "intermediate" | "advanced",
+                  )
+                }
+                className="text-xs focus:outline-none"
+                style={{
+                  padding: "3px 6px",
+                  border: "1px solid #e5e5e5",
+                  color: "#525252",
+                  flex: 1,
+                }}
+              >
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+              <span
+                className="text-[10px] font-mono"
+                style={{ color: "#a3a3a3" }}
+              >
+                <Clock className="w-3 h-3 inline mr-1" />
+                {Math.floor(selectionDuration / 60)}:
+                {String(Math.floor(selectionDuration % 60)).padStart(2, "0")}
+              </span>
+              <button
+                onClick={handleCreateSession}
+                disabled={!title || selectedIds.size === 0}
+                className="flex items-center transition-colors"
+                style={{
+                  gap: 4,
+                  padding: "3px 12px",
+                  backgroundColor:
+                    !title || selectedIds.size === 0 ? "#d4d4d4" : "#0a0a0a",
+                  color: "#ffffff",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  border: "none",
+                  cursor:
+                    !title || selectedIds.size === 0
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  if (title && selectedIds.size > 0)
+                    e.currentTarget.style.backgroundColor = "#404040";
+                }}
+                onMouseLeave={(e) => {
+                  if (title && selectedIds.size > 0)
+                    e.currentTarget.style.backgroundColor = "#0a0a0a";
+                }}
+              >
+                <Plus className="w-3 h-3" />
+                Add
+              </button>
             </div>
-
-            <button
-              onClick={handleCreateSession}
-              disabled={!title || selectedIds.size === 0}
-              className={`
-                                w-full py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-all
-                                ${
-                                  !title || selectedIds.size === 0
-                                    ? "bg-secondary-100 text-secondary-400 cursor-not-allowed"
-                                    : "bg-black text-white hover:bg-neutral-800 shadow-md hover:shadow-lg active:scale-[0.99]"
-                                }
-                            `}
-            >
-              <Plus className="w-4 h-4" />
-              Add Session
-            </button>
           </div>
 
           {/* Created Sessions List */}
-          <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
-            <label className="text-xs font-bold text-secondary-400 uppercase tracking-wider">
-              Created Sessions ({createdSessions.length})
-            </label>
+          <div className="flex-1 overflow-y-auto">
+            <div
+              className="shrink-0 flex items-center"
+              style={{ padding: "4px 12px", borderBottom: "1px solid #f0f0f0" }}
+            >
+              <span
+                className="text-[10px] font-bold uppercase tracking-wider"
+                style={{ color: "#a3a3a3" }}
+              >
+                Sessions ({createdSessions.length})
+              </span>
+            </div>
             {createdSessions.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-secondary-400 border-2 border-dashed border-secondary-200 rounded-xl">
-                <p className="text-sm">No sessions created yet</p>
+              <div
+                className="flex items-center justify-center"
+                style={{ padding: 24, color: "#d4d4d4" }}
+              >
+                <p className="text-xs">No sessions yet</p>
               </div>
             ) : (
               createdSessions.map((session, idx) => (
                 <div
                   key={session.id}
-                  className="rounded-xl flex group transition-colors"
+                  className="flex items-start group transition-colors"
                   style={{
-                    backgroundColor: "#ffffff",
-                    padding: 16,
-                    border: "1px solid #f0efeb",
-                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
-                    gap: 16,
+                    padding: "8px 12px",
+                    borderBottom: "1px solid #f5f5f5",
+                    gap: 8,
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#ffc6a9";
+                    e.currentTarget.style.backgroundColor = "#fafafa";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#f0efeb";
+                    e.currentTarget.style.backgroundColor = "transparent";
                   }}
                 >
-                  <div className="flex flex-col items-center justify-center gap-1 text-secondary-300">
-                    <span className="text-xs font-mono">#{idx + 1}</span>
-                    <GripVertical className="w-4 h-4 cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
+                  <span
+                    className="shrink-0 text-[10px] font-mono"
+                    style={{ color: "#a3a3a3", paddingTop: 2 }}
+                  >
+                    #{idx + 1}
+                  </span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-semibold text-secondary-900 truncate">
-                        {session.title}
-                      </h4>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleLoadSession(session)}
-                          className="p-1.5 text-secondary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSession(session.id)}
-                          className="p-1.5 text-secondary-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <div
+                      className="text-xs font-medium truncate"
+                      style={{ color: "#0a0a0a" }}
+                    >
+                      {session.title}
                     </div>
-                    <p className="text-xs text-secondary-500 line-clamp-1 mb-2">
-                      {session.description || "No description"}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-secondary-400">
-                      <span className="flex items-center gap-1 bg-secondary-50 px-1.5 py-0.5 rounded text-secondary-600">
-                        <Clock className="w-3 h-3" />
+                    <div
+                      className="flex items-center text-[10px]"
+                      style={{ gap: 6, color: "#a3a3a3", marginTop: 2 }}
+                    >
+                      <span className="font-mono">
                         {Math.floor(session.duration / 60)}:
                         {String(Math.floor(session.duration % 60)).padStart(
                           2,
                           "0",
                         )}
                       </span>
-                      <span>{session.sentence_ids.length} sentences</span>
+                      <span>{session.sentence_ids.length} sent.</span>
                       <span className="capitalize">{session.difficulty}</span>
                     </div>
+                  </div>
+                  <div
+                    className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ gap: 2 }}
+                  >
+                    <button
+                      onClick={() => handleLoadSession(session)}
+                      style={{ padding: 2, color: "#a3a3a3" }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "#b45000";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "#a3a3a3";
+                      }}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSession(session.id)}
+                      style={{ padding: 2, color: "#a3a3a3" }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "#ef4444";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "#a3a3a3";
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               ))

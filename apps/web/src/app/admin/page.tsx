@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { Suspense, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { extractVideoId, parseTranscriptToSentences } from "@shadowoo/shared";
+import { extractVideoId } from "@shadowoo/shared";
 import type {
-  TranscriptItem,
   Sentence,
   LearningSession,
   SceneRecommendation,
@@ -12,15 +11,21 @@ import type {
 } from "@shadowoo/shared";
 import { useSentenceEditor } from "./hooks/useSentenceEditor";
 import { useTranscriptFetch } from "./hooks/useTranscriptFetch";
-import { SentenceItem } from "./components/SentenceItem";
-import { VideoListModal } from "./components/VideoListModal";
+import {
+  VideoListModal,
+  type ExistingVideo,
+} from "./components/VideoListModal";
 import { AdminHeader } from "./components/AdminHeader";
 import { VideoPlayerPanel } from "./components/VideoPlayerPanel";
 import { RawScriptEditor } from "./components/RawScriptEditor";
 import { SentenceListEditor } from "./components/SentenceListEditor";
 import { SessionCreator } from "./components/SessionCreator";
-import YouTubePlayer from "@/components/YouTubePlayer";
 import { createClient } from "@/utils/supabase/client";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 import { useSearchParams } from "next/navigation";
 
@@ -86,11 +91,8 @@ function AdminPageContent() {
   };
 
   // --- Edit Mode & Draft Logic ---
-
-  // 1. Initial Load: Check for Edit ID first, then Draft
   useEffect(() => {
     const init = async () => {
-      // A. Edit Mode (High Priority)
       if (editId) {
         setLoading(true);
         const { data, error } = await supabase
@@ -107,11 +109,9 @@ function AdminPageContent() {
           setDifficulty(data.difficulty || "intermediate");
           setTags(data.tags?.join(", ") || "");
           setSentences(data.transcript || []);
-          // Reconstruct raw script if possible, or leave empty
           setLastSyncTime(data.snippet_end_time || 0);
           console.log("Loaded video for editing:", data.title);
 
-          // Fetch existing learning sessions
           const { data: sessionData } = await supabase
             .from("learning_sessions")
             .select("*")
@@ -119,7 +119,6 @@ function AdminPageContent() {
             .order("order_index", { ascending: true });
 
           if (sessionData) {
-            // Reconstruct sentences for each session using sentence_ids
             const sessionsWithSentences = sessionData.map((session) => {
               const sessionSentences = session.sentence_ids
                 .map((id: string) =>
@@ -136,9 +135,6 @@ function AdminPageContent() {
             });
 
             setCreatedSessions(sessionsWithSentences);
-            console.log(
-              `Loaded ${sessionsWithSentences.length} existing sessions`,
-            );
           }
         } else {
           console.error("Video not found for editing");
@@ -149,24 +145,71 @@ function AdminPageContent() {
     };
 
     init();
-  }, [editId]); // Run only on mount or if editId changes
-
-  // Draft auto-save removed - using manual save only to prevent conflicts
+  }, [editId]);
 
   // --- CMS List Logic ---
   const [showList, setShowList] = useState(false);
-  const [existingVideos, setExistingVideos] = useState<any[]>([]);
+  const [existingVideos, setExistingVideos] = useState<ExistingVideo[]>([]);
 
   const fetchExistingVideos = async () => {
-    const { data, error } = await supabase
+    // Fetch videos
+    const { data: videos } = await supabase
       .from("curated_videos")
       .select("video_id, title, created_at")
       .order("created_at", { ascending: false });
 
-    if (data) {
-      setExistingVideos(data);
-      setShowList(true);
+    if (!videos) return;
+
+    // Fetch all sessions
+    const { data: sessions } = await supabase
+      .from("learning_sessions")
+      .select(
+        "id, source_video_id, title, duration, difficulty, order_index, created_at",
+      )
+      .order("order_index", { ascending: true });
+
+    const sessionsByVideo = new Map<string, typeof sessions>();
+    for (const s of sessions ?? []) {
+      const list = sessionsByVideo.get(s.source_video_id) ?? [];
+      list.push(s);
+      sessionsByVideo.set(s.source_video_id, list);
     }
+
+    setExistingVideos(
+      videos.map((v) => ({
+        ...v,
+        sessions: (sessionsByVideo.get(v.video_id) ?? []).map((s) => ({
+          id: s.id,
+          source_video_id: s.source_video_id,
+          title: s.title,
+          duration: Number(s.duration),
+          difficulty: s.difficulty ?? undefined,
+          order_index: s.order_index,
+          created_at: s.created_at,
+        })),
+      })),
+    );
+    setShowList(true);
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    const { error: deleteError } = await supabase
+      .from("learning_sessions")
+      .delete()
+      .eq("id", sessionId);
+
+    if (deleteError) {
+      console.error("Failed to delete session:", deleteError.message);
+      return;
+    }
+
+    // Update local state
+    setExistingVideos((prev) =>
+      prev.map((v) => ({
+        ...v,
+        sessions: v.sessions.filter((s) => s.id !== sessionId),
+      })),
+    );
   };
 
   // --- Scene Analysis Logic ---
@@ -187,17 +230,12 @@ function AdminPageContent() {
       const data: SceneAnalysisResponse = await response.json();
       setAnalyzedScenes(data.scenes);
 
-      // Scroll to session creator to show results
-      setTimeout(() => {
-        const element = document.getElementById("session-creator-section");
-        element?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
-    } catch (err: any) {
-      console.error("Scene analysis error:", err.message);
-      // Error will be shown via transcriptFetch.error state in UI
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Scene analysis error:", err.message);
+      }
     } finally {
       setAnalyzingScenes(false);
     }
@@ -210,9 +248,8 @@ function AdminPageContent() {
       setSentences(translated);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
-    } catch (err: any) {
-      if (err.message !== "Translation cancelled") {
-        // Ignore cancellation, show other errors
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message !== "Translation cancelled") {
         console.error(err.message);
       }
     }
@@ -220,11 +257,10 @@ function AdminPageContent() {
 
   // --- Refine Script Logic ---
   const handleRefineScript = () => {
-    // Remove non-speech text like >, [Music], [Applause], etc.
     const refined = rawScript
-      .replace(/^>.*$/gm, "") // Remove lines starting with >
-      .replace(/\[.*?\]/g, "") // Remove [Music], [Applause], etc.
-      .replace(/\n\s*\n/g, "\n") // Remove extra blank lines
+      .replace(/^>.*$/gm, "")
+      .replace(/\[.*?\]/g, "")
+      .replace(/\n\s*\n/g, "\n")
       .trim();
 
     setRawScript(refined);
@@ -238,8 +274,10 @@ function AdminPageContent() {
       setRawScript(rawText);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
-    } catch (err: any) {
-      console.error(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error(err.message);
+      }
     }
   };
 
@@ -257,8 +295,10 @@ function AdminPageContent() {
       );
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
-    } catch (err: any) {
-      console.error(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error(err.message);
+      }
     }
   };
 
@@ -275,7 +315,7 @@ function AdminPageContent() {
     const textarea = scriptRef.current;
     const cursorPosition = textarea.selectionStart;
 
-    if (cursorPosition === 0) return; // Nothing selected
+    if (cursorPosition === 0) return;
 
     const fullText = rawScript;
     const splitText = fullText.substring(0, cursorPosition).trim();
@@ -307,8 +347,6 @@ function AdminPageContent() {
         target.tagName === "TEXTAREA" ||
         target.isContentEditable;
 
-      // 1. Sync Trigger (Only in Raw Script Textarea or at Body level)
-      // We allow this specific shortcut in the script textarea for workflow speed
       const isScriptTextarea = target === scriptRef.current;
       const isBody = target === document.body;
 
@@ -321,15 +359,14 @@ function AdminPageContent() {
         return;
       }
 
-      // 2. Video Navigation (Arrow Keys) - Only when NOT editing text
       if (!isInput && player) {
         if (e.key === "ArrowLeft") {
-          e.preventDefault(); // Prevent scroll
+          e.preventDefault();
           const currentTime = player.getCurrentTime();
           player.seekTo(Math.max(0, currentTime - 5), true);
         }
         if (e.key === "ArrowRight") {
-          e.preventDefault(); // Prevent scroll
+          e.preventDefault();
           const currentTime = player.getCurrentTime();
           player.seekTo(Math.min(player.getDuration(), currentTime + 5), true);
         }
@@ -339,8 +376,6 @@ function AdminPageContent() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [player, rawScript, lastSyncTime]);
-
-  // Sentence CRUD operations moved to useSentenceEditor hook
 
   const handleSave = async () => {
     const videoId = getVideoId();
@@ -365,11 +400,10 @@ function AdminPageContent() {
       } = await supabase.auth.getUser();
       const createdBy = user?.id && UUID_PATTERN.test(user.id) ? user.id : null;
 
-      // USING DIRECT SUPABASE UPSERT (Bypassing API for full Admin power)
       const payload = {
         video_id: videoId,
         source_url: youtubeUrl,
-        title: title || `Video ${videoId}`, // Use provided title or fallback to video ID
+        title: title || `Video ${videoId}`,
         snippet_start_time: 0,
         snippet_end_time: duration,
         difficulty,
@@ -383,7 +417,6 @@ function AdminPageContent() {
         created_by: createdBy,
       };
 
-      // Use upsert matching video_id
       const { error: dbError } = await supabase
         .from("curated_videos")
         .upsert(payload, { onConflict: "video_id" });
@@ -399,7 +432,6 @@ function AdminPageContent() {
         throw dbError;
       }
 
-      // 2. Save Sessions via API
       if (createdSessions.length > 0) {
         const sessionsResponse = await fetch("/api/admin/learning-sessions", {
           method: "POST",
@@ -422,7 +454,6 @@ function AdminPageContent() {
 
       setSuccess(true);
 
-      // If editing, may be stay on page? If new, maybe clear?
       setTimeout(() => {
         setSuccess(false);
         if (!editId) {
@@ -433,8 +464,10 @@ function AdminPageContent() {
           setLastSyncTime(0);
         }
       }, 2000);
-    } catch (err: any) {
-      console.error(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -442,140 +475,200 @@ function AdminPageContent() {
 
   return (
     <div
-      className="min-h-screen overflow-auto flex flex-col"
-      style={{ backgroundColor: "#faf9f5", padding: 24 }}
+      className="h-screen flex flex-col overflow-hidden"
+      style={{ backgroundColor: "#fafafa" }}
     >
-      <div
-        className="max-w-[1920px] mx-auto w-full flex flex-col"
-        style={{ gap: 24 }}
-      >
-        <AdminHeader
-          youtubeUrl={youtubeUrl}
-          title={title}
-          difficulty={difficulty}
-          tags={tags}
-          loading={loading}
-          sentencesCount={sentences.length}
-          onYoutubeUrlChange={setYoutubeUrl}
-          onTitleChange={setTitle}
-          onDifficultyChange={setDifficulty}
-          onTagsChange={setTags}
-          onSave={handleSave}
-          onLoadExisting={fetchExistingVideos}
-        />
+      {/* Header */}
+      <AdminHeader
+        youtubeUrl={youtubeUrl}
+        title={title}
+        difficulty={difficulty}
+        tags={tags}
+        loading={loading}
+        sentencesCount={sentences.length}
+        onYoutubeUrlChange={setYoutubeUrl}
+        onTitleChange={setTitle}
+        onDifficultyChange={setDifficulty}
+        onTagsChange={setTags}
+        onSave={handleSave}
+        onLoadExisting={fetchExistingVideos}
+      />
 
-        {transcriptFetch.error && (
-          <div
-            className="rounded-lg shrink-0"
-            style={{
-              backgroundColor: "rgba(207, 30, 41, 0.1)",
-              border: "1px solid #cf1e29",
-              padding: 12,
-            }}
-          >
-            <p className="text-sm" style={{ color: "#cf1e29" }}>
-              {transcriptFetch.error}
-            </p>
-          </div>
-        )}
-
-        {success && (
-          <div
-            className="rounded-lg shrink-0"
-            style={{
-              backgroundColor: "rgba(0, 137, 60, 0.1)",
-              border: "1px solid #00893c",
-              padding: 12,
-            }}
-          >
-            <p className="text-sm" style={{ color: "#00893c" }}>
-              ✅ Saved successfully!
-            </p>
-          </div>
-        )}
-
-        {/* 2x2 Grid Layout */}
+      {/* Notification banners */}
+      {transcriptFetch.error && (
         <div
-          className="grid"
+          className="shrink-0"
           style={{
-            gridTemplateColumns: "1fr 1fr",
-            gridTemplateRows: "auto 1fr",
-            gap: 24,
-            minHeight: "calc(100vh - 200px)",
+            backgroundColor: "rgba(207, 30, 41, 0.08)",
+            borderBottom: "1px solid #cf1e29",
+            padding: "8px 16px",
           }}
         >
-          {/* Row 1, Col 1: Player */}
-          <div style={{ gridRow: 1, gridColumn: 1 }}>
-            <VideoPlayerPanel
-              videoId={getVideoId()}
-              currentTime={currentTime}
-              lastSyncTime={lastSyncTime}
-              onReady={handlePlayerReady}
-              onTimeUpdate={handleTimeUpdate}
-            />
-          </div>
+          <p className="text-sm" style={{ color: "#cf1e29" }}>
+            {transcriptFetch.error}
+          </p>
+        </div>
+      )}
 
-          {/* Row 1, Col 2: Step 1 Raw Script - Accordion */}
+      {success && (
+        <div
+          className="shrink-0"
+          style={{
+            backgroundColor: "rgba(0, 137, 60, 0.08)",
+            borderBottom: "1px solid #00893c",
+            padding: "8px 16px",
+          }}
+        >
+          <p className="text-sm" style={{ color: "#00893c" }}>
+            Saved successfully!
+          </p>
+        </div>
+      )}
+
+      {/* Main content area */}
+      <div className="flex-1 flex min-h-0">
+        {/* LEFT PANEL */}
+        <div
+          className="w-1/2 flex flex-col min-h-0"
+          style={{ borderRight: "1px solid #e5e5e5" }}
+        >
+          {/* Video Player - fixed aspect ratio */}
+          <VideoPlayerPanel
+            videoId={getVideoId()}
+            onReady={handlePlayerReady}
+            onTimeUpdate={handleTimeUpdate}
+          />
+
+          {/* Sync Info Bar */}
           <div
-            className="transition-all duration-500 ease-in-out flex flex-col"
+            className="shrink-0 flex items-center"
             style={{
-              gridRow: 1,
-              gridColumn: 2,
-              minHeight: sentences.length === 0 ? 600 : 200,
+              backgroundColor: "#fafafa",
+              borderBottom: "1px solid #e5e5e5",
+              padding: "6px 12px",
+              gap: 16,
             }}
           >
-            <RawScriptEditor
-              rawScript={rawScript}
-              loading={loading}
-              youtubeUrl={youtubeUrl}
-              onChange={setRawScript}
-              onFetchTranscript={handleFetchTranscript}
-              onRefineScript={handleRefineScript}
-              scriptRef={scriptRef}
-            />
+            <span className="text-xs" style={{ color: "#737373" }}>
+              Current:{" "}
+              <span
+                className="font-mono font-bold"
+                style={{ color: "#b45000" }}
+              >
+                {currentTime.toFixed(2)}s
+              </span>
+            </span>
+            <span className="text-xs" style={{ color: "#737373" }}>
+              Last Sync:{" "}
+              <span className="font-mono" style={{ color: "#0a0a0a" }}>
+                {lastSyncTime.toFixed(2)}s
+              </span>
+            </span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="text-xs flex items-center justify-center"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    backgroundColor: "#e5e5e5",
+                    color: "#737373",
+                    border: "none",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#d4d4d4";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#e5e5e5";
+                  }}
+                >
+                  ?
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start">
+                <h3
+                  className="font-bold text-sm mb-2"
+                  style={{ color: "#0a0a0a" }}
+                >
+                  How to Sync
+                </h3>
+                <ul
+                  className="text-xs list-disc"
+                  style={{
+                    paddingLeft: 14,
+                    color: "#737373",
+                    lineHeight: 1.8,
+                    gap: 4,
+                  }}
+                >
+                  <li>Paste script into the Raw Script editor.</li>
+                  <li>
+                    Play video. Click in the text where the sentence ends.
+                  </li>
+                  <li>
+                    Press{" "}
+                    <kbd
+                      className="font-bold text-xs"
+                      style={{
+                        backgroundColor: "#fff2ec",
+                        color: "#743100",
+                        padding: "1px 5px",
+                        border: "1px solid #ffc6a9",
+                      }}
+                    >
+                      ]
+                    </kbd>{" "}
+                    key.
+                  </li>
+                  <li>Use Auto Translate to fill Korean meanings.</li>
+                </ul>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          {/* Row 2, Col 1: Step 2 Parsed Sentences */}
-          <div style={{ gridRow: 2, gridColumn: 1, minHeight: 400 }}>
-            <SentenceListEditor
-              sentences={sentences}
-              loading={loading}
-              rawScript={rawScript}
-              onParseScript={handleParseScript}
-              onAutoTranslate={handleAutoTranslate}
-              onAnalyzeScenes={handleAnalyzeScenes}
-              analyzingScenes={analyzingScenes}
-              onUpdateTime={updateSentenceTime}
-              onUpdateText={updateSentenceText}
-              onDelete={deleteSentence}
-              onSplit={splitSentence}
-              onMergeWithPrevious={mergeWithPrevious}
-              onPlayFrom={handlePlayFrom}
-            />
-          </div>
-
-          {/* Row 2, Col 2: Step 3 Create Sessions - Accordion */}
-          <div
-            id="session-creator-section"
-            className="transition-all duration-500 ease-in-out flex flex-col"
-            style={{
-              gridRow: 2,
-              gridColumn: 2,
-              minHeight: sentences.length > 0 ? 600 : 200,
-            }}
-          >
-            <SessionCreator
-              sentences={sentences}
-              videoId={getVideoId() || ""}
-              onSessionsChange={setCreatedSessions}
-              initialSessions={createdSessions}
-              suggestedScenes={analyzedScenes}
-            />
-          </div>
+          {/* Raw Script - fills remaining space */}
+          <RawScriptEditor
+            rawScript={rawScript}
+            loading={loading}
+            youtubeUrl={youtubeUrl}
+            onChange={setRawScript}
+            onFetchTranscript={handleFetchTranscript}
+            onRefineScript={handleRefineScript}
+            scriptRef={scriptRef}
+          />
         </div>
 
-        {/* Bottom padding for scroll */}
-        <div style={{ height: 24 }} />
+        {/* RIGHT PANEL */}
+        <div className="w-1/2 flex flex-col min-h-0">
+          {/* Step 2: Parsed Sentences - 50% height */}
+          <SentenceListEditor
+            sentences={sentences}
+            loading={loading}
+            rawScript={rawScript}
+            onParseScript={handleParseScript}
+            onAutoTranslate={handleAutoTranslate}
+            onAnalyzeScenes={handleAnalyzeScenes}
+            analyzingScenes={analyzingScenes}
+            onUpdateTime={updateSentenceTime}
+            onUpdateText={updateSentenceText}
+            onDelete={deleteSentence}
+            onSplit={splitSentence}
+            onMergeWithPrevious={mergeWithPrevious}
+            onPlayFrom={handlePlayFrom}
+          />
+
+          {/* Step 3: Session Creator - 50% height */}
+          <SessionCreator
+            sentences={sentences}
+            videoId={getVideoId() || ""}
+            onSessionsChange={setCreatedSessions}
+            initialSessions={createdSessions}
+            suggestedScenes={analyzedScenes}
+          />
+        </div>
       </div>
 
       <VideoListModal
@@ -583,6 +676,7 @@ function AdminPageContent() {
         videos={existingVideos}
         onClose={() => setShowList(false)}
         onSelect={(videoId) => (window.location.href = `/admin?id=${videoId}`)}
+        onDeleteSession={handleDeleteSession}
       />
     </div>
   );

@@ -31,83 +31,84 @@ export function AdminHeader({
 }: AdminHeaderProps) {
   return (
     <div
-      className="shrink-0 flex justify-between items-center rounded-xl"
+      className="shrink-0 flex justify-between items-center"
       style={{
-        height: 80,
-        backgroundColor: "#f0efeb",
-        padding: "0 24px",
-        border: "1px solid #f0efeb",
-        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
+        height: 56,
+        backgroundColor: "#ffffff",
+        padding: "0 16px",
+        borderBottom: "1px solid #e5e5e5",
       }}
     >
-      <div>
-        <div className="flex items-center" style={{ gap: 12 }}>
-          <h1
-            className="font-bold"
-            style={{ fontSize: 20, color: "#0c0b09", lineHeight: 1.46 }}
-          >
-            Sync Editor & Translator
-          </h1>
-          <button
-            onClick={onLoadExisting}
-            className="text-md rounded transition-colors"
-            style={{
-              backgroundColor: "#ffffff",
-              color: "#565552",
-              padding: "4px 8px",
-              border: "1px solid #f0efeb",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#f0efeb";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#ffffff";
-            }}
-          >
-            📂 Load Existing
-          </button>
-        </div>
-        <div
-          className="flex text-xs items-center mt-1"
-          style={{ gap: 16, color: "#565552" }}
+      <div className="flex items-center" style={{ gap: 12 }}>
+        <h1
+          className="font-bold"
+          style={{ fontSize: 14, color: "#0a0a0a", letterSpacing: "0.02em" }}
         >
-          <span>Video: {youtubeUrl || "None"}</span>
-        </div>
-      </div>
-      <div className="flex items-center" style={{ gap: 16 }}>
-        <input
-          className="rounded-lg text-sm"
+          Sync Editor
+        </h1>
+        <button
+          onClick={onLoadExisting}
+          className="text-xs transition-colors"
           style={{
-            padding: "8px 12px",
-            border: "1px solid #f0efeb",
             backgroundColor: "#ffffff",
-            width: 256,
+            color: "#737373",
+            padding: "4px 10px",
+            border: "1px solid #e5e5e5",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "#fafafa";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "#ffffff";
+          }}
+        >
+          Load Existing
+        </button>
+      </div>
+      <div className="flex items-center" style={{ gap: 10 }}>
+        <input
+          className="text-sm"
+          style={{
+            padding: "6px 10px",
+            border: "1px solid #e5e5e5",
+            backgroundColor: "#ffffff",
+            width: 240,
+            outline: "none",
+            color: "#0a0a0a",
           }}
           value={youtubeUrl}
           onChange={(e) => onYoutubeUrlChange(e.target.value)}
           placeholder="YouTube URL..."
         />
         <input
-          className="rounded-lg text-sm"
+          className="text-sm"
           style={{
-            padding: "8px 12px",
-            border: "1px solid #f0efeb",
+            padding: "6px 10px",
+            border: "1px solid #e5e5e5",
             backgroundColor: "#ffffff",
-            width: 320,
+            width: 300,
+            outline: "none",
+            color: "#0a0a0a",
           }}
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
           placeholder="Video Title..."
         />
         <select
-          className="rounded-lg text-sm"
+          className="text-sm"
           style={{
-            padding: "8px 12px",
-            border: "1px solid #f0efeb",
+            padding: "6px 10px",
+            border: "1px solid #e5e5e5",
             backgroundColor: "#ffffff",
+            outline: "none",
+            color: "#0a0a0a",
           }}
           value={difficulty}
-          onChange={(e) => onDifficultyChange(e.target.value as any)}
+          onChange={(e) =>
+            onDifficultyChange(
+              e.target.value as "beginner" | "intermediate" | "advanced",
+            )
+          }
         >
           <option value="beginner">Beginner</option>
           <option value="intermediate">Intermediate</option>
@@ -116,14 +117,14 @@ export function AdminHeader({
         <button
           onClick={onSave}
           disabled={loading || sentencesCount === 0}
-          className="font-bold rounded-lg text-sm transition-colors"
+          className="font-bold text-sm transition-colors"
           style={{
             backgroundColor:
-              loading || sentencesCount === 0 ? "#b8b7b4" : "#b45000",
+              loading || sentencesCount === 0 ? "#d4d4d4" : "#b45000",
             color: "#ffffff",
-            padding: "8px 24px",
-            opacity: loading || sentencesCount === 0 ? 0.5 : 1,
+            padding: "6px 20px",
             cursor: loading || sentencesCount === 0 ? "not-allowed" : "pointer",
+            border: "none",
           }}
           onMouseEnter={(e) => {
             if (!loading && sentencesCount > 0) {

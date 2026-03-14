@@ -1,42 +1,59 @@
-// @MX:NOTE: [AUTO] Home tab showing curated video list loaded from Supabase.
-// @MX:SPEC: SPEC-MOBILE-003 - REQ-E-001, AC-006
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
+  Image,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Image,
 } from "react-native";
 import { router } from "expo-router";
-import { fetchCuratedVideos, VideoListItem } from "../../src/lib/api";
+import { fetchLearningSessions, SessionListItem } from "../../src/lib/api";
 
-const DIFFICULTY_COLORS: Record<string, string> = {
-  beginner: "#4CAF50",
-  intermediate: "#FF9800",
-  advanced: "#F44336",
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
+const COLOR = {
+  bg: "#FFFFFF",
+  border: "#111111",
+  borderLight: "#E0E0E0",
+  text: "#111111",
+  textMuted: "#888888",
+  textInverse: "#FFFFFF",
 };
 
 const DIFFICULTY_LABELS: Record<string, string> = {
-  beginner: "초급",
-  intermediate: "중급",
-  advanced: "고급",
+  beginner: "BEGINNER",
+  intermediate: "INTERMEDIATE",
+  advanced: "ADVANCED",
 };
 
-function VideoCard({ item }: { item: VideoListItem }) {
-  const diffColor = item.difficulty
-    ? DIFFICULTY_COLORS[item.difficulty]
-    : "#999";
-  const diffLabel = item.difficulty ? DIFFICULTY_LABELS[item.difficulty] : "";
+const DIFFICULTY_BG: Record<string, string> = {
+  beginner: "#111111",
+  intermediate: "#555555",
+  advanced: "#111111",
+};
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function SessionCard({ item }: { item: SessionListItem }) {
+  const diffLabel = item.difficulty ? DIFFICULTY_LABELS[item.difficulty] : null;
+  const diffBg = item.difficulty ? DIFFICULTY_BG[item.difficulty] : "#111111";
 
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/study/${item.video_id}`)}
-      activeOpacity={0.75}
+      onPress={() =>
+        router.push(`/study/${item.source_video_id}?sessionId=${item.id}`)
+      }
+      activeOpacity={0.9}
     >
       {item.thumbnail_url ? (
         <Image
@@ -46,22 +63,34 @@ function VideoCard({ item }: { item: VideoListItem }) {
         />
       ) : (
         <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-          <Text style={styles.thumbnailPlaceholderText}>▶</Text>
+          <Text style={styles.thumbnailPlaceholderIcon}>▶</Text>
         </View>
       )}
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
+
+      <View style={styles.info}>
+        <View style={styles.metaRow}>
+          {diffLabel ? (
+            <View style={[styles.levelBadge, { backgroundColor: diffBg }]}>
+              <Text style={styles.levelText}>{diffLabel}</Text>
+            </View>
+          ) : null}
+          <Text style={styles.duration}>{formatDuration(item.duration)}</Text>
+        </View>
+
+        <Text style={styles.title} numberOfLines={2}>
           {item.title}
         </Text>
-        {item.channel_name ? (
-          <Text style={styles.channelName} numberOfLines={1}>
-            {item.channel_name}
+
+        {item.description ? (
+          <Text style={styles.description} numberOfLines={1}>
+            {item.description}
           </Text>
         ) : null}
-        {diffLabel ? (
-          <View style={[styles.diffBadge, { backgroundColor: diffColor }]}>
-            <Text style={styles.diffBadgeText}>{diffLabel}</Text>
-          </View>
+
+        {item.channel_name ? (
+          <Text style={styles.channel} numberOfLines={1}>
+            {item.channel_name}
+          </Text>
         ) : null}
       </View>
     </TouchableOpacity>
@@ -69,16 +98,16 @@ function VideoCard({ item }: { item: VideoListItem }) {
 }
 
 export default function HomeScreen() {
-  const [videos, setVideos] = useState<VideoListItem[]>([]);
+  const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetchCuratedVideos()
-      .then(setVideos)
-      .catch((e) => setError(e.message ?? "영상 목록을 불러오지 못했습니다."))
+    fetchLearningSessions()
+      .then(setSessions)
+      .catch((e) => setError(e.message ?? "세션 목록을 불러오지 못했습니다."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -87,48 +116,56 @@ export default function HomeScreen() {
   }, [load]);
 
   const renderItem = useCallback(
-    ({ item }: { item: VideoListItem }) => <VideoCard item={item} />,
+    ({ item }: { item: SessionListItem }) => <SessionCard item={item} />,
     [],
   );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <SafeAreaView style={styles.stateContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
+        <ActivityIndicator size="small" color={COLOR.text} />
       </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
+      <SafeAreaView style={styles.stateContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
+        <Text style={styles.stateText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={load}>
-          <Text style={styles.retryText}>다시 시도</Text>
+          <Text style={styles.retryText}>RETRY</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  if (videos.length === 0) {
+  if (sessions.length === 0) {
     return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.emptyText}>큐레이션 영상이 없습니다.</Text>
+      <SafeAreaView style={styles.stateContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
+        <Text style={styles.stateText}>NO SESSIONS</Text>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
+
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Shadowoo</Text>
-        <Text style={styles.headerSubtitle}>오늘의 영어 학습 영상</Text>
+        <Text style={styles.headerWordmark}>SHADOWOO</Text>
+        <Text style={styles.headerLabel}>SESSIONS</Text>
       </View>
+
       <FlatList
-        data={videos}
-        keyExtractor={(item) => item.video_id}
+        data={sessions}
+        keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
@@ -137,105 +174,122 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
+    backgroundColor: COLOR.bg,
   },
-  center: {
+  stateContainer: {
     flex: 1,
+    backgroundColor: COLOR.bg,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f8f8f8",
+    gap: 16,
+  },
+  stateText: {
+    fontSize: 13,
+    letterSpacing: 2,
+    color: COLOR.textMuted,
+    fontWeight: "500",
+  },
+  retryButton: {
+    borderWidth: 1,
+    borderColor: COLOR.border,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  retryText: {
+    fontSize: 11,
+    letterSpacing: 2,
+    color: COLOR.text,
+    fontWeight: "600",
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: "#fff",
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#007AFF",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: "#888",
-    marginTop: 2,
-  },
-  listContent: {
-    padding: 12,
+    borderBottomColor: COLOR.border,
+    flexDirection: "row",
+    alignItems: "baseline",
     gap: 12,
   },
+  headerWordmark: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 4,
+    color: COLOR.text,
+  },
+  headerLabel: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: COLOR.textMuted,
+    fontWeight: "500",
+  },
+  listContent: {
+    paddingBottom: 120,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: COLOR.borderLight,
+  },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: COLOR.bg,
   },
   thumbnail: {
-    width: "100%",
-    aspectRatio: 16 / 9,
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * (9 / 16),
+    backgroundColor: "#F0F0F0",
   },
   thumbnailPlaceholder: {
-    backgroundColor: "#ddd",
     alignItems: "center",
     justifyContent: "center",
   },
-  thumbnailPlaceholderText: {
-    fontSize: 32,
-    color: "#999",
+  thumbnailPlaceholderIcon: {
+    fontSize: 36,
+    color: COLOR.textMuted,
   },
-  cardInfo: {
-    padding: 12,
+  info: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    gap: 6,
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#222",
-    lineHeight: 21,
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  channelName: {
-    fontSize: 12,
-    color: "#888",
-    marginTop: 4,
-  },
-  diffBadge: {
+  levelBadge: {
     alignSelf: "flex-start",
-    marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
   },
-  diffBadgeText: {
+  levelText: {
+    fontSize: 9,
+    letterSpacing: 2,
+    fontWeight: "700",
+    color: COLOR.textInverse,
+  },
+  duration: {
     fontSize: 11,
-    color: "#fff",
-    fontWeight: "600",
+    letterSpacing: 1,
+    color: COLOR.textMuted,
+    fontWeight: "500",
   },
-  errorText: {
-    fontSize: 16,
-    color: "#e00",
-    textAlign: "center",
-    paddingHorizontal: 24,
+  title: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: COLOR.text,
+    lineHeight: 24,
+    letterSpacing: -0.2,
   },
-  retryButton: {
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
+  description: {
+    fontSize: 13,
+    color: COLOR.textMuted,
+    lineHeight: 18,
   },
-  retryText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  emptyText: {
-    fontSize: 15,
-    color: "#888",
+  channel: {
+    fontSize: 12,
+    color: COLOR.textMuted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
 });

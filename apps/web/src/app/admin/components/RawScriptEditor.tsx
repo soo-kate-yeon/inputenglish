@@ -19,33 +19,33 @@ export function RawScriptEditor({
 }: RawScriptEditorProps) {
   return (
     <div
-      className="h-full flex flex-col rounded-2xl overflow-hidden transition-colors relative"
+      className="flex-1 flex flex-col overflow-hidden min-h-0"
       style={{
-        backgroundColor: "#f0efeb",
-        border: "1px solid #f0efeb",
-        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
+        borderTop: "1px solid #e5e5e5",
       }}
     >
+      {/* Header bar */}
       <div
-        className="absolute top-0 left-0 text-xs font-bold rounded-br-lg z-10 flex items-center"
+        className="shrink-0 flex items-center"
         style={{
-          backgroundColor: "#fff2ec",
-          color: "#552200",
-          padding: "4px 12px",
+          backgroundColor: "#fafafa",
+          borderBottom: "1px solid #e5e5e5",
+          padding: "6px 12px",
           gap: 8,
         }}
       >
-        Step 1: Raw Script
+        <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
+          Step 1: Raw Script
+        </span>
         <button
           onClick={onFetchTranscript}
           disabled={loading || !youtubeUrl}
-          className="rounded uppercase tracking-wide transition-colors"
+          className="text-xs uppercase tracking-wide transition-colors"
           style={{
-            backgroundColor: loading || !youtubeUrl ? "#b8b7b4" : "#b45000",
+            backgroundColor: loading || !youtubeUrl ? "#d4d4d4" : "#b45000",
             color: "#ffffff",
             padding: "2px 8px",
-            fontSize: 10,
-            opacity: loading || !youtubeUrl ? 0.5 : 1,
+            border: "none",
             cursor: loading || !youtubeUrl ? "not-allowed" : "pointer",
           }}
           title="Fetch transcript from YouTube"
@@ -60,26 +60,24 @@ export function RawScriptEditor({
             }
           }}
         >
-          🎬 Fetch Transcript
+          Fetch Transcript
         </button>
         <button
           onClick={onRefineScript}
           disabled={!rawScript.trim()}
-          className="rounded uppercase tracking-wide transition-colors"
+          className="text-xs uppercase tracking-wide transition-colors"
           style={{
             backgroundColor: "#ffffff",
-            color: "#964100",
+            color: "#b45000",
             padding: "2px 8px",
-            fontSize: 10,
-            border: "1px solid #ffc6a9",
-            opacity: !rawScript.trim() ? 0.5 : 1,
+            border: "1px solid #e5e5e5",
             cursor: !rawScript.trim() ? "not-allowed" : "pointer",
+            opacity: !rawScript.trim() ? 0.5 : 1,
           }}
           title="Clean up non-speech text like > or [Music]"
           onMouseEnter={(e) => {
             if (rawScript.trim()) {
-              e.currentTarget.style.backgroundColor =
-                "rgba(255, 255, 255, 0.8)";
+              e.currentTarget.style.backgroundColor = "#fafafa";
             }
           }}
           onMouseLeave={(e) => {
@@ -88,18 +86,20 @@ export function RawScriptEditor({
             }
           }}
         >
-          ✨ Refine Script
+          Refine Script
         </button>
       </div>
+      {/* Textarea fills remaining space */}
       <textarea
         ref={scriptRef}
         value={rawScript}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-full resize-none focus:outline-none text-lg leading-relaxed"
+        className="flex-1 w-full resize-none focus:outline-none text-sm leading-relaxed"
         style={{
-          padding: "32px 24px 24px 24px",
-          color: "#22221f",
+          padding: "12px 16px",
+          color: "#0a0a0a",
           backgroundColor: "#ffffff",
+          minHeight: 0,
         }}
         placeholder="Paste your full transcript here... Click where sentence ends and press ] to sync."
       />

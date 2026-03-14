@@ -42,61 +42,61 @@ export function SentenceListEditor({
 }: SentenceListEditorProps) {
   return (
     <div
-      className="flex-1 rounded-2xl overflow-hidden flex flex-col relative"
+      className="flex flex-col overflow-hidden min-h-0"
       style={{
-        backgroundColor: "#f0efeb",
-        border: "1px solid #f0efeb",
-        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
+        flex: 1,
+        borderBottom: "1px solid #e5e5e5",
       }}
     >
+      {/* Header bar */}
       <div
-        className="absolute top-0 left-0 text-xs font-bold rounded-br-lg z-10 flex items-center"
+        className="shrink-0 flex items-center flex-wrap"
         style={{
-          backgroundColor: "#dfdedb",
-          color: "#22221f",
-          padding: "4px 12px",
+          backgroundColor: "#fafafa",
+          borderBottom: "1px solid #e5e5e5",
+          padding: "6px 12px",
           gap: 8,
         }}
       >
-        Step 2: Parsed Sentences ({sentences.length})
+        <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
+          Step 2: Parsed Sentences ({sentences.length})
+        </span>
         <button
           onClick={onParseScript}
           disabled={loading || !rawScript.trim()}
-          className="rounded uppercase tracking-wide transition-colors"
+          className="text-xs uppercase tracking-wide transition-colors"
           style={{
             backgroundColor:
-              loading || !rawScript.trim() ? "#b8b7b4" : "#3b3a38",
+              loading || !rawScript.trim() ? "#d4d4d4" : "#0a0a0a",
             color: "#ffffff",
             padding: "2px 8px",
-            fontSize: 10,
-            opacity: loading || !rawScript.trim() ? 0.5 : 1,
+            border: "none",
             cursor: loading || !rawScript.trim() ? "not-allowed" : "pointer",
           }}
           title="Parse raw script into sentences"
           onMouseEnter={(e) => {
             if (!loading && rawScript.trim()) {
-              e.currentTarget.style.backgroundColor = "#22221f";
+              e.currentTarget.style.backgroundColor = "#404040";
             }
           }}
           onMouseLeave={(e) => {
             if (!loading && rawScript.trim()) {
-              e.currentTarget.style.backgroundColor = "#3b3a38";
+              e.currentTarget.style.backgroundColor = "#0a0a0a";
             }
           }}
         >
-          📝 Parse Script
+          Parse Script
         </button>
         <button
           onClick={onAutoTranslate}
           disabled={loading || sentences.length === 0}
-          className="rounded uppercase tracking-wide transition-colors"
+          className="text-xs uppercase tracking-wide transition-colors"
           style={{
             backgroundColor:
-              loading || sentences.length === 0 ? "#b8b7b4" : "#b45000",
+              loading || sentences.length === 0 ? "#d4d4d4" : "#b45000",
             color: "#ffffff",
             padding: "2px 8px",
-            fontSize: 10,
-            opacity: loading || sentences.length === 0 ? 0.5 : 1,
+            border: "none",
             cursor:
               loading || sentences.length === 0 ? "not-allowed" : "pointer",
           }}
@@ -116,14 +116,13 @@ export function SentenceListEditor({
         <button
           onClick={onAnalyzeScenes}
           disabled={analyzingScenes || sentences.length < 5}
-          className="rounded uppercase tracking-wide transition-colors"
+          className="text-xs uppercase tracking-wide transition-colors"
           style={{
             backgroundColor:
-              analyzingScenes || sentences.length < 5 ? "#b8b7b4" : "#8b5cf6",
+              analyzingScenes || sentences.length < 5 ? "#d4d4d4" : "#8b5cf6",
             color: "#ffffff",
             padding: "2px 8px",
-            fontSize: 10,
-            opacity: analyzingScenes || sentences.length < 5 ? 0.5 : 1,
+            border: "none",
             cursor:
               analyzingScenes || sentences.length < 5
                 ? "not-allowed"
@@ -141,33 +140,28 @@ export function SentenceListEditor({
             }
           }}
         >
-          {analyzingScenes ? "⏳ Analyzing..." : "🎯 AI Scene Analysis"}
+          {analyzingScenes ? "Analyzing..." : "AI Scene Analysis"}
         </button>
-        <div className="flex-1" />
       </div>
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{ padding: "24px 16px 16px 16px", gap: 12 }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {sentences.map((s, idx) => (
-            <SentenceItem
-              key={s.id}
-              sentence={s}
-              index={idx}
-              onUpdateTime={onUpdateTime}
-              onUpdateText={onUpdateText}
-              onDelete={onDelete}
-              onSplit={onSplit}
-              onMergeWithPrevious={onMergeWithPrevious}
-              onPlayFrom={onPlayFrom}
-            />
-          ))}
-        </div>
+      {/* Sentence list with internal scroll */}
+      <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+        {sentences.map((s, idx) => (
+          <SentenceItem
+            key={s.id}
+            sentence={s}
+            index={idx}
+            onUpdateTime={onUpdateTime}
+            onUpdateText={onUpdateText}
+            onDelete={onDelete}
+            onSplit={onSplit}
+            onMergeWithPrevious={onMergeWithPrevious}
+            onPlayFrom={onPlayFrom}
+          />
+        ))}
         {sentences.length === 0 && (
           <div
-            className="text-center italic"
-            style={{ color: "#908f8c", paddingTop: 24, paddingBottom: 24 }}
+            className="text-center italic text-xs"
+            style={{ color: "#d4d4d4", padding: 24 }}
           >
             Parsed sentences will appear here...
           </div>

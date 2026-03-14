@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ShadowingNinja - YouTube 영어 학습",
-  description: "YouTube 영상으로 영어 쉐도잉 학습하기",
+  title: "Shadowoo Admin",
+  description: "Admin tool for video upload, editing, and session export",
 };
 
 import { Toaster } from "@/components/ui/sonner";
-import DataLoader from "@/components/DataLoader";
 import Providers from "@/components/Providers";
-import { AuthProvider } from "@/contexts/AuthContext";
 
 export default function RootLayout({
   children,
@@ -26,11 +24,8 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          <AuthProvider>
-            <DataLoader />
-            {children}
-            <Toaster />
-          </AuthProvider>
+          {children}
+          <Toaster />
         </Providers>
       </body>
     </html>
