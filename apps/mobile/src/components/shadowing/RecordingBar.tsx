@@ -1,7 +1,13 @@
-// @MX:NOTE: [AUTO] Fixed bottom bar for recording/playback UI in shadowing screen.
+// @MX:NOTE: [AUTO] Fixed bottom recording bar — square minimalism, black point color.
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-S-001, REQ-S-002, REQ-S-003, REQ-E-002, REQ-E-003, REQ-E-004
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface RecordingBarProps {
@@ -16,10 +22,10 @@ interface RecordingBarProps {
   onConfirm: () => void;
 }
 
-function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+function fmt(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 export default function RecordingBar({
@@ -33,83 +39,67 @@ export default function RecordingBar({
   onReRecord,
   onConfirm,
 }: RecordingBarProps) {
-  if (recordingState === "idle") {
-    return null;
-  }
+  if (recordingState === "idle") return null;
 
   if (recordingState === "recording") {
     return (
       <View style={styles.container}>
         <View style={styles.row}>
-          <View style={styles.pulseIndicator} />
-          <Text style={styles.durationText}>{formatDuration(duration)}</Text>
+          <View style={styles.recDot} />
+          <Text style={styles.timer}>{fmt(duration)}</Text>
           <TouchableOpacity
             testID="stop-button"
-            style={styles.stopButton}
+            style={styles.stopBtn}
             onPress={onStop}
             activeOpacity={0.7}
           >
-            <Ionicons name="stop" size={24} color="#fff" />
+            <Ionicons name="stop" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // playback state
+  // Playback state
+  const progressPercent = `${(playbackProgress * 100).toFixed(1)}%`;
+
   return (
     <View style={styles.container}>
-      {/* Progress bar */}
-      <View testID="progress-bar" style={styles.progressBarTrack}>
+      <View style={styles.progressTrack}>
         <View
-          style={[
-            styles.progressBarFill,
-            { width: `${playbackProgress * 100}%` },
-          ]}
+          style={[styles.progressFill, { width: progressPercent as any }]}
         />
       </View>
       <View style={styles.row}>
-        {/* Re-record button */}
         <TouchableOpacity
           testID="rerecord-button"
-          style={styles.secondaryButton}
+          style={styles.secondaryBtn}
           onPress={onReRecord}
           activeOpacity={0.7}
         >
-          <Ionicons name="refresh" size={20} color="#666" />
-          <Text style={styles.secondaryButtonText}>다시</Text>
+          <Text style={styles.secondaryText}>REDO</Text>
         </TouchableOpacity>
 
-        {/* Play/Pause toggle */}
-        {isPlaying ? (
-          <TouchableOpacity
-            testID="pause-button"
-            style={styles.playButton}
-            onPress={onPause}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="pause" size={28} color="#fff" />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            testID="play-button"
-            style={styles.playButton}
-            onPress={onPlay}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="play" size={28} color="#fff" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          testID={isPlaying ? "pause-button" : "play-button"}
+          style={styles.playBtn}
+          onPress={isPlaying ? onPause : onPlay}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isPlaying ? "pause" : "play"}
+            size={22}
+            color="#fff"
+          />
+        </TouchableOpacity>
 
-        {/* Confirm button */}
         <TouchableOpacity
           testID="confirm-button"
-          style={styles.confirmButton}
+          style={styles.confirmBtn}
           onPress={onConfirm}
           activeOpacity={0.7}
         >
-          <Ionicons name="checkmark" size={20} color="#fff" />
-          <Text style={styles.confirmButtonText}>확인</Text>
+          <Text style={styles.confirmText}>DONE</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -118,97 +108,77 @@ export default function RecordingBar({
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#eee",
-    paddingBottom: 24, // safe area offset
-    paddingTop: 8,
-    paddingHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
+    borderTopColor: "#111111",
+    backgroundColor: "#FFFFFF",
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "ios" ? 34 : 20,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
-    paddingVertical: 8,
+    gap: 20,
+    paddingVertical: 4,
   },
-  pulseIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#E53935",
-    marginRight: 8,
+  recDot: {
+    width: 8,
+    height: 8,
+    backgroundColor: "#111111",
   },
-  durationText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    minWidth: 60,
+  timer: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111111",
+    letterSpacing: 1,
+    minWidth: 56,
     textAlign: "center",
-    marginRight: 8,
   },
-  stopButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#E53935",
+  stopBtn: {
+    width: 44,
+    height: 44,
+    backgroundColor: "#111111",
     alignItems: "center",
     justifyContent: "center",
   },
-  progressBarTrack: {
-    height: 4,
-    backgroundColor: "#eee",
-    borderRadius: 2,
-    marginBottom: 4,
-    overflow: "hidden",
+  progressTrack: {
+    height: 2,
+    backgroundColor: "#E0E0E0",
+    marginBottom: 12,
   },
-  progressBarFill: {
-    height: "100%",
-    backgroundColor: "#007AFF",
-    borderRadius: 2,
+  progressFill: {
+    height: 2,
+    backgroundColor: "#111111",
   },
-  playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#007AFF",
+  playBtn: {
+    width: 48,
+    height: 48,
+    backgroundColor: "#111111",
     alignItems: "center",
     justifyContent: "center",
   },
-  secondaryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
+  secondaryBtn: {
+    borderWidth: 1,
+    borderColor: "#111111",
     paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
-    gap: 4,
+    paddingVertical: 6,
   },
-  secondaryButtonText: {
-    fontSize: 13,
-    color: "#666",
+  secondaryText: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: "700",
+    color: "#111111",
   },
-  confirmButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
+  confirmBtn: {
+    backgroundColor: "#111111",
     paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: "#34C759",
-    gap: 4,
+    paddingVertical: 8,
   },
-  confirmButtonText: {
-    fontSize: 13,
-    color: "#fff",
-    fontWeight: "600",
+  confirmText: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
 });

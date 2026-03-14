@@ -2,7 +2,6 @@
 // @MX:REASON: [AUTO] fan_in >= 3: navigated from HomeScreen, deeplinks, and study flow
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-U-001 through REQ-C-002
 // @MX:NOTE: [AUTO] SPEC-MOBILE-006 additions: AI panel (DifficultyTagSelector, AiTipButton, AiTipCard)
-// and background recording upload after confirm. AI panel appears at bottom for the active sentence.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,32 +9,38 @@ import {
   AppState,
   FlatList,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import * as Crypto from "expo-crypto";
 import type { Sentence, CuratedVideo } from "@shadowoo/shared";
 import { groupSentencesByMode } from "@shadowoo/shared";
 import { fetchCuratedVideo } from "../../src/lib/api";
-import { studyStore } from "../../src/lib/stores";
+import { studyStore, appStore } from "../../src/lib/stores";
 import YouTubePlayer, {
   YouTubePlayerHandle,
 } from "../../src/components/player/YouTubePlayer";
 import ShadowingHeader, {
   ShadowingMode,
 } from "../../src/components/shadowing/ShadowingHeader";
-import ShadowingScriptLine, {
-  SHADOWING_SCRIPT_LINE_HEIGHT,
-} from "../../src/components/shadowing/ShadowingScriptLine";
+import ShadowingScriptLine from "../../src/components/shadowing/ShadowingScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import { uploadRecording } from "../../src/lib/ai-api";
-import DifficultyTagSelector from "../../src/components/ai/DifficultyTagSelector";
-import AiTipButton from "../../src/components/ai/AiTipButton";
-import AiTipCard from "../../src/components/ai/AiTipCard";
 import { useAuth } from "../../src/contexts/AuthContext";
-import { useSubscription } from "../../src/hooks/useSubscription";
+
+const C = {
+  bg: "#FFFFFF",
+  border: "#111111",
+  borderLight: "#E0E0E0",
+  text: "#111111",
+  muted: "#AAAAAA",
+};
 
 export default function ShadowingScreen() {
   const { videoId } = useLocalSearchParams<{ videoId: string }>();
@@ -45,31 +50,21 @@ export default function ShadowingScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [playing, setPlaying] = useState(false);
+  const [scriptVisible, setScriptVisible] = useState(true);
   const [activeSentenceId, setActiveSentenceId] = useState<string | null>(null);
   const [currentRecordingSentenceId, setCurrentRecordingSentenceId] = useState<
     string | null
   >(null);
   const [recordedSentences, setRecordedSentences] = useState<
     Record<string, string>
-  >({}); // sentenceId -> fileUri
+  >({});
   const [mode, setMode] = useState<ShadowingMode>("sentence");
   const [sentences, setSentences] = useState<Sentence[]>([]);
 
-  // AI panel state - keyed by sentenceId
-  const [aiTipsBySentenceId, setAiTipsBySentenceId] = useState<
-    Record<string, { tip: string; tags: string[] }>
-  >({});
-  const [selectedTagsBySentenceId, setSelectedTagsBySentenceId] = useState<
-    Record<string, string[]>
-  >({});
-  const [aiErrorBySentenceId, setAiErrorBySentenceId] = useState<
-    Record<string, string | null>
-  >({});
-
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const flatListRef = useRef<FlatList<Sentence>>(null);
-  const activeSentenceIdRef = useRef<string | null>(null);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeIdRef = useRef<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const {
     recordingState,
@@ -88,156 +83,122 @@ export default function ShadowingScreen() {
 
   const currentSession = studyStore((s) => s.currentSession);
   const { user } = useAuth();
-  const { canUseAI } = useSubscription();
 
-  // Load video and update session phase on mount - REQ-C-001
+  // Load video
   useEffect(() => {
     if (!videoId) return;
     fetchCuratedVideo(videoId)
       .then((v) => {
         setVideo(v);
-        // Parse transcript and apply grouping
-        const allSentences = v.transcript ?? [];
-        setSentences(groupSentencesByMode(allSentences, "sentence"));
+        setSentences(groupSentencesByMode(v.transcript ?? [], "sentence"));
       })
       .catch((e: Error) => setError(e.message ?? "Failed to load video"))
       .finally(() => setLoading(false));
 
-    // Update study session phase - read currentSession directly to avoid infinite loop
     const session = studyStore.getState().currentSession;
-    if (session) {
+    if (session)
       studyStore.getState().updateSessionPhase(session.id, "shadowing");
-    }
   }, [videoId]);
 
-  // Background pause + recording stop - REQ-E-006
+  // Background pause + stop recording
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") {
         setPlaying(false);
-        if (recordingState === "recording") {
-          void stopRecording();
-        }
+        if (recordingState === "recording") void stopRecording();
       }
     });
     return () => sub.remove();
   }, [recordingState, stopRecording]);
 
-  // 100ms polling for active sentence sync - same pattern as listening
+  // 100ms poll: sentence sync
   useEffect(() => {
     if (!playing || !video?.transcript?.length) {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
-
     const allSentences = video.transcript;
     const offset = video.snippet_start_time ?? 0;
 
-    pollIntervalRef.current = setInterval(async () => {
-      const currentTime = await playerRef.current?.getCurrentTime();
-      if (currentTime === undefined) return;
+    pollRef.current = setInterval(async () => {
+      const t = await playerRef.current?.getCurrentTime();
+      if (t === undefined) return;
+      const rel = t - offset;
 
-      const relativeTime = currentTime - offset;
-
-      // Active sentence detection (reverse traversal)
       let active: (typeof allSentences)[0] | undefined;
       for (let i = allSentences.length - 1; i >= 0; i--) {
-        if (allSentences[i].startTime <= relativeTime) {
+        if (allSentences[i].startTime <= rel) {
           active = allSentences[i];
           break;
         }
       }
-
-      if (active && active.id !== activeSentenceIdRef.current) {
-        activeSentenceIdRef.current = active.id;
+      if (active && active.id !== activeIdRef.current) {
+        activeIdRef.current = active.id;
         setActiveSentenceId(active.id);
-        const index = sentences.indexOf(active);
-        if (index >= 0) {
+        const idx = sentences.indexOf(active);
+        if (idx >= 0) {
           flatListRef.current?.scrollToIndex({
-            index,
+            index: idx,
             animated: true,
-            viewOffset: 0,
+            viewOffset: 60,
           });
         }
       }
     }, 100);
 
     return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [playing, video, sentences]);
 
-  // Re-apply grouping when mode changes - REQ-E-005
+  const handleStateChange = useCallback((state: string) => {
+    if (state === "playing") setPlaying(true);
+    else if (state === "paused" || state === "ended") setPlaying(false);
+  }, []);
+
   const handleModeChange = useCallback(
     (newMode: ShadowingMode) => {
       setMode(newMode);
       if (video?.transcript) {
-        const grouped = groupSentencesByMode(video.transcript, newMode);
-        setSentences(grouped);
+        setSentences(groupSentencesByMode(video.transcript, newMode));
         setActiveSentenceId(null);
-        activeSentenceIdRef.current = null;
+        activeIdRef.current = null;
       }
     },
     [video],
   );
 
-  // Record button tap: pause YouTube, start recording - REQ-E-001, REQ-C-001
   const handleRecord = useCallback(
     async (sentenceId: string) => {
-      if (isRecorderBusy || recordingState === "recording") {
-        return;
-      }
+      if (isRecorderBusy || recordingState === "recording") return;
       setPlaying(false);
       const started = await startRecording();
-      if (started) {
-        setCurrentRecordingSentenceId(sentenceId);
-      } else {
-        setCurrentRecordingSentenceId(null);
-      }
+      setCurrentRecordingSentenceId(started ? sentenceId : null);
     },
     [isRecorderBusy, recordingState, startRecording],
   );
 
-  // Stop recording - REQ-E-002
   const handleStop = useCallback(async () => {
     const uri = await stopRecording();
-    if (!uri) {
+    if (!uri)
       Alert.alert(
         "녹음을 중지할 수 없어요",
         lastError ?? "녹음을 정상적으로 저장하지 못했습니다.",
       );
-    }
   }, [lastError, stopRecording]);
 
-  // Confirm recording: save to state and upload in background - REQ-C-002
   const handleConfirm = useCallback(async () => {
     if (!currentRecordingSentenceId || !audioUri) {
       Alert.alert("오류", "녹음 파일이 없습니다.");
       return;
     }
-    const sentenceIdForUpload = currentRecordingSentenceId;
-    const uriForUpload = audioUri;
-    setRecordedSentences((prev) => ({
-      ...prev,
-      [sentenceIdForUpload]: uriForUpload,
-    }));
+    const sid = currentRecordingSentenceId;
+    const uri = audioUri;
+    setRecordedSentences((prev) => ({ ...prev, [sid]: uri }));
     setCurrentRecordingSentenceId(null);
     await resetRecording();
-
-    // Upload recording in background - do not block UI
     if (user?.id && videoId) {
-      uploadRecording(
-        uriForUpload,
-        user.id,
-        videoId,
-        sentenceIdForUpload,
-        duration,
-      ).catch((err) => {
-        console.warn(
-          "[ShadowingScreen] Background recording upload failed:",
-          err,
-        );
-      });
+      uploadRecording(uri, user.id, videoId, sid, duration).catch(() => {});
     }
   }, [
     currentRecordingSentenceId,
@@ -248,13 +209,11 @@ export default function ShadowingScreen() {
     duration,
   ]);
 
-  // Re-record: reset to idle - REQ-E-004
   const handleReRecord = useCallback(async () => {
     await resetRecording();
     setCurrentRecordingSentenceId(null);
   }, [resetRecording]);
 
-  // Seek when sentence is tapped
   const handleSeek = useCallback(
     (sentenceId: string) => {
       if (!video) return;
@@ -262,49 +221,28 @@ export default function ShadowingScreen() {
       if (!sentence) return;
       const offset = video.snippet_start_time ?? 0;
       playerRef.current?.seekTo(sentence.startTime + offset);
-      activeSentenceIdRef.current = sentenceId;
+      activeIdRef.current = sentenceId;
       setActiveSentenceId(sentenceId);
     },
     [video],
   );
 
-  const handlePlayerStateChange = useCallback((state: string) => {
-    if (state === "playing") setPlaying(true);
-    else if (state === "paused" || state === "ended") setPlaying(false);
-  }, []);
-
-  const handleExit = useCallback(() => {
-    router.back();
-  }, []);
-
-  // AI panel handlers
-  const handleTagsChange = useCallback((sentenceId: string, tags: string[]) => {
-    setSelectedTagsBySentenceId((prev) => ({ ...prev, [sentenceId]: tags }));
-  }, []);
-
-  const handleTipGenerated = useCallback(
-    (sentenceId: string, tip: string, tags: string[]) => {
-      setAiTipsBySentenceId((prev) => ({
-        ...prev,
-        [sentenceId]: { tip, tags },
-      }));
-      setAiErrorBySentenceId((prev) => ({ ...prev, [sentenceId]: null }));
-    },
-    [],
-  );
+  // --- Render ---
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <SafeAreaView style={styles.state}>
+        <StatusBar barStyle="dark-content" />
+        <ActivityIndicator size="small" color={C.text} />
       </SafeAreaView>
     );
   }
 
   if (error || !video) {
     return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.errorText}>
+      <SafeAreaView style={styles.state}>
+        <StatusBar barStyle="dark-content" />
+        <Text style={styles.stateText}>
           {error ?? "영상을 불러올 수 없습니다."}
         </Text>
       </SafeAreaView>
@@ -313,22 +251,33 @@ export default function ShadowingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ShadowingHeader
-        title={video.title}
-        mode={mode}
-        onModeChange={handleModeChange}
-        onExit={handleExit}
-      />
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+
+      {/* Video player */}
       <YouTubePlayer
         ref={playerRef}
         videoId={video.video_id}
         playing={playing}
-        onChangeState={handlePlayerStateChange}
+        onChangeState={handleStateChange}
         startSeconds={video.snippet_start_time}
       />
-      {sentences.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>자막이 없습니다.</Text>
+
+      {/* Mode tabs */}
+      <ShadowingHeader
+        title={video.title}
+        mode={mode}
+        onModeChange={handleModeChange}
+        onExit={() => router.back()}
+      />
+
+      {/* Script area */}
+      {!scriptVisible ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>SCRIPT HIDDEN</Text>
+        </View>
+      ) : sentences.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
         </View>
       ) : (
         <FlatList
@@ -346,18 +295,13 @@ export default function ShadowingScreen() {
               index={index}
             />
           )}
-          getItemLayout={(_data, index) => ({
-            length: SHADOWING_SCRIPT_LINE_HEIGHT,
-            offset: SHADOWING_SCRIPT_LINE_HEIGHT * index,
-            index,
-          })}
-          onScrollToIndexFailed={() => {
-            /* ignore scroll failures for short lists */
-          }}
+          onScrollToIndexFailed={() => {}}
           style={styles.list}
           contentContainerStyle={styles.listContent}
         />
       )}
+
+      {/* Recording bar */}
       <RecordingBar
         recordingState={recordingState}
         duration={duration}
@@ -369,34 +313,24 @@ export default function ShadowingScreen() {
         onReRecord={handleReRecord}
         onConfirm={handleConfirm}
       />
-      {/* AI panel: visible when a sentence is active */}
-      {activeSentenceId ? (
-        <View style={styles.aiPanel}>
-          <DifficultyTagSelector
-            selectedTags={selectedTagsBySentenceId[activeSentenceId] ?? []}
-            onTagsChange={(tags) => handleTagsChange(activeSentenceId, tags)}
-          />
-          <AiTipButton
-            sentenceId={activeSentenceId}
-            videoId={videoId ?? ""}
-            sentenceText={
-              video?.transcript?.find((s) => s.id === activeSentenceId)?.text ??
-              ""
-            }
-            selectedTags={selectedTagsBySentenceId[activeSentenceId] ?? []}
-            onTipGenerated={(tip, tags) =>
-              handleTipGenerated(activeSentenceId, tip, tags)
-            }
-            canUseAI={canUseAI}
-          />
-          {aiTipsBySentenceId[activeSentenceId] ||
-          aiErrorBySentenceId[activeSentenceId] ? (
-            <AiTipCard
-              tip={aiTipsBySentenceId[activeSentenceId]?.tip ?? ""}
-              tags={aiTipsBySentenceId[activeSentenceId]?.tags ?? []}
-              error={aiErrorBySentenceId[activeSentenceId]}
+
+      {/* Bottom bar — script toggle */}
+      {recordingState === "idle" ? (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.scriptToggle}
+            onPress={() => setScriptVisible((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={scriptVisible ? "document-text" : "document-text-outline"}
+              size={18}
+              color={C.text}
             />
-          ) : null}
+            <Text style={styles.scriptToggleText}>
+              {scriptVisible ? "HIDE SCRIPT" : "SHOW SCRIPT"}
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : null}
     </SafeAreaView>
@@ -404,33 +338,49 @@ export default function ShadowingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: C.bg },
+  state: {
     flex: 1,
-    backgroundColor: "#fff",
-  },
-  center: {
-    flex: 1,
+    backgroundColor: C.bg,
     alignItems: "center",
     justifyContent: "center",
   },
-  errorText: {
-    fontSize: 16,
-    color: "#e00",
-  },
+  stateText: { fontSize: 13, letterSpacing: 1, color: C.muted },
+
+  list: { flex: 1 },
+  listContent: { paddingBottom: 16 },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyText: {
-    fontSize: 15,
-    color: "#888",
+    fontSize: 11,
+    letterSpacing: 3,
+    color: C.muted,
+    fontWeight: "600",
   },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: 100, // Space for RecordingBar
-  },
+
   aiPanel: {
-    backgroundColor: "#FAFAFA",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#C6C6C8",
+    backgroundColor: "#F5F5F5",
+    borderTopWidth: 1,
+    borderTopColor: C.borderLight,
     paddingVertical: 8,
+  },
+
+  bottomBar: {
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: C.bg,
+    alignItems: "center",
+  },
+  scriptToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scriptToggleText: {
+    fontSize: 10,
+    letterSpacing: 2,
+    fontWeight: "700",
+    color: C.text,
   },
 });

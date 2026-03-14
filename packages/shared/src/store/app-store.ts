@@ -61,8 +61,8 @@ interface AppState {
   pendingSentenceOps: Array<
     { type: "add"; sentence: SavedSentence } | { type: "remove"; id: string }
   >;
-  addAINote: (note: AINote) => void;
-  removeAINote: (id: string) => void;
+  addAINote: (note: AINote) => Promise<void>;
+  removeAINote: (id: string) => Promise<void>;
   removeSession: (
     videoId: string,
   ) => Promise<{ success: boolean; error?: unknown }>;
@@ -73,18 +73,7 @@ interface AppState {
   syncPendingOps: (userId: string) => Promise<void>;
 }
 
-// Initial Mock Data
-const INITIAL_VIDEOS: Video[] = [
-  {
-    id: "qp0HIF3SfI4",
-    title: "How great leaders inspire action | Simon Sinek",
-    thumbnailUrl: "https://img.youtube.com/vi/qp0HIF3SfI4/maxresdefault.jpg",
-    duration: "18:04",
-    description:
-      'Simon Sinek has a simple but powerful model for inspirational leadership - starting with a golden circle and the question: "Why?"',
-    sentenceCount: 58,
-  },
-];
+const INITIAL_VIDEOS: Video[] = [];
 
 // @MX:NOTE: [AUTO] createAppStore accepts a SupabaseClient and getCurrentUserId fn.
 // On web: pass createClient() result; on mobile: pass Expo Supabase client.

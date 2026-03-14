@@ -131,7 +131,11 @@ export async function analyzeSentence(
       "Content-Type": "application/json",
       ...authHeader,
     },
-    body: JSON.stringify(req),
+    body: JSON.stringify({
+      sentence: req.sentenceText,
+      feedbackTypes: [req.feedbackType],
+      videoId: req.videoId,
+    }),
   });
   return parseJsonOrThrow<AnalyzeResponse>(response);
 }

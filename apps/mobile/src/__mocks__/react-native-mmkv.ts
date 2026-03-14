@@ -1,13 +1,25 @@
 const store: Record<string, string> = {};
 
-export const MMKV = jest.fn().mockImplementation(() => ({
-  getString: (key: string) => store[key] ?? undefined,
-  set: (key: string, value: string) => {
+export class MMKV {
+  constructor(_options?: { id?: string }) {}
+
+  getString(key: string): string | undefined {
+    return store[key] ?? undefined;
+  }
+
+  set(key: string, value: string): void {
     store[key] = value;
-  },
-  delete: (key: string) => {
+  }
+
+  delete(key: string): void {
     delete store[key];
-  },
-  contains: (key: string) => key in store,
-  getAllKeys: () => Object.keys(store),
-}));
+  }
+
+  contains(key: string): boolean {
+    return key in store;
+  }
+
+  getAllKeys(): string[] {
+    return Object.keys(store);
+  }
+}

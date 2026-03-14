@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
   },
   buttonActive: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#111111",
   },
   icon: {
     fontSize: 16,

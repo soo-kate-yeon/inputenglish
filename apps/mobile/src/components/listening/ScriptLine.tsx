@@ -17,7 +17,7 @@ interface ScriptLineProps {
   onSaveToggle: (sentence: Sentence) => void;
 }
 
-// Exported for FlatList getItemLayout (fixed row height)
+// No longer used for getItemLayout — height is dynamic (text wraps)
 export const SCRIPT_LINE_HEIGHT = 76;
 
 function ScriptLine({
@@ -32,7 +32,7 @@ function ScriptLine({
 }: ScriptLineProps) {
   return (
     <TouchableOpacity
-      style={[styles.container, isActive && styles.containerActive]}
+      style={styles.container}
       onPress={() => onTap(sentence)}
       activeOpacity={0.7}
     >
@@ -47,9 +47,7 @@ function ScriptLine({
           {scriptHidden ? "• • •" : sentence.text}
         </Text>
         {sentence.translation ? (
-          <Text style={styles.translation} numberOfLines={1}>
-            {sentence.translation}
-          </Text>
+          <Text style={styles.translation}>{sentence.translation}</Text>
         ) : null}
       </View>
       <View style={styles.actions}>
@@ -64,17 +62,11 @@ export default memo(ScriptLine);
 
 const styles = StyleSheet.create({
   container: {
-    height: SCRIPT_LINE_HEIGHT,
     flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    alignItems: "flex-start",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: "#fff",
-  },
-  containerActive: {
-    backgroundColor: "#EBF4FF",
   },
   content: {
     flex: 1,
@@ -82,25 +74,31 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 15,
-    color: "#333",
-    lineHeight: 22,
+    color: "#BBBBBB",
+    lineHeight: 24,
+    fontWeight: "400",
+    flexWrap: "wrap",
   },
   textActive: {
-    color: "#007AFF",
-    fontWeight: "600",
+    color: "#111111",
+    fontWeight: "700",
+    fontSize: 16,
+    lineHeight: 26,
   },
   textHidden: {
-    color: "#ccc",
+    color: "#DDDDDD",
     letterSpacing: 4,
   },
   translation: {
     fontSize: 12,
-    color: "#888",
-    marginTop: 2,
+    color: "#BBBBBB",
+    marginTop: 4,
+    lineHeight: 18,
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    paddingTop: 2,
   },
 });

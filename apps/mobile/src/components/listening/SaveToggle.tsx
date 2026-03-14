@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
   },
   buttonActive: {
-    backgroundColor: "#FFB800",
+    backgroundColor: "#111111",
   },
   icon: {
     fontSize: 16,

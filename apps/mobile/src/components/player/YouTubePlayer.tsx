@@ -10,6 +10,7 @@ const PLAYER_HEIGHT = Math.floor(SCREEN_WIDTH * (9 / 16));
 export interface YouTubePlayerHandle {
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
   getCurrentTime: () => Promise<number>;
+  getDuration: () => Promise<number>;
 }
 
 interface YouTubePlayerProps {
@@ -44,6 +45,9 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       getCurrentTime: (): Promise<number> => {
         return playerRef.current?.getCurrentTime() ?? Promise.resolve(0);
       },
+      getDuration: (): Promise<number> => {
+        return playerRef.current?.getDuration() ?? Promise.resolve(0);
+      },
     }));
 
     return (
@@ -59,7 +63,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           onChangeState={onChangeState}
           initialPlayerParams={{
             start: startSeconds,
-            controls: false,
+            controls: true,
           }}
           webViewStyle={styles.webview}
         />
@@ -79,6 +83,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   webview: {
-    opacity: 0.99, // Required on Android to force hardware acceleration
+    opacity: 0.99,
   },
 });

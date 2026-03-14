@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -163,17 +164,19 @@ export default function ArchiveScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <SafeAreaView style={styles.stateContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <ActivityIndicator size="small" color="#111111" />
       </SafeAreaView>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.title}>Archive</Text>
-        <Text style={styles.subtitle}>
+      <SafeAreaView style={styles.stateContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <Text style={styles.stateLabel}>ARCHIVE</Text>
+        <Text style={styles.stateSubtext}>
           로그인 후 저장한 문장을 볼 수 있어요.
         </Text>
       </SafeAreaView>
@@ -182,51 +185,58 @@ export default function ArchiveScreen() {
 
   const isSentencesTab = activeTab === "sentences";
   const emptyText = isSentencesTab
-    ? "아직 저장한 문장이 없어요."
-    : "아직 하이라이트가 없어요.";
+    ? "저장한 문장이 없습니다."
+    : "하이라이트가 없습니다.";
   const emptySubtext = isSentencesTab
     ? "리스닝 화면에서 북마크한 문장이 여기에 표시됩니다."
     : "학습 화면에서 문장을 꾹 눌러 하이라이트를 추가하세요.";
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Archive</Text>
+        <Text style={styles.headerWordmark}>ARCHIVE</Text>
       </View>
 
-      {/* Segmented Control - REQ-E-005 */}
-      <View style={styles.segmentedControl}>
+      {/* Tab bar - REQ-E-005 */}
+      <View style={styles.tabBar}>
         <TouchableOpacity
-          style={[styles.segment, isSentencesTab && styles.segmentActive]}
+          style={[styles.tab, isSentencesTab && styles.tabActive]}
           onPress={() => setActiveTab("sentences")}
         >
           <Text
-            style={[
-              styles.segmentText,
-              isSentencesTab && styles.segmentTextActive,
-            ]}
+            style={[styles.tabText, isSentencesTab && styles.tabTextActive]}
           >
-            저장 문장 {savedSentences.length}
+            SENTENCES
+          </Text>
+          <Text
+            style={[styles.tabCount, isSentencesTab && styles.tabCountActive]}
+          >
+            {savedSentences.length}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.segment, !isSentencesTab && styles.segmentActive]}
+          style={[styles.tab, !isSentencesTab && styles.tabActive]}
           onPress={() => setActiveTab("highlights")}
         >
           <Text
-            style={[
-              styles.segmentText,
-              !isSentencesTab && styles.segmentTextActive,
-            ]}
+            style={[styles.tabText, !isSentencesTab && styles.tabTextActive]}
           >
-            하이라이트 {highlights.length}
+            HIGHLIGHTS
+          </Text>
+          <Text
+            style={[styles.tabCount, !isSentencesTab && styles.tabCountActive]}
+          >
+            {highlights.length}
           </Text>
         </TouchableOpacity>
       </View>
 
       {isSentencesTab ? (
         visibleSentences.length === 0 ? (
-          <View style={styles.center}>
+          <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>{emptyText}</Text>
             <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
           </View>
@@ -236,10 +246,12 @@ export default function ArchiveScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderSentenceItem}
             contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            showsVerticalScrollIndicator={false}
           />
         )
       ) : visibleHighlights.length === 0 ? (
-        <View style={styles.center}>
+        <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>{emptyText}</Text>
           <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
         </View>
@@ -249,6 +261,8 @@ export default function ArchiveScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderHighlightItem}
           contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
@@ -270,126 +284,173 @@ export default function ArchiveScreen() {
   );
 }
 
+// --- Design tokens (square minimalism — matches home screen) ---
+const COLOR = {
+  bg: "#FFFFFF",
+  border: "#111111",
+  borderLight: "#E0E0E0",
+  text: "#111111",
+  textMuted: "#888888",
+  noteBg: "#F5F5F5",
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
+    backgroundColor: COLOR.bg,
   },
-  center: {
+  stateContainer: {
     flex: 1,
+    backgroundColor: COLOR.bg,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    backgroundColor: "#f8f8f8",
+    gap: 10,
   },
+  stateLabel: {
+    fontSize: 13,
+    letterSpacing: 3,
+    color: COLOR.text,
+    fontWeight: "700",
+  },
+  stateSubtext: {
+    fontSize: 12,
+    color: COLOR.textMuted,
+    letterSpacing: 0.3,
+  },
+
+  // Header
   header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: "#fff",
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: COLOR.border,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111",
+  headerWordmark: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 4,
+    color: COLOR.text,
   },
-  subtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    color: "#666",
-  },
-  segmentedControl: {
+
+  // Tab bar
+  tabBar: {
     flexDirection: "row",
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    paddingHorizontal: 16,
-    paddingBottom: 0,
+    borderBottomColor: COLOR.borderLight,
   },
-  segment: {
+  tab: {
     flex: 1,
     paddingVertical: 12,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  segmentActive: {
-    borderBottomColor: "#007AFF",
+  tabActive: {
+    borderBottomColor: COLOR.border,
   },
-  segmentText: {
-    fontSize: 14,
+  tabText: {
+    fontSize: 10,
+    letterSpacing: 2,
     fontWeight: "600",
-    color: "#999",
+    color: COLOR.textMuted,
   },
-  segmentTextActive: {
-    color: "#007AFF",
+  tabTextActive: {
+    color: COLOR.text,
   },
+  tabCount: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: COLOR.textMuted,
+    fontWeight: "500",
+  },
+  tabCountActive: {
+    color: COLOR.text,
+  },
+
+  // List
   listContent: {
-    padding: 12,
-    gap: 12,
+    paddingBottom: 120,
   },
+  separator: {
+    height: 1,
+    backgroundColor: COLOR.borderLight,
+  },
+
+  // Card
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: COLOR.bg,
+    padding: 16,
     gap: 8,
   },
   videoTitle: {
-    fontSize: 12,
-    color: "#888",
+    fontSize: 10,
+    color: COLOR.textMuted,
     fontWeight: "600",
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   sentenceText: {
     fontSize: 16,
-    lineHeight: 23,
-    color: "#222",
+    lineHeight: 24,
+    color: COLOR.text,
+    fontWeight: "400",
   },
   userNote: {
     fontSize: 13,
-    color: "#555",
-    backgroundColor: "#FFF9C4",
-    padding: 8,
-    borderRadius: 6,
+    color: COLOR.text,
+    backgroundColor: COLOR.noteBg,
+    padding: 10,
     lineHeight: 19,
+    borderLeftWidth: 2,
+    borderLeftColor: COLOR.border,
   },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 4,
+    marginTop: 2,
   },
   timestamp: {
-    fontSize: 12,
-    color: "#999",
+    fontSize: 11,
+    color: COLOR.textMuted,
+    letterSpacing: 0.3,
   },
   deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#FFE5E2",
+    borderWidth: 1,
+    borderColor: COLOR.border,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   deleteButtonText: {
-    color: "#D93025",
-    fontSize: 12,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: COLOR.text,
     fontWeight: "600",
+  },
+
+  // Empty state
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    gap: 10,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 13,
+    letterSpacing: 1,
+    color: COLOR.text,
     fontWeight: "600",
-    color: "#222",
   },
   emptySubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    color: "#777",
+    fontSize: 12,
+    color: COLOR.textMuted,
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 18,
+    letterSpacing: 0.2,
   },
 });
