@@ -116,16 +116,65 @@ export function parseTranscriptToSentences(
  * Extract YouTube video ID from URL
  */
 export function extractVideoId(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // Accept a bare 11-char YouTube id directly.
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const candidate = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const parsed = new URL(candidate);
+    const hostname = parsed.hostname.replace(/^www\./, "").toLowerCase();
+
+    if (
+      hostname === "youtube.com" ||
+      hostname === "m.youtube.com" ||
+      hostname === "music.youtube.com"
+    ) {
+      const queryId =
+        parsed.searchParams.get("v") || parsed.searchParams.get("vi");
+      if (queryId && /^[a-zA-Z0-9_-]{11}$/.test(queryId)) {
+        return queryId;
+      }
+
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      const pathId = segments.find((segment, index) => {
+        const prev = segments[index - 1];
+        return (
+          /^[a-zA-Z0-9_-]{11}$/.test(segment) &&
+          ["embed", "shorts", "live", "v"].includes(prev ?? "")
+        );
+      });
+
+      if (pathId) {
+        return pathId;
+      }
+    }
+
+    if (hostname === "youtu.be") {
+      const pathId = parsed.pathname.split("/").filter(Boolean)[0];
+      if (pathId && /^[a-zA-Z0-9_-]{11}$/.test(pathId)) {
+        return pathId;
+      }
+    }
+  } catch {
+    // Fall through to regex matching below.
+  }
+
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-    /youtube\.com\/embed\/([^&\n?#]+)/,
+    /(?:youtube\.com\/watch\?.*?[?&]v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/(?:embed|shorts|live|v)\/([a-zA-Z0-9_-]{11})/,
   ];
 
   for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) {
-      return match[1];
-    }
+    const match = candidate.match(pattern);
+    if (match) return match[1];
   }
 
   return null;
