@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import type {
   Sentence,
   SceneRecommendation,
@@ -14,32 +14,39 @@ import {
   SESSION_SPEAKING_FUNCTIONS,
 } from "@shadowoo/shared";
 import { Check, Plus, Trash2, Clock, Edit2, Sparkles } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
-  keynote: "Keynote",
-  demo: "Demo",
-  "earnings-call": "Earnings Call",
-  podcast: "Podcast",
-  interview: "Interview",
-  panel: "Panel",
+  keynote: "키노트",
+  demo: "데모",
+  "earnings-call": "실적 발표",
+  podcast: "팟캐스트",
+  interview: "인터뷰",
+  panel: "패널 토크",
 };
 
 const SPEAKING_FUNCTION_LABELS: Record<SessionSpeakingFunction, string> = {
-  persuade: "Persuade",
-  "explain-metric": "Explain Metric",
-  summarize: "Summarize",
-  hedge: "Hedge",
-  disagree: "Disagree",
-  propose: "Propose",
-  "answer-question": "Answer Question",
+  persuade: "설득하기",
+  "explain-metric": "지표 설명",
+  summarize: "핵심 요약",
+  hedge: "조심스럽게 말하기",
+  disagree: "부드럽게 반대하기",
+  propose: "제안하기",
+  "answer-question": "질문 답변",
 };
 
 const ROLE_LABELS: Record<SessionRoleRelevance, string> = {
-  engineer: "Engineer",
+  engineer: "엔지니어",
   pm: "PM",
-  designer: "Designer",
-  founder: "Founder",
-  marketer: "Marketer",
+  designer: "디자이너",
+  founder: "창업가",
+  marketer: "마케터",
 };
 
 function createEmptyContext(): SessionContext {
@@ -99,6 +106,7 @@ export function SessionCreator({
   const [context, setContext] = useState<SessionContext>(createEmptyContext());
   const [isAutofilling, setIsAutofilling] = useState(false);
   const [isGeneratingContext, setIsGeneratingContext] = useState(false);
+  const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
 
   // List State
   const [createdSessions, setCreatedSessions] =
@@ -118,6 +126,12 @@ export function SessionCreator({
       );
     }
   }, [initialSessions]);
+
+  useEffect(() => {
+    if (suggestedScenes.length > 0) {
+      setIsSuggestionModalOpen(true);
+    }
+  }, [suggestedScenes.length]);
 
   // Auto-sync sessions when sentences are edited in Step2
   useEffect(() => {
@@ -284,44 +298,64 @@ export function SessionCreator({
     setCreatedSessions((prev) => prev.filter((s) => s.id !== session.id));
   };
 
-  const handleUseSuggestion = (scene: SceneRecommendation) => {
+  const applySuggestionToForm = (scene: SceneRecommendation) => {
     setTitle(scene.title);
     setDescription(scene.reason);
-    // Select sentences from startIndex to endIndex
     const sceneIds = sentences
       .slice(scene.startIndex, scene.endIndex + 1)
       .map((s) => s.id);
     setSelectedIds(new Set(sceneIds));
   };
 
+  const buildSuggestedSession = (
+    scene: SceneRecommendation,
+    orderIndex: number,
+  ): LearningSession => {
+    const sceneSentences = sentences.slice(
+      scene.startIndex,
+      scene.endIndex + 1,
+    );
+
+    return {
+      id: crypto.randomUUID(),
+      source_video_id: videoId,
+      title: scene.title,
+      description: scene.reason,
+      start_time: sceneSentences[0].startTime,
+      end_time: sceneSentences[sceneSentences.length - 1].endTime,
+      duration: scene.estimatedDuration,
+      sentence_ids: sceneSentences.map((s) => s.id),
+      difficulty: "intermediate" as const,
+      order_index: orderIndex,
+      source_type: "podcast" as const,
+      speaking_function: "summarize" as const,
+      role_relevance: ["pm"] as SessionRoleRelevance[],
+      premium_required: true,
+      created_at: new Date().toISOString(),
+      sentences: sceneSentences,
+      context: null,
+    };
+  };
+
+  const handleUseSuggestion = (scene: SceneRecommendation) => {
+    applySuggestionToForm(scene);
+    setIsSuggestionModalOpen(false);
+  };
+
+  const handleCreateSuggestion = (scene: SceneRecommendation) => {
+    setCreatedSessions((prev) => [
+      ...prev,
+      buildSuggestedSession(scene, prev.length),
+    ]);
+    setIsSuggestionModalOpen(false);
+  };
+
   const handleUseAllSuggestions = () => {
-    // Auto-create sessions from all AI suggestions
-    const newSessions = suggestedScenes.map((scene, idx) => {
-      const sceneSentences = sentences.slice(
-        scene.startIndex,
-        scene.endIndex + 1,
-      );
-      return {
-        id: crypto.randomUUID(),
-        source_video_id: videoId,
-        title: scene.title,
-        description: scene.reason,
-        start_time: sceneSentences[0].startTime,
-        end_time: sceneSentences[sceneSentences.length - 1].endTime,
-        duration: scene.estimatedDuration,
-        sentence_ids: sceneSentences.map((s) => s.id),
-        difficulty: "intermediate" as const,
-        order_index: createdSessions.length + idx,
-        source_type: "podcast" as const,
-        speaking_function: "summarize" as const,
-        role_relevance: ["pm"] as SessionRoleRelevance[],
-        premium_required: true,
-        created_at: new Date().toISOString(),
-        sentences: sceneSentences,
-        context: null,
-      };
-    });
+    const newSessions = suggestedScenes.map((scene, idx) =>
+      buildSuggestedSession(scene, createdSessions.length + idx),
+    );
     setCreatedSessions([...createdSessions, ...newSessions]);
+    setIsSuggestionModalOpen(false);
   };
 
   const handleAutofill = async () => {
@@ -423,81 +457,34 @@ export function SessionCreator({
           padding: "6px 12px",
         }}
       >
-        <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
-          Step 3: Create Sessions
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
+            Step 3: 세션 만들기
+          </span>
+          {suggestedScenes.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setIsSuggestionModalOpen(true)}
+              className="flex items-center"
+              style={{
+                gap: 4,
+                padding: "2px 8px",
+                border: "1px solid #ddd6fe",
+                backgroundColor: "#f5f3ff",
+                color: "#6d28d9",
+                fontSize: 10,
+                cursor: "pointer",
+              }}
+            >
+              <Sparkles className="w-3 h-3" />
+              AI 추천 장면 보기 ({suggestedScenes.length})
+            </button>
+          ) : null}
+        </div>
         <span className="text-xs" style={{ color: "#737373" }}>
-          {createdSessions.length} sessions created
+          {createdSessions.length}개 생성됨
         </span>
       </div>
-
-      {/* AI Suggestions Banner */}
-      {suggestedScenes.length > 0 && (
-        <div className="shrink-0" style={{ padding: "8px 12px 0 12px" }}>
-          <div
-            style={{
-              backgroundColor: "#f5f3ff",
-              border: "1px solid #ddd6fe",
-              padding: 12,
-            }}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                  <h3 className="font-semibold text-purple-900">
-                    AI Recommended Scenes
-                  </h3>
-                </div>
-                <p className="text-sm text-purple-700 mb-3">
-                  Based on analysis, these {suggestedScenes.length} scenes are
-                  ideal for English learning practice.
-                </p>
-                <div className="space-y-2">
-                  {suggestedScenes.map((scene, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white/60 rounded-lg p-3 border border-purple-100"
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <h4 className="font-medium text-sm text-purple-900">
-                          {scene.title}
-                        </h4>
-                        <button
-                          onClick={() => handleUseSuggestion(scene)}
-                          className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded transition-colors"
-                        >
-                          Use This
-                        </button>
-                      </div>
-                      <p className="text-xs text-purple-600 mb-2">
-                        {scene.reason}
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {scene.learningPoints.map((point, pidx) => (
-                          <span
-                            key={pidx}
-                            className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded"
-                          >
-                            {point}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <button
-                onClick={handleUseAllSuggestions}
-                className="shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 shadow-md"
-              >
-                <Sparkles className="w-4 h-4" />
-                Create All 3
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: Sentence Selector */}
@@ -611,17 +598,47 @@ export function SessionCreator({
         <div className="flex flex-col overflow-hidden" style={{ flex: 1 }}>
           {/* New Session Form */}
           <div
-            className="shrink-0 flex flex-col"
+            className="flex flex-col min-h-0"
             style={{
-              padding: 12,
+              flex: "0 1 58%",
               borderBottom: "1px solid #e5e5e5",
-              gap: 8,
             }}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
-                New Session
-              </span>
+            <div
+              className="shrink-0 flex items-center justify-between"
+              style={{ padding: 12, borderBottom: "1px solid #f0f0f0" }}
+            >
+              <div
+                className="flex flex-col flex-1"
+                style={{ gap: 6, minWidth: 0, marginRight: 12 }}
+              >
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="세션 제목"
+                  className="w-full text-sm focus:outline-none"
+                  style={{
+                    padding: "6px 8px",
+                    border: "1px solid #e5e5e5",
+                    color: "#0a0a0a",
+                    backgroundColor: "#ffffff",
+                  }}
+                />
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="세션 설명"
+                  rows={2}
+                  className="w-full text-xs focus:outline-none resize-none"
+                  style={{
+                    padding: "6px 8px",
+                    border: "1px solid #e5e5e5",
+                    color: "#525252",
+                    backgroundColor: "#ffffff",
+                  }}
+                />
+              </div>
               <button
                 onClick={handleAutofill}
                 disabled={isAutofilling || selectedIds.size === 0}
@@ -651,322 +668,328 @@ export function SessionCreator({
                 }}
               >
                 <Sparkles className="w-3 h-3" />
-                {isAutofilling ? "..." : "AI Autofill"}
+                {isAutofilling ? "..." : "AI 자동 채우기"}
               </button>
             </div>
 
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Session title"
-              className="w-full text-sm focus:outline-none"
-              style={{
-                padding: "6px 8px",
-                border: "1px solid #e5e5e5",
-                color: "#0a0a0a",
-              }}
-            />
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description (optional)"
-              rows={3}
-              className="w-full text-xs focus:outline-none resize-none"
-              style={{
-                padding: "6px 8px",
-                border: "1px solid #e5e5e5",
-                color: "#525252",
-              }}
-            />
-
-            <div className="grid grid-cols-2" style={{ gap: 8 }}>
-              <select
-                value={sourceType}
-                onChange={(e) =>
-                  setSourceType(e.target.value as SessionSourceType)
-                }
-                className="text-xs focus:outline-none"
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                }}
-              >
-                {SESSION_SOURCE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {SOURCE_TYPE_LABELS[type]}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={speakingFunction}
-                onChange={(e) => {
-                  const next = e.target.value as SessionSpeakingFunction;
-                  setSpeakingFunction(next);
-                  setContext((prev) => ({
-                    ...prev,
-                    speaking_function: next,
-                  }));
-                }}
-                className="text-xs focus:outline-none"
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                }}
-              >
-                {SESSION_SPEAKING_FUNCTIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {SPEAKING_FUNCTION_LABELS[value]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ gap: 6, display: "flex", flexDirection: "column" }}>
-              <span
-                className="text-[10px] font-bold uppercase tracking-wider"
-                style={{ color: "#737373" }}
-              >
-                Role Relevance
-              </span>
-              <div className="flex flex-wrap" style={{ gap: 6 }}>
-                {SESSION_ROLE_RELEVANCE.map((role) => {
-                  const selected = roleRelevance.includes(role);
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => toggleRole(role)}
-                      style={{
-                        padding: "4px 8px",
-                        border: `1px solid ${selected ? "#0a0a0a" : "#e5e5e5"}`,
-                        backgroundColor: selected ? "#0a0a0a" : "#ffffff",
-                        color: selected ? "#ffffff" : "#525252",
-                        fontSize: 10,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {ROLE_LABELS[role]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <label
-              className="flex items-center justify-between text-xs"
-              style={{
-                border: "1px solid #e5e5e5",
-                padding: "6px 8px",
-                color: "#525252",
-              }}
-            >
-              <span>Premium context required</span>
-              <input
-                type="checkbox"
-                checked={premiumRequired}
-                onChange={(e) => setPremiumRequired(e.target.checked)}
-              />
-            </label>
-
             <div
-              className="flex flex-col"
+              className="flex-1 overflow-y-auto"
               style={{
-                padding: 10,
-                border: "1px solid #e5e5e5",
-                backgroundColor: "#fcfcfc",
+                padding: 12,
+                display: "flex",
+                flexDirection: "column",
                 gap: 8,
               }}
             >
-              <div className="flex items-center justify-between">
+              <div className="grid grid-cols-2" style={{ gap: 8 }}>
+                <label
+                  className="flex flex-col"
+                  style={{ gap: 4, color: "#525252", fontSize: 11 }}
+                >
+                  <span style={{ fontWeight: 600 }}>콘텐츠 형식</span>
+                  <span style={{ color: "#737373", fontSize: 10 }}>
+                    영상 원본이 어떤 상황인지 구분합니다.
+                  </span>
+                  <select
+                    value={sourceType}
+                    onChange={(e) =>
+                      setSourceType(e.target.value as SessionSourceType)
+                    }
+                    className="text-xs focus:outline-none"
+                    style={{
+                      padding: "6px 8px",
+                      border: "1px solid #e5e5e5",
+                      color: "#525252",
+                    }}
+                  >
+                    {SESSION_SOURCE_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {SOURCE_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label
+                  className="flex flex-col"
+                  style={{ gap: 4, color: "#525252", fontSize: 11 }}
+                >
+                  <span style={{ fontWeight: 600 }}>연습할 말하기</span>
+                  <span style={{ color: "#737373", fontSize: 10 }}>
+                    이 세션으로 어떤 발화를 익히는지 표시합니다.
+                  </span>
+                  <select
+                    value={speakingFunction}
+                    onChange={(e) => {
+                      const next = e.target.value as SessionSpeakingFunction;
+                      setSpeakingFunction(next);
+                      setContext((prev) => ({
+                        ...prev,
+                        speaking_function: next,
+                      }));
+                    }}
+                    className="text-xs focus:outline-none"
+                    style={{
+                      padding: "6px 8px",
+                      border: "1px solid #e5e5e5",
+                      color: "#525252",
+                    }}
+                  >
+                    {SESSION_SPEAKING_FUNCTIONS.map((value) => (
+                      <option key={value} value={value}>
+                        {SPEAKING_FUNCTION_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div style={{ gap: 6, display: "flex", flexDirection: "column" }}>
                 <span
                   className="text-[10px] font-bold uppercase tracking-wider"
                   style={{ color: "#737373" }}
                 >
-                  Professional Context
+                  관련 직무
+                </span>
+                <div className="flex flex-wrap" style={{ gap: 6 }}>
+                  {SESSION_ROLE_RELEVANCE.map((role) => {
+                    const selected = roleRelevance.includes(role);
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => toggleRole(role)}
+                        style={{
+                          padding: "4px 8px",
+                          border: `1px solid ${selected ? "#0a0a0a" : "#e5e5e5"}`,
+                          backgroundColor: selected ? "#0a0a0a" : "#ffffff",
+                          color: selected ? "#ffffff" : "#525252",
+                          fontSize: 10,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {ROLE_LABELS[role]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <label
+                className="flex items-center justify-between text-xs"
+                style={{
+                  border: "1px solid #e5e5e5",
+                  padding: "6px 8px",
+                  color: "#525252",
+                }}
+              >
+                <span>프리미엄 브리프 잠금</span>
+                <input
+                  type="checkbox"
+                  checked={premiumRequired}
+                  onChange={(e) => setPremiumRequired(e.target.checked)}
+                />
+              </label>
+
+              <div
+                className="flex flex-col"
+                style={{
+                  padding: 10,
+                  border: "1px solid #e5e5e5",
+                  backgroundColor: "#fcfcfc",
+                  gap: 8,
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                    style={{ color: "#737373" }}
+                  >
+                    프리러닝 컨텍스트
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleGenerateContext}
+                    disabled={
+                      isGeneratingContext ||
+                      sortedSelectedSentences.length === 0 ||
+                      !title.trim()
+                    }
+                    style={{
+                      padding: "3px 8px",
+                      border: "none",
+                      backgroundColor:
+                        isGeneratingContext ||
+                        sortedSelectedSentences.length === 0 ||
+                        !title.trim()
+                          ? "#d4d4d4"
+                          : "#2563eb",
+                      color: "#ffffff",
+                      fontSize: 10,
+                      cursor:
+                        isGeneratingContext ||
+                        sortedSelectedSentences.length === 0 ||
+                        !title.trim()
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {isGeneratingContext ? "..." : "컨텍스트 생성"}
+                  </button>
+                </div>
+
+                <textarea
+                  value={context.strategic_intent}
+                  onChange={(e) =>
+                    setContext((prev) => ({
+                      ...prev,
+                      strategic_intent: e.target.value,
+                    }))
+                  }
+                  placeholder="이 세션이 길러주는 말하기를 적어주세요"
+                  rows={2}
+                  className="w-full text-xs focus:outline-none resize-none"
+                  style={{
+                    padding: "6px 8px",
+                    border: "1px solid #e5e5e5",
+                    color: "#525252",
+                  }}
+                />
+
+                <textarea
+                  value={context.expected_takeaway}
+                  onChange={(e) =>
+                    setContext((prev) => ({
+                      ...prev,
+                      expected_takeaway: e.target.value,
+                    }))
+                  }
+                  placeholder="학습 후 기대 효과를 적어주세요"
+                  rows={2}
+                  className="w-full text-xs focus:outline-none resize-none"
+                  style={{
+                    padding: "6px 8px",
+                    border: "1px solid #e5e5e5",
+                    color: "#525252",
+                  }}
+                />
+
+                <textarea
+                  value={context.grammar_rhetoric_note}
+                  onChange={(e) =>
+                    setContext((prev) => ({
+                      ...prev,
+                      grammar_rhetoric_note: e.target.value,
+                    }))
+                  }
+                  placeholder="문법/수사 메모"
+                  rows={2}
+                  className="w-full text-xs focus:outline-none resize-none"
+                  style={{
+                    padding: "6px 8px",
+                    border: "1px solid #e5e5e5",
+                    color: "#525252",
+                  }}
+                />
+
+                <textarea
+                  value={arrayToMultiline(context.reusable_scenarios)}
+                  onChange={(e) =>
+                    setContext((prev) => ({
+                      ...prev,
+                      reusable_scenarios: multilineToArray(e.target.value),
+                    }))
+                  }
+                  placeholder="재사용 가능한 상황 (한 줄에 하나씩)"
+                  rows={3}
+                  className="w-full text-xs focus:outline-none resize-none"
+                  style={{
+                    padding: "6px 8px",
+                    border: "1px solid #e5e5e5",
+                    color: "#525252",
+                  }}
+                />
+
+                <textarea
+                  value={arrayToMultiline(context.key_vocabulary)}
+                  onChange={(e) =>
+                    setContext((prev) => ({
+                      ...prev,
+                      key_vocabulary: multilineToArray(e.target.value),
+                    }))
+                  }
+                  placeholder="핵심 표현 (한 줄에 하나씩)"
+                  rows={3}
+                  className="w-full text-xs focus:outline-none resize-none"
+                  style={{
+                    padding: "6px 8px",
+                    border: "1px solid #e5e5e5",
+                    color: "#525252",
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center" style={{ gap: 8 }}>
+                <select
+                  value={difficulty}
+                  onChange={(e) =>
+                    setDifficulty(
+                      e.target.value as
+                        | "beginner"
+                        | "intermediate"
+                        | "advanced",
+                    )
+                  }
+                  className="text-xs focus:outline-none"
+                  style={{
+                    padding: "3px 6px",
+                    border: "1px solid #e5e5e5",
+                    color: "#525252",
+                    flex: 1,
+                  }}
+                >
+                  <option value="beginner">입문</option>
+                  <option value="intermediate">중급</option>
+                  <option value="advanced">고급</option>
+                </select>
+                <span
+                  className="text-[10px] font-mono"
+                  style={{ color: "#a3a3a3" }}
+                >
+                  <Clock className="w-3 h-3 inline mr-1" />
+                  {Math.floor(selectionDuration / 60)}:
+                  {String(Math.floor(selectionDuration % 60)).padStart(2, "0")}
                 </span>
                 <button
-                  type="button"
-                  onClick={handleGenerateContext}
-                  disabled={
-                    isGeneratingContext ||
-                    sortedSelectedSentences.length === 0 ||
-                    !title.trim()
-                  }
+                  onClick={handleCreateSession}
+                  disabled={!title || selectedIds.size === 0}
+                  className="flex items-center transition-colors"
                   style={{
-                    padding: "3px 8px",
-                    border: "none",
+                    gap: 4,
+                    padding: "3px 12px",
                     backgroundColor:
-                      isGeneratingContext ||
-                      sortedSelectedSentences.length === 0 ||
-                      !title.trim()
-                        ? "#d4d4d4"
-                        : "#2563eb",
+                      !title || selectedIds.size === 0 ? "#d4d4d4" : "#0a0a0a",
                     color: "#ffffff",
-                    fontSize: 10,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    border: "none",
                     cursor:
-                      isGeneratingContext ||
-                      sortedSelectedSentences.length === 0 ||
-                      !title.trim()
+                      !title || selectedIds.size === 0
                         ? "not-allowed"
                         : "pointer",
                   }}
+                  onMouseEnter={(e) => {
+                    if (title && selectedIds.size > 0)
+                      e.currentTarget.style.backgroundColor = "#404040";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (title && selectedIds.size > 0)
+                      e.currentTarget.style.backgroundColor = "#0a0a0a";
+                  }}
                 >
-                  {isGeneratingContext ? "..." : "Generate Context"}
+                  <Plus className="w-3 h-3" />
+                  추가
                 </button>
               </div>
-
-              <textarea
-                value={context.strategic_intent}
-                onChange={(e) =>
-                  setContext((prev) => ({
-                    ...prev,
-                    strategic_intent: e.target.value,
-                  }))
-                }
-                placeholder="Strategic intent"
-                rows={2}
-                className="w-full text-xs focus:outline-none resize-none"
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                }}
-              />
-
-              <textarea
-                value={context.expected_takeaway}
-                onChange={(e) =>
-                  setContext((prev) => ({
-                    ...prev,
-                    expected_takeaway: e.target.value,
-                  }))
-                }
-                placeholder="Expected takeaway"
-                rows={2}
-                className="w-full text-xs focus:outline-none resize-none"
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                }}
-              />
-
-              <textarea
-                value={context.grammar_rhetoric_note}
-                onChange={(e) =>
-                  setContext((prev) => ({
-                    ...prev,
-                    grammar_rhetoric_note: e.target.value,
-                  }))
-                }
-                placeholder="Grammar / rhetoric note"
-                rows={2}
-                className="w-full text-xs focus:outline-none resize-none"
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                }}
-              />
-
-              <textarea
-                value={arrayToMultiline(context.reusable_scenarios)}
-                onChange={(e) =>
-                  setContext((prev) => ({
-                    ...prev,
-                    reusable_scenarios: multilineToArray(e.target.value),
-                  }))
-                }
-                placeholder="Reusable scenarios (one per line)"
-                rows={3}
-                className="w-full text-xs focus:outline-none resize-none"
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                }}
-              />
-
-              <textarea
-                value={arrayToMultiline(context.key_vocabulary)}
-                onChange={(e) =>
-                  setContext((prev) => ({
-                    ...prev,
-                    key_vocabulary: multilineToArray(e.target.value),
-                  }))
-                }
-                placeholder="Key vocabulary (one per line)"
-                rows={3}
-                className="w-full text-xs focus:outline-none resize-none"
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                }}
-              />
-            </div>
-
-            <div className="flex items-center" style={{ gap: 8 }}>
-              <select
-                value={difficulty}
-                onChange={(e) =>
-                  setDifficulty(
-                    e.target.value as "beginner" | "intermediate" | "advanced",
-                  )
-                }
-                className="text-xs focus:outline-none"
-                style={{
-                  padding: "3px 6px",
-                  border: "1px solid #e5e5e5",
-                  color: "#525252",
-                  flex: 1,
-                }}
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-              <span
-                className="text-[10px] font-mono"
-                style={{ color: "#a3a3a3" }}
-              >
-                <Clock className="w-3 h-3 inline mr-1" />
-                {Math.floor(selectionDuration / 60)}:
-                {String(Math.floor(selectionDuration % 60)).padStart(2, "0")}
-              </span>
-              <button
-                onClick={handleCreateSession}
-                disabled={!title || selectedIds.size === 0}
-                className="flex items-center transition-colors"
-                style={{
-                  gap: 4,
-                  padding: "3px 12px",
-                  backgroundColor:
-                    !title || selectedIds.size === 0 ? "#d4d4d4" : "#0a0a0a",
-                  color: "#ffffff",
-                  fontSize: 11,
-                  fontWeight: 500,
-                  border: "none",
-                  cursor:
-                    !title || selectedIds.size === 0
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  if (title && selectedIds.size > 0)
-                    e.currentTarget.style.backgroundColor = "#404040";
-                }}
-                onMouseLeave={(e) => {
-                  if (title && selectedIds.size > 0)
-                    e.currentTarget.style.backgroundColor = "#0a0a0a";
-                }}
-              >
-                <Plus className="w-3 h-3" />
-                Add
-              </button>
             </div>
           </div>
 
@@ -1080,6 +1103,193 @@ export function SessionCreator({
           </div>
         </div>
       </div>
+
+      <Sheet
+        open={isSuggestionModalOpen}
+        onOpenChange={setIsSuggestionModalOpen}
+      >
+        <SheetContent
+          side="right"
+          className="w-full max-w-[720px] gap-0 border-l border-[#e5e5e5] bg-white p-0 sm:max-w-[720px]"
+        >
+          <SheetHeader className="border-b border-[#e5e5e5] px-6 py-5">
+            <SheetTitle className="flex items-center gap-2 text-[#0a0a0a]">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              AI 추천 장면
+            </SheetTitle>
+            <SheetDescription className="text-[#525252]">
+              말하기 목적이 분명하고, 실무 세션으로 만들 가치가 높은 장면만
+              골랐습니다.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div
+            className="flex-1 overflow-y-auto"
+            style={{
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            {suggestedScenes.length === 0 ? (
+              <div
+                className="text-sm"
+                style={{
+                  color: "#737373",
+                  border: "1px dashed #d4d4d4",
+                  padding: 16,
+                }}
+              >
+                아직 추천 장면이 없습니다. 먼저 `AI 세션 장면 분석`을
+                실행하세요.
+              </div>
+            ) : (
+              suggestedScenes.map((scene, idx) => {
+                const start = sentences[scene.startIndex]?.startTime ?? 0;
+                const end = sentences[scene.endIndex]?.endTime ?? 0;
+
+                return (
+                  <div
+                    key={`${scene.startIndex}-${scene.endIndex}-${idx}`}
+                    style={{
+                      border: "1px solid #ddd6fe",
+                      backgroundColor: "#faf5ff",
+                      padding: 16,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wider"
+                            style={{ color: "#7c3aed" }}
+                          >
+                            Scene {idx + 1}
+                          </span>
+                          <span
+                            className="text-[10px] font-mono"
+                            style={{ color: "#737373" }}
+                          >
+                            {Math.floor(start / 60)}:
+                            {String(Math.floor(start % 60)).padStart(2, "0")} -{" "}
+                            {Math.floor(end / 60)}:
+                            {String(Math.floor(end % 60)).padStart(2, "0")}
+                          </span>
+                        </div>
+                        <h3
+                          className="text-sm font-semibold"
+                          style={{ color: "#0a0a0a" }}
+                        >
+                          {scene.title}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <p
+                      className="text-xs leading-5"
+                      style={{ color: "#5b21b6" }}
+                    >
+                      {scene.reason}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2">
+                      {scene.learningPoints.map((point, pointIdx) => (
+                        <span
+                          key={`${scene.title}-${pointIdx}`}
+                          style={{
+                            border: "1px solid #e9d5ff",
+                            backgroundColor: "#ffffff",
+                            color: "#6d28d9",
+                            fontSize: 11,
+                            padding: "4px 8px",
+                          }}
+                        >
+                          {point}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleUseSuggestion(scene)}
+                        style={{
+                          padding: "6px 10px",
+                          border: "1px solid #7c3aed",
+                          backgroundColor: "#ffffff",
+                          color: "#6d28d9",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        폼에 불러오기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCreateSuggestion(scene)}
+                        style={{
+                          padding: "6px 10px",
+                          border: "1px solid #6d28d9",
+                          backgroundColor: "#6d28d9",
+                          color: "#ffffff",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        바로 세션 만들기
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {suggestedScenes.length > 0 ? (
+            <div
+              className="shrink-0 flex items-center justify-between"
+              style={{
+                padding: 16,
+                borderTop: "1px solid #e5e5e5",
+                backgroundColor: "#fafafa",
+              }}
+            >
+              <span className="text-xs" style={{ color: "#737373" }}>
+                추천 장면을 하나씩 고르거나 한 번에 만들 수 있습니다.
+              </span>
+              <button
+                type="button"
+                onClick={handleUseAllSuggestions}
+                className="flex items-center gap-2"
+                style={{
+                  padding: "8px 12px",
+                  border: "none",
+                  backgroundColor: "#6d28d9",
+                  color: "#ffffff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                <Sparkles className="w-4 h-4" />
+                추천 장면 모두 세션으로 만들기
+              </button>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -42,16 +42,30 @@ export async function POST(request: NextRequest) {
       .join("\n");
 
     const prompt = `
-You are a professional English speaking tutor analyzing a video transcript for language learning.
+You are curating transcript scenes for a professional English shadowing product for Korean users.
 
-Your task is to identify exactly 3 scenes from this transcript that are most valuable for English learners to practice speaking.
+Your job is NOT to find generic "good English" moments.
+Your job is to identify exactly 3 scenes that can become high-value speaking sessions for business users.
 
-Consider the following criteria:
-1. **Useful Expressions**: Rich vocabulary, idiomatic expressions, common phrases
-2. **Practical Context**: Real-world conversational scenarios that learners can use
-3. **Pronunciation Practice**: Clear speech patterns, useful intonation examples
-4. **Learning Value**: Grammar structures, colloquialisms, natural speech flow
-5. **Duration**: Each scene should be 30-120 seconds long (check timestamps)
+Prioritize scenes with strong product value using this order:
+1. **Speaking Purpose Clarity**: The scene trains a clear speaking job such as explaining a metric, giving an update, proposing a direction, answering a question, persuading, summarizing, disagreeing carefully, or hedging.
+2. **Business Scenario Reuse**: The language can realistically be reused in work situations such as a demo, stakeholder update, status briefing, earnings discussion, roadmap review, interview, or Q&A.
+3. **Sessionization Potential**: The clip contains a coherent mini-flow with beginning, development, and conclusion, so it can stand alone as one learning session.
+4. **Professional Tone Quality**: The speaker demonstrates concise, calm, credible business communication rather than casual chat or filler-heavy conversation.
+5. **Learning Leverage**: The scene includes reusable phrasing, sentence patterns, framing logic, or rhetorical moves that a user can copy into their own speaking.
+6. **Duration**: Each scene should be 30-120 seconds long based on timestamps.
+
+Avoid selecting scenes that are weak for productization:
+- generic small talk
+- hype without reusable structure
+- vague banter with little speaking purpose
+- clips that only have interesting vocabulary but no clear work-use scenario
+- fragmented moments that do not stand alone as a session
+
+For each scene:
+- Title should sound like a session title a learner would want to open.
+- Reason should explain why this scene is worth productizing, focusing on speaking purpose + business scenario + expected learner payoff.
+- Learning points should be phrased as practical session outcomes, not abstract grammar labels only.
 
 **IMPORTANT**: Provide all text content (title, reason, learningPoints) in Korean language for Korean learners.
 
@@ -78,8 +92,9 @@ Requirements:
 - Scenes should not overlap
 - startIndex and endIndex are array indices (0-based)
 - estimatedDuration should be calculated from timestamps (endTime - startTime)
-- learningPoints should be specific (e.g., "phrasal verb 'figure out'", "past perfect tense usage")
-- All scenes combined should cover interesting parts but not necessarily the entire video
+- learningPoints should be specific and practical (e.g., "숫자 변화를 설명할 때 쓰는 완급 조절", "질문에 바로 답하지 않고 맥락을 먼저 주는 답변 구조")
+- At least 2 of the 3 scenes should clearly map to a concrete business speaking scenario
+- All scenes combined should maximize product value, not just transcript coverage
 `;
 
     const result = await model.generateContent(prompt);

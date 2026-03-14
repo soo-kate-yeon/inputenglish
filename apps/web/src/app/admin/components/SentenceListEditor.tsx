@@ -128,7 +128,7 @@ export function SentenceListEditor({
                 ? "not-allowed"
                 : "pointer",
           }}
-          title="AI will analyze and recommend 3 key scenes for learning"
+          title="AI가 세션으로 만들 가치가 높은 실무 말하기 장면 3개를 추천합니다"
           onMouseEnter={(e) => {
             if (!analyzingScenes && sentences.length >= 5) {
               e.currentTarget.style.backgroundColor = "#7c3aed";
@@ -140,7 +140,7 @@ export function SentenceListEditor({
             }
           }}
         >
-          {analyzingScenes ? "Analyzing..." : "AI Scene Analysis"}
+          {analyzingScenes ? "분석 중..." : "AI 세션 장면 분석"}
         </button>
       </div>
       {/* Sentence list with internal scroll */}
