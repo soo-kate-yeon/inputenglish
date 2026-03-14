@@ -89,7 +89,7 @@ describe("ArchiveScreen playbook flow", () => {
   it("filters playbook entries by speaking function and updates mastery status", async () => {
     const { findByText, getByTestId, queryByText } = render(<ArchiveScreen />);
 
-    fireEvent.press(await findByText("PLAYBOOK"));
+    fireEvent.press(await findByText("플레이북"));
 
     expect(
       await findByText(
@@ -117,7 +117,7 @@ describe("ArchiveScreen playbook flow", () => {
       ).toBeNull();
     });
 
-    fireEvent.press(await findByText("NEW"));
+    fireEvent.press(await findByText("새로 저장"));
 
     await waitFor(() => {
       expect(mockUpdatePlaybookEntryMastery).toHaveBeenCalledWith(

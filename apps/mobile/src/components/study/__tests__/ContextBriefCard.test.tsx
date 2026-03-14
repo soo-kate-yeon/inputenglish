@@ -29,16 +29,16 @@ describe("ContextBriefCard", () => {
       />,
     );
 
-    expect(getByText("PRE-LEARNING BRIEF")).toBeTruthy();
-    expect(getByText("EARNINGS")).toBeTruthy();
-    expect(getByText("EXPLAIN METRIC")).toBeTruthy();
+    expect(getByText("학습 전 브리프")).toBeTruthy();
+    expect(getByText("실적 발표")).toBeTruthy();
+    expect(getByText("지표 설명")).toBeTruthy();
     expect(
       getByText("이 발화는 수치를 자신감 있게 설명하는 톤을 보여준다."),
     ).toBeTruthy();
     expect(getByText("inflection point, momentum")).toBeTruthy();
     expect(getByText("• 주간 지표 업데이트를 설명할 때")).toBeTruthy();
 
-    fireEvent.press(getByText("START LEARNING"));
+    fireEvent.press(getByText("학습 시작"));
     expect(onStartLearning).toHaveBeenCalledTimes(1);
   });
 
@@ -65,13 +65,13 @@ describe("ContextBriefCard", () => {
     );
 
     expect(
-      getByText("이 세션의 프리러닝 브리프는 Premium에서 열립니다."),
+      getByText("이 세션의 프리러닝 브리프는 프리미엄에서 열립니다."),
     ).toBeTruthy();
 
-    fireEvent.press(getByText("UNLOCK BRIEF"));
+    fireEvent.press(getByText("브리프 열기"));
     expect(onUnlock).toHaveBeenCalledTimes(1);
 
-    fireEvent.press(getByText("CONTINUE TO STUDY"));
+    fireEvent.press(getByText("바로 학습 시작"));
     expect(onStartLearning).toHaveBeenCalledTimes(1);
   });
 });

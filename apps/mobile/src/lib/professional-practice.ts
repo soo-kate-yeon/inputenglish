@@ -7,6 +7,10 @@ import type {
   SessionRoleRelevance,
   SessionSpeakingFunction,
 } from "@shadowoo/shared";
+import {
+  PRACTICE_MODE_LABELS,
+  SPEAKING_FUNCTION_LABELS,
+} from "./professional-labels";
 
 interface DefaultPracticePromptInput {
   sessionId: string;
@@ -19,11 +23,11 @@ interface DefaultPracticePromptInput {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  engineer: "engineer",
+  engineer: "엔지니어",
   pm: "PM",
-  designer: "designer",
-  founder: "founder",
-  marketer: "marketer",
+  designer: "디자이너",
+  founder: "창업가",
+  marketer: "마케터",
 };
 
 export function buildSlotTemplate(sourceSentence: string): string {
@@ -48,50 +52,50 @@ export function buildDefaultPracticePrompts(
   const scenario =
     input.context?.reusable_scenarios?.[0] ??
     input.description ??
-    "a short professional update";
+    "짧은 업무 업데이트";
   const userLabel = input.userDisplayName?.trim()
     ? input.userDisplayName.trim()
-    : "you";
+    : "나";
   const roleLabel = input.roleRelevance?.[0]
     ? ROLE_LABELS[input.roleRelevance[0]]
-    : "professional";
+    : "실무자";
   const strategicIntent =
     input.context?.strategic_intent ??
-    "Keep the message concrete, calm, and useful.";
+    "메시지는 구체적이고 차분하며 실무적으로 들리게 유지하세요.";
 
   return [
     {
       session_id: input.sessionId,
       mode: "slot-in",
-      title: "Pattern Slot-in",
-      prompt_text: `Reuse the sentence pattern while swapping the business details. Focus on ${input.speakingFunction ?? "clear explanation"} and keep the original cadence intact.`,
+      title: "패턴 끼워 넣기",
+      prompt_text: `문장 골격은 유지하고 업무 정보만 바꿔 써보세요. ${input.speakingFunction ?? "명확한 설명"}에 집중하면서 원문의 리듬은 살립니다.`,
       guidance: [
-        "Keep the sentence skeleton but replace the business-specific nouns and numbers.",
-        "Avoid changing the tone completely; stay close to the original delivery.",
+        "문장 골조는 남기고 업무 맥락의 명사와 숫자만 바꿔보세요.",
+        "톤을 완전히 바꾸기보다 원문의 전달감을 최대한 유지하세요.",
         strategicIntent,
       ],
     },
     {
       session_id: input.sessionId,
       mode: "role-play",
-      title: "Role-Play Response",
-      prompt_text: `Imagine you are responding in ${scenario}. Give a concise answer that sounds ready for work, not for class.`,
+      title: "상황 응답",
+      prompt_text: `${scenario} 상황에서 답한다고 생각하고, 교과서 말투보다 실무 말투에 가까운 짧은 답변을 써보세요.`,
       guidance: [
-        "Open with the main point in one sentence.",
-        "Support it with one concrete reason or data point.",
-        "Close with the implication or next move.",
+        "첫 문장에서 핵심부터 말하세요.",
+        "이유나 숫자 한 가지로 바로 뒷받침하세요.",
+        "마지막은 영향이나 다음 행동으로 마무리하세요.",
       ],
     },
     {
       session_id: input.sessionId,
       mode: "my-briefing",
-      title: "My Briefing",
-      prompt_text: `Write a short briefing for ${userLabel} as a ${roleLabel}. Use the session pattern to explain one real update from your work.`,
+      title: "내 브리핑 만들기",
+      prompt_text: `${userLabel}가 ${roleLabel}로서 실제 업무 업데이트를 공유한다고 생각하고, 세션 패턴을 빌려 짧은 브리핑을 써보세요.`,
       guidance: [
-        "Keep it to 2-4 sentences.",
-        "Sound like an actual internal update, not a textbook example.",
+        "2~4문장 안에서 끝내세요.",
+        "예문처럼 쓰기보다 실제 내부 공유처럼 들리게 써보세요.",
         input.context?.expected_takeaway ??
-          "Show why the message matters to the listener.",
+          "듣는 사람에게 왜 중요한지 드러내세요.",
       ],
     },
   ];
@@ -107,12 +111,12 @@ export function buildPracticeDraft(
   }
 
   if (mode === "role-play") {
-    return `Main point: \nReason: \nNext move: `;
+    return "핵심: \n이유: \n다음 액션: ";
   }
 
   return prompt?.prompt_text
-    ? `${prompt.prompt_text}\n\nMy briefing: `
-    : "My briefing: ";
+    ? `${prompt.prompt_text}\n\n내 브리핑: `
+    : "내 브리핑: ";
 }
 
 export function generateRewriteCoaching(params: {
@@ -138,7 +142,7 @@ export function generateRewriteCoaching(params: {
       : "의도는 맞지만 원문 패턴과의 연결이 약합니다. 표현 골조를 조금 더 남겨두는 편이 좋습니다.";
 
   return {
-    summary: `${params.mode} 연습으로 ${params.speakingFunction ?? "professional speaking"} 패턴을 자기 문장으로 옮기고 있습니다.`,
+    summary: `${PRACTICE_MODE_LABELS[params.mode]}으로 ${params.speakingFunction ? SPEAKING_FUNCTION_LABELS[params.speakingFunction] : "업무 말하기"} 패턴을 자기 문장으로 옮기고 있습니다.`,
     clarity_feedback: clarityFeedback,
     usefulness_feedback: usefulnessFeedback,
     next_step:

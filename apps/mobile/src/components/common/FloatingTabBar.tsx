@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,9 +17,9 @@ const ICONS: Record<string, { active: string; inactive: string }> = {
 };
 
 const LABELS: Record<string, string> = {
-  index: "HOME",
-  archive: "ARCHIVE",
-  profile: "PROFILE",
+  index: "홈",
+  archive: "보관함",
+  profile: "프로필",
 };
 
 export default function FloatingTabBar({
@@ -35,7 +34,6 @@ export default function FloatingTabBar({
       pointerEvents="box-none"
     >
       <View style={styles.pill}>
-        <BlurView intensity={72} tint="light" style={StyleSheet.absoluteFill} />
         <View style={styles.border} />
 
         {state.routes.map((route, index) => {
@@ -94,6 +92,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     flexDirection: "row",
     overflow: "hidden",
+    backgroundColor: "#FFFFFF",
     // shadow
     ...Platform.select({
       ios: {

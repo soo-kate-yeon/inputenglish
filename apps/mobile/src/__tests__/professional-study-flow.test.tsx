@@ -142,13 +142,13 @@ describe("StudyScreen professional context flow", () => {
   it("shows the locked premium brief and opens study content after continue", async () => {
     const { findByText, getByText, queryByText } = render(<StudyScreen />);
 
-    expect(await findByText("PRE-LEARNING BRIEF")).toBeTruthy();
+    expect(await findByText("학습 전 브리프")).toBeTruthy();
 
     expect(
-      await findByText("이 세션의 프리러닝 브리프는 Premium에서 열립니다."),
+      await findByText("이 세션의 프리러닝 브리프는 프리미엄에서 열립니다."),
     ).toBeTruthy();
-    expect(await findByText("UNLOCK BRIEF")).toBeTruthy();
-    expect(queryByText("LISTENING")).toBeNull();
+    expect(await findByText("브리프 열기")).toBeTruthy();
+    expect(queryByText("리스닝")).toBeNull();
 
     await waitFor(() => {
       expect(mockTrackEvent).toHaveBeenCalledWith("context_open", {
@@ -158,14 +158,14 @@ describe("StudyScreen professional context flow", () => {
       });
     });
 
-    fireEvent.press(getByText("UNLOCK BRIEF"));
+    fireEvent.press(getByText("브리프 열기"));
     expect(mockRouterPush).toHaveBeenCalledWith("/paywall");
 
-    fireEvent.press(getByText("CONTINUE TO STUDY"));
+    fireEvent.press(getByText("바로 학습 시작"));
 
     await waitFor(() => {
-      expect(getByText("LISTENING")).toBeTruthy();
-      expect(getByText("SHADOWING")).toBeTruthy();
+      expect(getByText("리스닝")).toBeTruthy();
+      expect(getByText("쉐도잉")).toBeTruthy();
     });
 
     expect(mockTrackEvent).toHaveBeenCalledWith("session_start", {

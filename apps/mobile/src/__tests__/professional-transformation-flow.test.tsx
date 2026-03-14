@@ -190,19 +190,19 @@ describe("StudyScreen transformation flow", () => {
   it("shows three transformation modes for PREMIUM and saves slot-in rewrites to playbook", async () => {
     const { findByText, getByText, getByTestId } = render(<StudyScreen />);
 
-    fireEvent.press(await findByText("START LEARNING"));
-    fireEvent.press(getByText("TRANSFORM"));
+    fireEvent.press(await findByText("학습 시작"));
+    fireEvent.press(getByText("변형 연습"));
 
-    expect(await findByText("PATTERN SLOT-IN")).toBeTruthy();
-    expect(await findByText("ROLE-PLAY RESPONSE")).toBeTruthy();
-    expect(await findByText("MY BRIEFING")).toBeTruthy();
+    expect(await findByText("패턴 끼워 넣기")).toBeTruthy();
+    expect(await findByText("상황 응답")).toBeTruthy();
+    expect(await findByText("내 브리핑 만들기")).toBeTruthy();
 
     fireEvent.changeText(
       getByTestId("practice-draft-input"),
       "Revenue momentum improved by 18% after the launch, which gave us a healthier baseline.",
     );
 
-    fireEvent.press(getByText("SAVE TO PLAYBOOK"));
+    fireEvent.press(getByText("플레이북에 저장"));
 
     await waitFor(() => {
       expect(mockSavePlaybookEntry).toHaveBeenCalledWith(
@@ -221,7 +221,7 @@ describe("StudyScreen transformation flow", () => {
 
     expect(
       await findByText(
-        "Saved to Playbook. Archive > Playbook에서 다시 볼 수 있어요.",
+        "플레이북에 저장했어요. 보관함 > 플레이북에서 다시 볼 수 있어요.",
       ),
     ).toBeTruthy();
   });
@@ -231,8 +231,8 @@ describe("StudyScreen transformation flow", () => {
 
     const { findByText, getByText } = render(<StudyScreen />);
 
-    fireEvent.press(await findByText("START LEARNING"));
-    fireEvent.press(getByText("TRANSFORM"));
+    fireEvent.press(await findByText("학습 시작"));
+    fireEvent.press(getByText("변형 연습"));
 
     expect(mockRouterPush).toHaveBeenCalledWith("/paywall");
   });

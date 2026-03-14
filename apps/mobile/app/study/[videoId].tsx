@@ -66,9 +66,9 @@ const C = {
 type MainTab = "listening" | "shadowing" | "transformation";
 type ShadowingMode = "sentence" | "paragraph" | "total";
 const SHADOWING_MODES: Array<{ key: ShadowingMode; label: string }> = [
-  { key: "sentence", label: "SENTENCE" },
-  { key: "paragraph", label: "PARAGRAPH" },
-  { key: "total", label: "TOTAL" },
+  { key: "sentence", label: "문장" },
+  { key: "paragraph", label: "문단" },
+  { key: "total", label: "전체" },
 ];
 
 export default function StudyScreen() {
@@ -597,7 +597,7 @@ export default function StudyScreen() {
         },
       });
       setPlaybookMessage(
-        "Saved to Playbook. Archive > Playbook에서 다시 볼 수 있어요.",
+        "플레이북에 저장했어요. 보관함 > 플레이북에서 다시 볼 수 있어요.",
       );
       setCoachingSummary(summary);
     } catch (saveError) {
@@ -640,7 +640,7 @@ export default function StudyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Video player */}
       <YouTubePlayer
@@ -687,7 +687,7 @@ export default function StudyScreen() {
                   mainTab === "listening" && styles.mainTabTextActive,
                 ]}
               >
-                LISTENING
+                리스닝
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -703,7 +703,7 @@ export default function StudyScreen() {
                   mainTab === "shadowing" && styles.mainTabTextActive,
                 ]}
               >
-                SHADOWING
+                쉐도잉
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -719,7 +719,7 @@ export default function StudyScreen() {
                   mainTab === "transformation" && styles.mainTabTextActive,
                 ]}
               >
-                TRANSFORM
+                변형 연습
               </Text>
             </TouchableOpacity>
           </View>
@@ -775,7 +775,7 @@ export default function StudyScreen() {
             />
           ) : !scriptVisible ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>SCRIPT HIDDEN</Text>
+              <Text style={styles.emptyText}>스크립트가 숨겨져 있어요</Text>
             </View>
           ) : mainTab === "listening" ? (
             /* ── Listening list ── */

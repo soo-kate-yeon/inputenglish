@@ -14,22 +14,10 @@ import type {
   Sentence,
   SessionSpeakingFunction,
 } from "@shadowoo/shared";
-
-const MODE_LABELS: Record<PracticeMode, string> = {
-  "slot-in": "PATTERN SLOT-IN",
-  "role-play": "ROLE-PLAY RESPONSE",
-  "my-briefing": "MY BRIEFING",
-};
-
-const FUNCTION_LABELS: Record<string, string> = {
-  persuade: "PERSUADE",
-  "explain-metric": "EXPLAIN METRIC",
-  summarize: "SUMMARIZE",
-  hedge: "HEDGE",
-  disagree: "DISAGREE",
-  propose: "PROPOSE",
-  "answer-question": "Q&A",
-};
+import {
+  PRACTICE_MODE_LABELS,
+  SPEAKING_FUNCTION_LABELS,
+} from "../../lib/professional-labels";
 
 interface TransformationPracticePanelProps {
   prompts: PracticePrompt[];
@@ -83,18 +71,18 @@ export default function TransformationPracticePanel({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text style={styles.kicker}>TRANSFORMATION PRACTICE</Text>
+        <Text style={styles.kicker}>변형 연습</Text>
         {speakingFunction ? (
           <View style={styles.functionBadge}>
             <Text style={styles.functionBadgeText}>
-              {FUNCTION_LABELS[speakingFunction]}
+              {SPEAKING_FUNCTION_LABELS[speakingFunction]}
             </Text>
           </View>
         ) : null}
       </View>
 
       <View style={styles.modeRow}>
-        {(Object.keys(MODE_LABELS) as PracticeMode[]).map((mode) => (
+        {(Object.keys(PRACTICE_MODE_LABELS) as PracticeMode[]).map((mode) => (
           <TouchableOpacity
             key={mode}
             style={[
@@ -110,7 +98,7 @@ export default function TransformationPracticePanel({
                 selectedMode === mode && styles.modeButtonTextActive,
               ]}
             >
-              {MODE_LABELS[mode]}
+              {PRACTICE_MODE_LABELS[mode]}
             </Text>
           </TouchableOpacity>
         ))}
@@ -118,10 +106,10 @@ export default function TransformationPracticePanel({
 
       <View style={styles.promptCard}>
         <Text style={styles.promptTitle}>
-          {activePrompt?.title ?? "Practice"}
+          {activePrompt?.title ?? "연습 안내"}
         </Text>
         <Text style={styles.promptText}>
-          {activePrompt?.prompt_text ?? "No prompt is available yet."}
+          {activePrompt?.prompt_text ?? "아직 준비된 프롬프트가 없어요."}
         </Text>
         {(activePrompt?.guidance ?? []).map((item) => (
           <Text key={item} style={styles.guidanceText}>
@@ -132,7 +120,7 @@ export default function TransformationPracticePanel({
 
       {selectedSentence ? (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>SOURCE SENTENCE</Text>
+          <Text style={styles.sectionLabel}>원문 문장</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -170,7 +158,7 @@ export default function TransformationPracticePanel({
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>
-          {selectedMode === "slot-in" ? "EDITABLE SLOT" : "YOUR RESPONSE"}
+          {selectedMode === "slot-in" ? "바꿔 쓸 부분" : "내 답변"}
         </Text>
         <TextInput
           testID="practice-draft-input"
@@ -178,7 +166,7 @@ export default function TransformationPracticePanel({
           value={draftText}
           onChangeText={onDraftChange}
           style={styles.input}
-          placeholder="Write your version here"
+          placeholder="여기에 직접 써보세요"
           placeholderTextColor="#999999"
           textAlignVertical="top"
         />
@@ -191,7 +179,7 @@ export default function TransformationPracticePanel({
           activeOpacity={0.85}
         >
           <Text style={styles.primaryButtonText}>
-            {coachingLoading ? "COACHING..." : "GET COACHING"}
+            {coachingLoading ? "코칭 불러오는 중..." : "코칭 받기"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -199,7 +187,7 @@ export default function TransformationPracticePanel({
           onPress={onSave}
           activeOpacity={0.85}
         >
-          <Text style={styles.secondaryButtonText}>SAVE TO PLAYBOOK</Text>
+          <Text style={styles.secondaryButtonText}>플레이북에 저장</Text>
         </TouchableOpacity>
       </View>
 
@@ -211,8 +199,8 @@ export default function TransformationPracticePanel({
         >
           <Text style={styles.voiceButtonText}>
             {voiceCoachingLoading
-              ? "VOICE SUMMARY..."
-              : "VOICE COACHING SUMMARY"}
+              ? "음성 피드백 생성 중..."
+              : "음성 코칭 요약 받기"}
           </Text>
         </TouchableOpacity>
       ) : null}
@@ -225,25 +213,25 @@ export default function TransformationPracticePanel({
 
       {coachingSummary ? (
         <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackTitle}>COACHING SUMMARY</Text>
+          <Text style={styles.feedbackTitle}>코칭 요약</Text>
           <Text style={styles.feedbackBody}>{coachingSummary.summary}</Text>
-          <Text style={styles.feedbackLabel}>CLARITY</Text>
+          <Text style={styles.feedbackLabel}>명확성</Text>
           <Text style={styles.feedbackBody}>
             {coachingSummary.clarity_feedback}
           </Text>
-          <Text style={styles.feedbackLabel}>USEFULNESS</Text>
+          <Text style={styles.feedbackLabel}>실무 활용도</Text>
           <Text style={styles.feedbackBody}>
             {coachingSummary.usefulness_feedback}
           </Text>
           {coachingSummary.pronunciation_feedback ? (
             <>
-              <Text style={styles.feedbackLabel}>VOICE</Text>
+              <Text style={styles.feedbackLabel}>음성</Text>
               <Text style={styles.feedbackBody}>
                 {coachingSummary.pronunciation_feedback}
               </Text>
             </>
           ) : null}
-          <Text style={styles.feedbackLabel}>NEXT STEP</Text>
+          <Text style={styles.feedbackLabel}>다음 연습</Text>
           <Text style={styles.feedbackBody}>{coachingSummary.next_step}</Text>
         </View>
       ) : null}
@@ -269,7 +257,6 @@ const styles = StyleSheet.create({
   },
   kicker: {
     fontSize: 11,
-    letterSpacing: 2,
     color: "#111111",
     fontWeight: "800",
   },
@@ -281,7 +268,6 @@ const styles = StyleSheet.create({
   },
   functionBadgeText: {
     fontSize: 9,
-    letterSpacing: 1.3,
     color: "#111111",
     fontWeight: "700",
   },
@@ -300,8 +286,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111111",
   },
   modeButtonText: {
-    fontSize: 10,
-    letterSpacing: 1.4,
+    fontSize: 11,
     color: "#666666",
     fontWeight: "700",
   },
@@ -335,8 +320,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionLabel: {
-    fontSize: 10,
-    letterSpacing: 1.5,
+    fontSize: 11,
     color: "#888888",
     fontWeight: "700",
   },
@@ -392,8 +376,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryButtonText: {
-    fontSize: 10,
-    letterSpacing: 1.5,
+    fontSize: 11,
     color: "#FFFFFF",
     fontWeight: "700",
   },
@@ -405,8 +388,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   secondaryButtonText: {
-    fontSize: 10,
-    letterSpacing: 1.4,
+    fontSize: 11,
     color: "#111111",
     fontWeight: "700",
   },
@@ -418,8 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7F7F7",
   },
   voiceButtonText: {
-    fontSize: 10,
-    letterSpacing: 1.3,
+    fontSize: 11,
     color: "#111111",
     fontWeight: "700",
   },
@@ -444,14 +425,12 @@ const styles = StyleSheet.create({
   },
   feedbackTitle: {
     fontSize: 11,
-    letterSpacing: 1.7,
     color: "#111111",
     fontWeight: "800",
   },
   feedbackLabel: {
     marginTop: 6,
     fontSize: 10,
-    letterSpacing: 1.3,
     color: "#888888",
     fontWeight: "700",
   },

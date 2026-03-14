@@ -5,25 +5,10 @@ import type {
   SessionSourceType,
   SessionSpeakingFunction,
 } from "@shadowoo/shared";
-
-const SOURCE_LABELS: Record<string, string> = {
-  keynote: "KEYNOTE",
-  demo: "DEMO",
-  "earnings-call": "EARNINGS",
-  podcast: "PODCAST",
-  interview: "INTERVIEW",
-  panel: "PANEL",
-};
-
-const FUNCTION_LABELS: Record<string, string> = {
-  persuade: "PERSUADE",
-  "explain-metric": "EXPLAIN METRIC",
-  summarize: "SUMMARIZE",
-  hedge: "HEDGE",
-  disagree: "DISAGREE",
-  propose: "PROPOSE",
-  "answer-question": "Q&A",
-};
+import {
+  SOURCE_TYPE_LABELS,
+  SPEAKING_FUNCTION_LABELS,
+} from "../../lib/professional-labels";
 
 interface ContextBriefCardProps {
   context: SessionContext | null;
@@ -49,11 +34,11 @@ export default function ContextBriefCard({
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.kicker}>PRE-LEARNING BRIEF</Text>
+        <Text style={styles.kicker}>학습 전 브리프</Text>
         {premiumRequired ? (
           <View style={[styles.badge, locked && styles.badgeLocked]}>
-            <Text style={styles.badgeText}>
-              {locked ? "PREMIUM" : "UNLOCKED"}
+            <Text style={[styles.badgeText, locked && styles.badgeTextLocked]}>
+              {locked ? "프리미엄" : "열람 가능"}
             </Text>
           </View>
         ) : null}
@@ -62,15 +47,18 @@ export default function ContextBriefCard({
       <View style={styles.metaRow}>
         {sourceType ? (
           <View style={styles.metaBadge}>
-            <Text style={styles.metaText}>{SOURCE_LABELS[sourceType]}</Text>
+            <Text style={styles.metaText}>
+              {SOURCE_TYPE_LABELS[sourceType]}
+            </Text>
           </View>
         ) : null}
         {context?.speaking_function || speakingFunction ? (
           <View style={styles.metaBadge}>
             <Text style={styles.metaText}>
               {
-                FUNCTION_LABELS[
-                  (context?.speaking_function || speakingFunction) as string
+                SPEAKING_FUNCTION_LABELS[
+                  (context?.speaking_function ||
+                    speakingFunction) as SessionSpeakingFunction
                 ]
               }
             </Text>
@@ -81,7 +69,7 @@ export default function ContextBriefCard({
       {locked ? (
         <View style={styles.lockedState}>
           <Text style={styles.lockedTitle}>
-            이 세션의 프리러닝 브리프는 Premium에서 열립니다.
+            이 세션의 프리러닝 브리프는 프리미엄에서 열립니다.
           </Text>
           <Text style={styles.lockedText}>
             세션이 어떤 말하기 상황을 훈련하는지, 왜 이 표현이 좋은지, 어떤 업무
@@ -92,37 +80,35 @@ export default function ContextBriefCard({
             onPress={onUnlock}
             activeOpacity={0.8}
           >
-            <Text style={styles.unlockButtonText}>UNLOCK BRIEF</Text>
+            <Text style={styles.unlockButtonText}>브리프 열기</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.startButtonSecondary}
             onPress={onStartLearning}
             activeOpacity={0.8}
           >
-            <Text style={styles.startButtonSecondaryText}>
-              CONTINUE TO STUDY
-            </Text>
+            <Text style={styles.startButtonSecondaryText}>바로 학습 시작</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.content}>
           {context?.strategic_intent ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>STRATEGIC INTENT</Text>
+              <Text style={styles.sectionLabel}>이 세션이 길러주는 말하기</Text>
               <Text style={styles.bodyText}>{context.strategic_intent}</Text>
             </View>
           ) : null}
 
           {context?.expected_takeaway ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>EXPECTED TAKEAWAY</Text>
+              <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
               <Text style={styles.bodyText}>{context.expected_takeaway}</Text>
             </View>
           ) : null}
 
           {context?.key_vocabulary?.length ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>KEY VOCABULARY</Text>
+              <Text style={styles.sectionLabel}>핵심 표현</Text>
               <Text style={styles.bodyText}>
                 {context.key_vocabulary.join(", ")}
               </Text>
@@ -131,7 +117,7 @@ export default function ContextBriefCard({
 
           {context?.reusable_scenarios?.length ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>REUSABLE SCENARIOS</Text>
+              <Text style={styles.sectionLabel}>다시 써먹을 수 있는 상황</Text>
               {context.reusable_scenarios.map((scenario) => (
                 <Text key={scenario} style={styles.listText}>
                   • {scenario}
@@ -145,7 +131,7 @@ export default function ContextBriefCard({
             onPress={onStartLearning}
             activeOpacity={0.8}
           >
-            <Text style={styles.startButtonText}>START LEARNING</Text>
+            <Text style={styles.startButtonText}>학습 시작</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -170,8 +156,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   kicker: {
-    fontSize: 10,
-    letterSpacing: 2,
+    fontSize: 11,
     fontWeight: "700",
     color: "#111111",
   },
@@ -187,9 +172,11 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 9,
-    letterSpacing: 1.2,
     fontWeight: "700",
     color: "#111111",
+  },
+  badgeTextLocked: {
+    color: "#FFFFFF",
   },
   metaRow: {
     flexDirection: "row",
@@ -205,7 +192,6 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 10,
-    letterSpacing: 1.2,
     color: "#666666",
     fontWeight: "600",
   },
@@ -232,8 +218,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   unlockButtonText: {
-    fontSize: 10,
-    letterSpacing: 1.4,
+    fontSize: 11,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -246,8 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   startButtonSecondaryText: {
-    fontSize: 10,
-    letterSpacing: 1.2,
+    fontSize: 11,
     fontWeight: "700",
     color: "#111111",
   },
@@ -258,8 +242,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sectionLabel: {
-    fontSize: 10,
-    letterSpacing: 1.4,
+    fontSize: 11,
     fontWeight: "700",
     color: "#888888",
   },
@@ -283,8 +266,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   startButtonText: {
-    fontSize: 10,
-    letterSpacing: 1.4,
+    fontSize: 11,
     fontWeight: "700",
     color: "#FFFFFF",
   },

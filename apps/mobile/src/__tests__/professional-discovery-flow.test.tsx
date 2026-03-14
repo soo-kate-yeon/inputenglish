@@ -52,11 +52,11 @@ describe("HomeScreen professional discovery flow", () => {
 
     expect(await findByText("OpenAI 데모로 배우는 지표 설명")).toBeTruthy();
     expect(await findByText("Quarterly Wrap-up Podcast")).toBeTruthy();
-    expect(getAllByText("EXPLAIN METRIC").length).toBeGreaterThan(0);
-    expect(getAllByText("DEMO").length).toBeGreaterThan(0);
+    expect(getAllByText("지표 설명").length).toBeGreaterThan(0);
+    expect(getAllByText("데모").length).toBeGreaterThan(0);
     expect(await findByText("PM")).toBeTruthy();
-    expect(await findByText("ENGINEER")).toBeTruthy();
-    expect(await findByText("PREMIUM")).toBeTruthy();
+    expect(await findByText("엔지니어")).toBeTruthy();
+    expect(await findByText("프리미엄")).toBeTruthy();
 
     fireEvent.press(getByTestId("function-filter-explain-metric"));
 
@@ -68,7 +68,7 @@ describe("HomeScreen professional discovery flow", () => {
     fireEvent.press(getByTestId("source-filter-podcast"));
 
     await waitFor(() => {
-      expect(queryByText("NO MATCHING SESSIONS")).toBeTruthy();
+      expect(queryByText("조건에 맞는 세션이 없어요")).toBeTruthy();
     });
 
     fireEvent.press(getByTestId("function-filter-all"));
