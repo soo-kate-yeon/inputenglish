@@ -62,6 +62,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@react-navigation/bottom-tabs": "^7.15.5",
     "@testing-library/react-native": "^13.0.0",
     "@types/react": "~18.3.12",
     "@types/react-native": "^0.73.0",
