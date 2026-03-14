@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { Sentence } from "@shadowoo/shared";
+import {
+  SESSION_ROLE_RELEVANCE,
+  SESSION_SOURCE_TYPES,
+  SESSION_SPEAKING_FUNCTIONS,
+  type Sentence,
+  type SessionRoleRelevance,
+  type SessionSourceType,
+  type SessionSpeakingFunction,
+} from "@shadowoo/shared";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+interface AutofillResponse {
+  title: string;
+  description: string;
+  sourceType?: SessionSourceType;
+  speakingFunction?: SessionSpeakingFunction;
+  roleRelevance?: SessionRoleRelevance[];
+  premiumRequired?: boolean;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,52 +46,56 @@ export async function POST(request: NextRequest) {
     const sentencesText = sentences.map((s: Sentence) => s.text).join(" ");
 
     const prompt = `
-You are an English learning content creator. Generate a title and description for a shadowing learning session based on the transcript excerpt.
+You are creating a professional English speaking session for Korean learners who want to communicate better at work.
 
-**Title Format (STRICT):**
-"[영상컨텐츠의 제목 혹은 큰 카테고리]로 배우는 [커뮤니케이션의 목적, 상황]"
+Your output must reflect product goals, not generic language-learning copy.
 
-**Title Requirements:**
-- Keep it simple and concise
-- First part: Video source, content type, or category (영화, 팟캐스트, 브이로그, TED Talk 등)
-- Second part: Communication purpose or situation (what the learner will be able to do)
+The session copy should clearly answer:
+1. What speaking function or work situation this session trains
+2. What the learner will be able to learn or practice
+3. What expressions are worth noticing
+
+Tone rules:
 - Write in Korean
+- Be concise, calm, and practical
+- Avoid hype, entertainment-first framing, or exaggerated promises
+- Prefer work-relevant outcomes over genre descriptions
 
-**Title Examples (FOLLOW THIS EXACT STYLE):**
-✅ "OpenAI 팟캐스트로 배우는 회사에서 의견 공유하는 법"
-✅ "악마는 프라다를 입는다로 배우는 동료와의 캐주얼 토크"
-✅ "브이로그로 배우는 미국 대학생의 찐친 수다"
-✅ "내가 세련됐다고 생각하는 20가지: 내 취향 영어로 설명하는 법"
-✅ "미드 Friends로 배우는 친구에게 부탁하는 법"
-✅ "인터뷰 클립으로 배우는 자기소개 하는 법"
+Allowed enums:
+- sourceType: ${SESSION_SOURCE_TYPES.join(", ")}
+- speakingFunction: ${SESSION_SPEAKING_FUNCTIONS.join(", ")}
+- roleRelevance: ${SESSION_ROLE_RELEVANCE.join(", ")}
 
-**Description (STRICT 2 LINES LIMIT):**
-- EXACTLY 2 lines only
-- Line 1: Brief context + what learner will practice
-- Line 2: Highlight specific expressions from the transcript with "~표현에 주목해보세요." ending
-- Use friendly Korean "~요" ending
+Title rules:
+- One line only
+- Format close to: "[콘텐츠 출처/형식]로 배우는 [말하기 기능/상황]"
+- Emphasize work communication purpose
 
-**Description Examples:**
-✅ "악마는 프라다를 입는다 클립으로 직장 동료와의 자연스러운 커뮤니케이션을 배워봐요. \"That's all\", \"I don't think so\" 같은 표현에 주목해보세요."
-✅ "팟캐스트에서 진행자가 의견을 나누는 방식을 따라해 봐요. \"I think~\", \"In my opinion~\" 표현에 주목해보세요."
-✅ "유튜버의 일상 브이로그로 친구처럼 편하게 대화하는 법을 배워봐요. \"You know what?\", \"So basically~\" 표현에 주목해보세요."
+Description rules:
+- Maximum 2 Korean sentences
+- Sentence 1: brief work context + what learner will practice
+- Sentence 2: which expressions or structures to notice
+- Keep it practical and restrained
 
 Transcript excerpt:
 "${sentencesText}"
 
-Return ONLY valid JSON (no markdown):
+Return ONLY valid JSON:
 {
-  "title": "[영상컨텐츠]로 배우는 [커뮤니케이션 목적/상황]",
-  "description": "첫 줄: 상황 설명과 학습 목표. 두 번째 줄: \"표현1\", \"표현2\" 표현에 주목해보세요."
+  "title": "string",
+  "description": "string",
+  "sourceType": "one of allowed enums",
+  "speakingFunction": "one of allowed enums",
+  "roleRelevance": ["one or more allowed enums"],
+  "premiumRequired": true
 }
-
-CRITICAL: Keep title simple. Description must be EXACTLY 2 lines.
 `;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
+    console.debug("[AdminAutofill] raw AI response:", responseText);
 
-    let autofillData: { title: string; description: string };
+    let autofillData: AutofillResponse;
     try {
       // Clean up potentially wrapped markdown
       const cleanedText = responseText
@@ -91,6 +112,29 @@ CRITICAL: Keep title simple. Description must be EXACTLY 2 lines.
     if (!autofillData.title || !autofillData.description) {
       throw new Error("Invalid response structure from AI");
     }
+
+    autofillData.sourceType = SESSION_SOURCE_TYPES.includes(
+      autofillData.sourceType as SessionSourceType,
+    )
+      ? (autofillData.sourceType as SessionSourceType)
+      : "podcast";
+
+    autofillData.speakingFunction = SESSION_SPEAKING_FUNCTIONS.includes(
+      autofillData.speakingFunction as SessionSpeakingFunction,
+    )
+      ? (autofillData.speakingFunction as SessionSpeakingFunction)
+      : "summarize";
+
+    autofillData.roleRelevance = (autofillData.roleRelevance ?? []).filter(
+      (role): role is SessionRoleRelevance =>
+        SESSION_ROLE_RELEVANCE.includes(role as SessionRoleRelevance),
+    );
+
+    if (autofillData.roleRelevance.length === 0) {
+      autofillData.roleRelevance = ["pm"];
+    }
+
+    autofillData.premiumRequired = Boolean(autofillData.premiumRequired);
 
     return NextResponse.json(autofillData);
   } catch (error: any) {

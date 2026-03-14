@@ -1,11 +1,12 @@
 // @MX:ANCHOR: ArchiveScreen - saved sentences + highlights with undo delete
 // @MX:REASON: [AUTO] fan_in >= 3: tab navigator, deep links, and study flow navigation
 // @MX:SPEC: SPEC-MOBILE-005 - REQ-E-004, REQ-E-005, REQ-N-001, REQ-C-002
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -14,12 +15,29 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchPlaybookEntries, updatePlaybookEntryMastery } from "@/lib/api";
 import { appStore } from "@/lib/stores";
-import type { AppHighlight, SavedSentence } from "@shadowoo/shared";
+import type {
+  AppHighlight,
+  PlaybookEntry,
+  SavedSentence,
+} from "@shadowoo/shared";
 import UndoToast from "@/components/common/UndoToast";
 import ErrorToast from "@/components/common/ErrorToast";
+import PlaybookCard from "@/components/study/PlaybookCard";
+import { getNextMasteryStatus } from "@/lib/professional-practice";
 
-type Tab = "sentences" | "highlights";
+type Tab = "sentences" | "highlights" | "playbook";
+
+const FUNCTION_LABELS: Record<string, string> = {
+  persuade: "PERSUADE",
+  "explain-metric": "EXPLAIN METRIC",
+  summarize: "SUMMARIZE",
+  hedge: "HEDGE",
+  disagree: "DISAGREE",
+  propose: "PROPOSE",
+  "answer-question": "Q&A",
+};
 
 interface PendingDelete {
   id: string;
@@ -28,7 +46,7 @@ interface PendingDelete {
 }
 
 export default function ArchiveScreen() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const savedSentences = appStore((state) => state.savedSentences);
   const highlights = appStore((state) => state.highlights);
   const getVideo = appStore((state) => state.getVideo);
@@ -40,6 +58,10 @@ export default function ArchiveScreen() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
     null,
   );
+  const [playbookEntries, setPlaybookEntries] = useState<PlaybookEntry[]>([]);
+  const [playbookLoading, setPlaybookLoading] = useState(false);
+  const [selectedFunctionFilter, setSelectedFunctionFilter] =
+    useState<string>("all");
   const [errorToast, setErrorToast] = useState<{
     message: string;
     retry?: () => void;
@@ -47,12 +69,20 @@ export default function ArchiveScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (isAuthenticated) {
-        loadUserData().catch((error) => {
-          console.error("[MobileArchive] Failed to load user data:", error);
-        });
+      if (!isAuthenticated || !user?.id) {
+        return;
       }
-    }, [isAuthenticated, loadUserData]),
+
+      setPlaybookLoading(true);
+      Promise.all([loadUserData(), fetchPlaybookEntries(user.id)])
+        .then(([, entries]) => {
+          setPlaybookEntries(entries);
+        })
+        .catch((error) => {
+          console.error("[MobileArchive] Failed to load archive data:", error);
+        })
+        .finally(() => setPlaybookLoading(false));
+    }, [isAuthenticated, loadUserData, user?.id]),
   );
 
   // REQ-E-004, REQ-C-002: undo delete with 3-second timer
@@ -106,6 +136,22 @@ export default function ArchiveScreen() {
   const visibleHighlights = highlights.filter(
     (h) => h.id !== pendingDelete?.id || pendingDelete.type !== "highlights",
   );
+  const speakingFunctionOptions = Array.from(
+    new Set(
+      playbookEntries
+        .map((entry) => entry.speaking_function)
+        .filter(
+          (value): value is NonNullable<PlaybookEntry["speaking_function"]> =>
+            Boolean(value),
+        ),
+    ),
+  );
+  const visiblePlaybookEntries = playbookEntries.filter((entry) => {
+    return (
+      selectedFunctionFilter === "all" ||
+      entry.speaking_function === selectedFunctionFilter
+    );
+  });
 
   const renderSentenceItem = useCallback(
     ({ item }: { item: SavedSentence }) => {
@@ -162,6 +208,45 @@ export default function ArchiveScreen() {
     [getVideo, handleDelete],
   );
 
+  const handleCycleMastery = useCallback(
+    async (entry: PlaybookEntry) => {
+      if (!user?.id) return;
+
+      const nextStatus = getNextMasteryStatus(entry.mastery_status);
+      setPlaybookEntries((prev) =>
+        prev.map((item) =>
+          item.id === entry.id
+            ? {
+                ...item,
+                mastery_status: nextStatus,
+                updated_at: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+
+      try {
+        await updatePlaybookEntryMastery(user.id, entry.id, nextStatus);
+      } catch (error) {
+        console.error(
+          "[MobileArchive] Failed to update playbook entry:",
+          error,
+        );
+        setPlaybookEntries((prev) =>
+          prev.map((item) => (item.id === entry.id ? entry : item)),
+        );
+      }
+    },
+    [user?.id],
+  );
+
+  const renderPlaybookItem = useCallback(
+    ({ item }: { item: PlaybookEntry }) => (
+      <PlaybookCard entry={item} onCycleMastery={handleCycleMastery} />
+    ),
+    [handleCycleMastery],
+  );
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.stateContainer}>
@@ -184,12 +269,17 @@ export default function ArchiveScreen() {
   }
 
   const isSentencesTab = activeTab === "sentences";
+  const isPlaybookTab = activeTab === "playbook";
   const emptyText = isSentencesTab
     ? "저장한 문장이 없습니다."
-    : "하이라이트가 없습니다.";
+    : isPlaybookTab
+      ? "Playbook entry가 없습니다."
+      : "하이라이트가 없습니다.";
   const emptySubtext = isSentencesTab
     ? "리스닝 화면에서 북마크한 문장이 여기에 표시됩니다."
-    : "학습 화면에서 문장을 꾹 눌러 하이라이트를 추가하세요.";
+    : isPlaybookTab
+      ? "Transformation Practice에서 저장한 rewrite가 여기에 표시됩니다."
+      : "학습 화면에서 문장을 꾹 눌러 하이라이트를 추가하세요.";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -218,18 +308,37 @@ export default function ArchiveScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, !isSentencesTab && styles.tabActive]}
+          style={[styles.tab, activeTab === "highlights" && styles.tabActive]}
           onPress={() => setActiveTab("highlights")}
         >
           <Text
-            style={[styles.tabText, !isSentencesTab && styles.tabTextActive]}
+            style={[
+              styles.tabText,
+              activeTab === "highlights" && styles.tabTextActive,
+            ]}
           >
             HIGHLIGHTS
           </Text>
           <Text
-            style={[styles.tabCount, !isSentencesTab && styles.tabCountActive]}
+            style={[
+              styles.tabCount,
+              activeTab === "highlights" && styles.tabCountActive,
+            ]}
           >
             {highlights.length}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, isPlaybookTab && styles.tabActive]}
+          onPress={() => setActiveTab("playbook")}
+        >
+          <Text style={[styles.tabText, isPlaybookTab && styles.tabTextActive]}>
+            PLAYBOOK
+          </Text>
+          <Text
+            style={[styles.tabCount, isPlaybookTab && styles.tabCountActive]}
+          >
+            {playbookEntries.length}
           </Text>
         </TouchableOpacity>
       </View>
@@ -250,20 +359,93 @@ export default function ArchiveScreen() {
             showsVerticalScrollIndicator={false}
           />
         )
-      ) : visibleHighlights.length === 0 ? (
+      ) : activeTab === "highlights" ? (
+        visibleHighlights.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>{emptyText}</Text>
+            <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={visibleHighlights}
+            keyExtractor={(item) => item.id}
+            renderItem={renderHighlightItem}
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            showsVerticalScrollIndicator={false}
+          />
+        )
+      ) : playbookLoading ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>{emptyText}</Text>
-          <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
+          <ActivityIndicator size="small" color="#111111" />
         </View>
       ) : (
-        <FlatList
-          data={visibleHighlights}
-          keyExtractor={(item) => item.id}
-          renderItem={renderHighlightItem}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.playbookContainer}>
+          <View style={styles.playbookFilters}>
+            <Text style={styles.filterLabel}>FUNCTION FILTER</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              <TouchableOpacity
+                testID="playbook-filter-all"
+                style={[
+                  styles.filterChip,
+                  selectedFunctionFilter === "all" && styles.filterChipActive,
+                ]}
+                onPress={() => setSelectedFunctionFilter("all")}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    selectedFunctionFilter === "all" &&
+                      styles.filterChipTextActive,
+                  ]}
+                >
+                  ALL
+                </Text>
+              </TouchableOpacity>
+              {speakingFunctionOptions.map((value) => (
+                <TouchableOpacity
+                  key={value}
+                  testID={`playbook-filter-${value}`}
+                  style={[
+                    styles.filterChip,
+                    selectedFunctionFilter === value && styles.filterChipActive,
+                  ]}
+                  onPress={() => setSelectedFunctionFilter(value)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      selectedFunctionFilter === value &&
+                        styles.filterChipTextActive,
+                    ]}
+                  >
+                    {FUNCTION_LABELS[value] ?? value.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {visiblePlaybookEntries.length === 0 ? (
+            <>
+              <Text style={styles.emptyTitle}>{emptyText}</Text>
+              <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
+            </>
+          ) : (
+            <FlatList
+              data={visiblePlaybookEntries}
+              keyExtractor={(item) => item.id}
+              renderItem={renderPlaybookItem}
+              contentContainerStyle={styles.listContent}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
       )}
 
       {/* Undo Toast - REQ-E-004, REQ-N-001 */}
@@ -374,6 +556,47 @@ const styles = StyleSheet.create({
   // List
   listContent: {
     paddingBottom: 120,
+  },
+  playbookContainer: {
+    flex: 1,
+  },
+  playbookFilters: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLOR.borderLight,
+  },
+  filterLabel: {
+    fontSize: 10,
+    letterSpacing: 1.4,
+    color: COLOR.textMuted,
+    fontWeight: "700",
+  },
+  filterRow: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: COLOR.borderLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: COLOR.bg,
+  },
+  filterChipActive: {
+    borderColor: COLOR.border,
+    backgroundColor: COLOR.border,
+  },
+  filterChipText: {
+    fontSize: 10,
+    letterSpacing: 1.1,
+    color: COLOR.textMuted,
+    fontWeight: "700",
+  },
+  filterChipTextActive: {
+    color: COLOR.bg,
   },
   separator: {
     height: 1,

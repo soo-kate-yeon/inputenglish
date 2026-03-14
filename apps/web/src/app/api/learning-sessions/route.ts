@@ -16,6 +16,19 @@ export async function GET(request: NextRequest) {
     // Query learning_sessions
     let query = supabase.from("learning_sessions").select(`
                 *,
+                context:session_contexts (
+                    session_id,
+                    strategic_intent,
+                    speaking_function,
+                    reusable_scenarios,
+                    key_vocabulary,
+                    grammar_rhetoric_note,
+                    expected_takeaway,
+                    generated_by,
+                    updated_by,
+                    created_at,
+                    updated_at
+                ),
                 source_video:source_video_id (
                     video_id,
                     title,
@@ -77,9 +90,10 @@ export async function GET(request: NextRequest) {
         ...session,
         thumbnail_url,
         sentences,
-        // Remove the raw source_video object to reduce payload size if desired,
-        // but types might expect it. Let's keep it clean.
         source_video: undefined,
+        context: Array.isArray(session.context)
+          ? (session.context[0] ?? null)
+          : (session.context ?? null),
       };
     });
 

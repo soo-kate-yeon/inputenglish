@@ -114,7 +114,24 @@ function AdminPageContent() {
 
           const { data: sessionData } = await supabase
             .from("learning_sessions")
-            .select("*")
+            .select(
+              `
+                *,
+                context:session_contexts (
+                  session_id,
+                  strategic_intent,
+                  speaking_function,
+                  reusable_scenarios,
+                  key_vocabulary,
+                  grammar_rhetoric_note,
+                  expected_takeaway,
+                  generated_by,
+                  updated_by,
+                  created_at,
+                  updated_at
+                )
+              `,
+            )
             .eq("source_video_id", editId)
             .order("order_index", { ascending: true });
 
@@ -131,6 +148,9 @@ function AdminPageContent() {
               return {
                 ...session,
                 sentences: sessionSentences,
+                context: Array.isArray(session.context)
+                  ? (session.context[0] ?? null)
+                  : (session.context ?? null),
               } as LearningSession;
             });
 
