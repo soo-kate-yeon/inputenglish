@@ -142,9 +142,7 @@ describe("StudyScreen professional context flow", () => {
   it("shows the locked premium brief and opens study content after continue", async () => {
     const { findByText, getByText, queryByText } = render(<StudyScreen />);
 
-    await waitFor(async () => {
-      expect(await findByText("PRE-LEARNING BRIEF")).toBeTruthy();
-    });
+    expect(await findByText("PRE-LEARNING BRIEF")).toBeTruthy();
 
     expect(
       await findByText("이 세션의 프리러닝 브리프는 Premium에서 열립니다."),
