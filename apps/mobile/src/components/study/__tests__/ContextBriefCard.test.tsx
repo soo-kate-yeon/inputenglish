@@ -1,10 +1,9 @@
 import React from "react";
-import { fireEvent, render } from "@testing-library/react-native";
+import { render, fireEvent } from "@testing-library/react-native";
 import ContextBriefCard from "../ContextBriefCard";
 
 describe("ContextBriefCard", () => {
-  it("renders unlocked brief content and fires start", () => {
-    const onStartLearning = jest.fn();
+  it("renders unlocked brief content", () => {
     const { getByText } = render(
       <ContextBriefCard
         context={{
@@ -21,9 +20,7 @@ describe("ContextBriefCard", () => {
             "사용자는 프로젝트 지표 변화를 더 설득력 있게 설명할 수 있다.",
         }}
         locked={false}
-        ctaLabel="학습 시작"
         onUnlock={jest.fn()}
-        onStartLearning={onStartLearning}
       />,
     );
 
@@ -33,14 +30,10 @@ describe("ContextBriefCard", () => {
     ).toBeTruthy();
     expect(getByText("inflection point, momentum")).toBeTruthy();
     expect(getByText("• 주간 지표 업데이트를 설명할 때")).toBeTruthy();
-
-    fireEvent.press(getByText("학습 시작"));
-    expect(onStartLearning).toHaveBeenCalledTimes(1);
   });
 
   it("renders gradient lock overlay for free users", () => {
     const onUnlock = jest.fn();
-    const onStartLearning = jest.fn();
     const { getByText } = render(
       <ContextBriefCard
         context={{
@@ -52,9 +45,7 @@ describe("ContextBriefCard", () => {
           expected_takeaway: "핵심 내용을 먼저 파악한다.",
         }}
         locked={true}
-        ctaLabel="학습 시작"
         onUnlock={onUnlock}
-        onStartLearning={onStartLearning}
       />,
     );
 
@@ -64,29 +55,5 @@ describe("ContextBriefCard", () => {
 
     fireEvent.press(getByText("프리미엄 시작"));
     expect(onUnlock).toHaveBeenCalledTimes(1);
-
-    fireEvent.press(getByText("학습 시작"));
-    expect(onStartLearning).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows continue label when ctaLabel is set", () => {
-    const { getByText } = render(
-      <ContextBriefCard
-        context={{
-          strategic_intent: "테스트",
-          speaking_function: "summarize",
-          reusable_scenarios: [],
-          key_vocabulary: [],
-          grammar_rhetoric_note: "",
-          expected_takeaway: "",
-        }}
-        locked={false}
-        ctaLabel="학습 계속하기"
-        onUnlock={jest.fn()}
-        onStartLearning={jest.fn()}
-      />,
-    );
-
-    expect(getByText("학습 계속하기")).toBeTruthy();
   });
 });

@@ -6,17 +6,13 @@ import type { SessionContext } from "@shadowoo/shared";
 interface ContextBriefCardProps {
   context: SessionContext | null;
   locked: boolean;
-  ctaLabel: string;
   onUnlock: () => void;
-  onStartLearning: () => void;
 }
 
 export default function ContextBriefCard({
   context,
   locked,
-  ctaLabel,
   onUnlock,
-  onStartLearning,
 }: ContextBriefCardProps) {
   const hasContent = Boolean(
     context?.strategic_intent ||
@@ -100,15 +96,6 @@ export default function ContextBriefCard({
           </View>
         </View>
       ) : null}
-
-      {/* Start / Continue CTA */}
-      <TouchableOpacity
-        style={styles.startButton}
-        onPress={onStartLearning}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.startButtonText}>{ctaLabel}</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -187,20 +174,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFFFFF",
     letterSpacing: 1,
-  },
-
-  // Start CTA
-  startButton: {
-    borderWidth: 1,
-    borderColor: "#111111",
-    backgroundColor: "#111111",
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  startButtonText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    letterSpacing: 1.5,
   },
 });

@@ -9,6 +9,7 @@ import {
   FlatList,
   Platform,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -651,23 +652,44 @@ export default function StudyScreen() {
       />
 
       {briefExpanded ? (
-        <ContextBriefCard
-          context={sessionDetail?.context ?? null}
-          locked={Boolean(sessionDetail?.premium_required && plan === "FREE")}
-          ctaLabel={hasStarted ? "학습 계속하기" : "학습 시작"}
-          onUnlock={() => router.push("/paywall")}
-          onStartLearning={() => {
-            if (!hasStarted && sessionDetail) {
-              trackEvent("session_start", {
-                sessionId: sessionDetail.id,
-                sourceType: sessionDetail.source_type,
-                speakingFunction: sessionDetail.speaking_function,
-              });
-              setHasStarted(true);
-            }
-            setBriefExpanded(false);
-          }}
-        />
+        <>
+          <ScrollView
+            style={styles.briefScroll}
+            contentContainerStyle={styles.briefScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <ContextBriefCard
+              context={sessionDetail?.context ?? null}
+              locked={Boolean(
+                sessionDetail?.premium_required && plan === "FREE",
+              )}
+              onUnlock={() => router.push("/paywall")}
+            />
+          </ScrollView>
+
+          {/* Fixed bottom CTA */}
+          <View style={styles.briefCta}>
+            <TouchableOpacity
+              style={styles.briefCtaButton}
+              onPress={() => {
+                if (!hasStarted && sessionDetail) {
+                  trackEvent("session_start", {
+                    sessionId: sessionDetail.id,
+                    sourceType: sessionDetail.source_type,
+                    speakingFunction: sessionDetail.speaking_function,
+                  });
+                  setHasStarted(true);
+                }
+                setBriefExpanded(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.briefCtaText}>
+                {hasStarted ? "학습 계속하기" : "학습 시작"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
       ) : null}
 
       {briefExpanded ? null : (
@@ -907,6 +929,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   stateText: { fontSize: 13, letterSpacing: 1, color: C.muted },
+
+  // Brief scroll + fixed CTA
+  briefScroll: {
+    flex: 1,
+  },
+  briefScrollContent: {
+    paddingBottom: 16,
+  },
+  briefCta: {
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === "ios" ? 28 : 12,
+    backgroundColor: C.bg,
+  },
+  briefCtaButton: {
+    backgroundColor: C.border,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  briefCtaText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.bg,
+    letterSpacing: 1.5,
+  },
 
   // Main tabs
   mainTabs: {
