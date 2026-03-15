@@ -46,32 +46,32 @@ describe("HomeScreen professional discovery flow", () => {
   const HomeScreen = require("../../app/(tabs)/index").default;
 
   it("shows professional metadata and filters sessions by function and source type", async () => {
-    const { findByText, getAllByText, getByTestId, queryByText } = render(
-      <HomeScreen />,
-    );
+    const { findAllByText, findByText, getAllByText, getByText, queryByText } =
+      render(<HomeScreen />);
 
     expect(await findByText("OpenAI 데모로 배우는 지표 설명")).toBeTruthy();
     expect(await findByText("Quarterly Wrap-up Podcast")).toBeTruthy();
     expect(getAllByText("지표 설명").length).toBeGreaterThan(0);
     expect(getAllByText("데모").length).toBeGreaterThan(0);
-    expect(await findByText("PM")).toBeTruthy();
-    expect(await findByText("엔지니어")).toBeTruthy();
     expect(await findByText("프리미엄")).toBeTruthy();
 
-    fireEvent.press(getByTestId("function-filter-explain-metric"));
+    fireEvent.press(getByText("말하기 목적"));
+    fireEvent.press((await findAllByText("지표 설명"))[0]);
 
     await waitFor(() => {
       expect(queryByText("OpenAI 데모로 배우는 지표 설명")).toBeTruthy();
       expect(queryByText("Quarterly Wrap-up Podcast")).toBeNull();
     });
 
-    fireEvent.press(getByTestId("source-filter-podcast"));
+    fireEvent.press(getByText("콘텐츠 형식"));
+    fireEvent.press((await findAllByText("팟캐스트"))[0]);
 
     await waitFor(() => {
       expect(queryByText("조건에 맞는 세션이 없어요")).toBeTruthy();
     });
 
-    fireEvent.press(getByTestId("function-filter-all"));
+    fireEvent.press(getByText("지표 설명"));
+    fireEvent.press((await findAllByText("전체"))[0]);
 
     await waitFor(() => {
       expect(queryByText("OpenAI 데모로 배우는 지표 설명")).toBeNull();

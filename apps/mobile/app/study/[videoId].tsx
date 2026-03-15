@@ -72,6 +72,24 @@ const SHADOWING_MODES: Array<{ key: ShadowingMode; label: string }> = [
   { key: "total", label: "전체" },
 ];
 
+function resolveStudySentences(
+  video: CuratedVideo | null,
+  sessionDetail: SessionListItem | null,
+): Sentence[] {
+  const transcript = video?.transcript ?? [];
+  const sentenceIds = sessionDetail?.sentence_ids ?? [];
+
+  if (sentenceIds.length === 0) {
+    return transcript;
+  }
+
+  return sentenceIds
+    .map((sentenceId) =>
+      transcript.find((sentence) => sentence.id === sentenceId),
+    )
+    .filter((sentence): sentence is Sentence => Boolean(sentence));
+}
+
 export default function StudyScreen() {
   const { videoId, sessionId } = useLocalSearchParams<{
     videoId: string;
@@ -136,6 +154,16 @@ export default function StudyScreen() {
   const removeSavedSentence = appStore((s) => s.removeSavedSentence);
   const { user } = useAuth();
   const { plan } = useSubscription();
+  const studySentences = resolveStudySentences(video, sessionDetail);
+  const playerBaseOffset = video?.snippet_start_time ?? 0;
+  const sessionStartTime =
+    sessionDetail?.start_time ?? studySentences[0]?.startTime ?? 0;
+  const sessionEndTime =
+    sessionDetail?.end_time ??
+    studySentences[studySentences.length - 1]?.endTime ??
+    video?.snippet_duration ??
+    0;
+  const playerStartSeconds = playerBaseOffset + sessionStartTime;
 
   const {
     recordingState,
@@ -162,13 +190,14 @@ export default function StudyScreen() {
       .then(([v, detail]) => {
         setVideo(v);
         setSessionDetail(detail);
-        setSelectedPracticeSentenceId(v.transcript?.[0]?.id ?? null);
+        const initialSentences = resolveStudySentences(v, detail);
+        setSelectedPracticeSentenceId(initialSentences[0]?.id ?? null);
         setShadowingSentences(
-          groupSentencesByMode(v.transcript ?? [], "sentence"),
+          groupSentencesByMode(initialSentences, "sentence"),
         );
         const { sessions, createSession } = studyStore.getState();
         if (!sessions.find((s) => s.videoId === videoId && !s.isCompleted)) {
-          createSession(videoId, v.title, v.transcript ?? []);
+          createSession(videoId, v.title, initialSentences);
         }
       })
       .catch((e: Error) => setError(e.message ?? "Failed to load video"))
@@ -221,11 +250,11 @@ export default function StudyScreen() {
   ]);
 
   useEffect(() => {
-    if (!video?.transcript?.length) return;
+    if (studySentences.length === 0) return;
     const sourceSentence =
-      video.transcript.find(
+      studySentences.find(
         (sentence) => sentence.id === selectedPracticeSentenceId,
-      ) ?? video.transcript[0];
+      ) ?? studySentences[0];
     const activePrompt = practicePrompts.find(
       (prompt) => prompt.mode === practiceMode,
     );
@@ -239,7 +268,7 @@ export default function StudyScreen() {
     practiceMode,
     practicePrompts,
     selectedPracticeSentenceId,
-    video?.transcript,
+    studySentences,
   ]);
 
   // ── Background pause ──
@@ -264,8 +293,8 @@ export default function StudyScreen() {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
-    const allSentences = video.transcript ?? [];
-    const offset = video.snippet_start_time ?? 0;
+    const allSentences = studySentences;
+    const offset = playerBaseOffset;
     const activeSentences =
       mainTab === "shadowing" ? shadowingSentences : allSentences;
 
@@ -273,6 +302,12 @@ export default function StudyScreen() {
       const t = await playerRef.current?.getCurrentTime();
       if (t === undefined) return;
       const rel = Math.max(0, t - offset);
+
+      if (sessionEndTime > 0 && rel >= sessionEndTime) {
+        setPlaying(false);
+        playerRef.current?.seekTo(playerStartSeconds);
+        return;
+      }
 
       // Loop (listening only)
       if (mainTab === "listening") {
@@ -319,7 +354,16 @@ export default function StudyScreen() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [playing, video, mainTab, shadowingSentences]);
+  }, [
+    mainTab,
+    playerBaseOffset,
+    playerStartSeconds,
+    playing,
+    sessionEndTime,
+    shadowingSentences,
+    studySentences,
+    video,
+  ]);
 
   // ── Listening handlers ──
 
@@ -327,13 +371,13 @@ export default function StudyScreen() {
     (sentence: Sentence) => {
       if (seekDebounce.current) clearTimeout(seekDebounce.current);
       seekDebounce.current = setTimeout(() => {
-        const offset = video?.snippet_start_time ?? 0;
+        const offset = playerBaseOffset;
         playerRef.current?.seekTo(sentence.startTime + offset);
         activeIdRef.current = sentence.id;
         setActiveSentenceId(sentence.id);
       }, 300);
     },
-    [video],
+    [playerBaseOffset],
   );
 
   const handleLoopToggle = useCallback((sentence: Sentence) => {
@@ -373,30 +417,27 @@ export default function StudyScreen() {
   const handleShadowingModeChange = useCallback(
     (m: ShadowingMode) => {
       setShadowingMode(m);
-      if (video?.transcript) {
-        setShadowingSentences(groupSentencesByMode(video.transcript, m));
+      if (studySentences.length > 0) {
+        setShadowingSentences(groupSentencesByMode(studySentences, m));
         setActiveSentenceId(null);
         activeIdRef.current = null;
       }
     },
-    [video],
+    [studySentences],
   );
 
   const handleSeek = useCallback(
     (sentenceId: string) => {
-      if (!video) return;
       // Search grouped list first (paragraph/total have new ids), then fallback to transcript
       const sentence =
         shadowingSentences.find((s) => s.id === sentenceId) ??
-        video.transcript?.find((s) => s.id === sentenceId);
+        studySentences.find((s) => s.id === sentenceId);
       if (!sentence) return;
-      playerRef.current?.seekTo(
-        sentence.startTime + (video.snippet_start_time ?? 0),
-      );
+      playerRef.current?.seekTo(sentence.startTime + playerBaseOffset);
       activeIdRef.current = sentenceId;
       setActiveSentenceId(sentenceId);
     },
-    [video, shadowingSentences],
+    [playerBaseOffset, shadowingSentences, studySentences],
   );
 
   const handleRecord = useCallback(
@@ -460,12 +501,12 @@ export default function StudyScreen() {
   }, []);
 
   const handlePracticeCoach = useCallback(async () => {
-    if (!sessionDetail || !video?.transcript?.length) return;
+    if (!sessionDetail || studySentences.length === 0) return;
 
     const sourceSentence =
-      video.transcript.find(
+      studySentences.find(
         (sentence) => sentence.id === selectedPracticeSentenceId,
-      ) ?? video.transcript[0];
+      ) ?? studySentences[0];
 
     const summary = generateRewriteCoaching({
       sourceSentence: sourceSentence.text,
@@ -509,17 +550,17 @@ export default function StudyScreen() {
     practicePrompts,
     selectedPracticeSentenceId,
     sessionDetail,
+    studySentences,
     user?.id,
-    video?.transcript,
   ]);
 
   const handleVoiceCoaching = useCallback(async () => {
-    if (!sessionDetail || !video?.transcript?.length) return;
+    if (!sessionDetail || studySentences.length === 0) return;
 
     const sourceSentence =
-      video.transcript.find(
+      studySentences.find(
         (sentence) => sentence.id === selectedPracticeSentenceId,
-      ) ?? video.transcript[0];
+      ) ?? studySentences[0];
     const recordingUrl = uploadedRecordingUrls[sourceSentence.id];
     if (!recordingUrl) return;
 
@@ -560,18 +601,18 @@ export default function StudyScreen() {
     practiceMode,
     selectedPracticeSentenceId,
     sessionDetail,
+    studySentences,
     uploadedRecordingUrls,
     user?.id,
-    video?.transcript,
   ]);
 
   const handleSavePlaybook = useCallback(async () => {
-    if (!sessionDetail || !video?.transcript?.length || !user?.id) return;
+    if (!sessionDetail || studySentences.length === 0 || !user?.id) return;
 
     const sourceSentence =
-      video.transcript.find(
+      studySentences.find(
         (sentence) => sentence.id === selectedPracticeSentenceId,
-      ) ?? video.transcript[0];
+      ) ?? studySentences[0];
     const summary =
       coachingSummary ??
       generateRewriteCoaching({
@@ -610,8 +651,8 @@ export default function StudyScreen() {
     practicePrompts,
     selectedPracticeSentenceId,
     sessionDetail,
+    studySentences,
     user?.id,
-    video?.transcript,
   ]);
 
   // ── Render ──
@@ -635,7 +676,7 @@ export default function StudyScreen() {
     );
   }
 
-  const listeningData = video.transcript ?? [];
+  const listeningData = studySentences;
   const isRecording = recordingState !== "idle";
 
   return (
@@ -648,7 +689,7 @@ export default function StudyScreen() {
         videoId={video.video_id}
         playing={playing}
         onChangeState={handleStateChange}
-        startSeconds={video.snippet_start_time}
+        startSeconds={playerStartSeconds}
       />
 
       {briefExpanded ? (
@@ -775,7 +816,7 @@ export default function StudyScreen() {
           {mainTab === "transformation" ? (
             <TransformationPracticePanel
               prompts={practicePrompts}
-              sentences={video.transcript ?? []}
+              sentences={studySentences}
               selectedMode={practiceMode}
               selectedSentenceId={selectedPracticeSentenceId}
               draftText={practiceDraft}
@@ -875,16 +916,14 @@ export default function StudyScreen() {
           {!isRecording ? (
             <View style={styles.bottomBar}>
               <View style={styles.bottomLeft}>
-                {sessionDetail?.context ? (
-                  <TouchableOpacity
-                    style={styles.iconBtn}
-                    onPress={() => setBriefExpanded(true)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="reader-outline" size={20} color={C.text} />
-                  </TouchableOpacity>
-                ) : null}
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  onPress={() => setBriefExpanded(true)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="reader-outline" size={20} color={C.text} />
+                </TouchableOpacity>
                 {mainTab !== "transformation" ? (
                   <TouchableOpacity
                     style={styles.iconBtn}
@@ -895,8 +934,8 @@ export default function StudyScreen() {
                     <Ionicons
                       name={
                         scriptVisible
-                          ? "document-text"
-                          : "document-text-outline"
+                          ? "chatbox-ellipses"
+                          : "chatbox-ellipses-outline"
                       }
                       size={20}
                       color={C.text}

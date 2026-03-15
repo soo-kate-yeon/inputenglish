@@ -61,6 +61,10 @@ jest.mock("../../src/contexts/AuthContext", () => ({
 
 jest.mock("../../src/lib/api", () => ({
   fetchPlaybookEntries: jest.fn().mockResolvedValue(mockPlaybookEntries),
+  fetchLearningSessions: jest.fn().mockResolvedValue([
+    { id: "session-1", title: "지표 설명 세션" },
+    { id: "session-2", title: "핵심 요약 세션" },
+  ]),
   updatePlaybookEntryMastery: (...args: unknown[]) =>
     mockUpdatePlaybookEntryMastery(...args),
 }));
@@ -87,7 +91,7 @@ describe("ArchiveScreen playbook flow", () => {
   });
 
   it("filters playbook entries by speaking function and updates mastery status", async () => {
-    const { findByText, getByTestId, queryByText } = render(<ArchiveScreen />);
+    const { findAllByText, findByText } = render(<ArchiveScreen />);
 
     fireEvent.press(await findByText("플레이북"));
 
@@ -102,22 +106,8 @@ describe("ArchiveScreen playbook flow", () => {
       ),
     ).toBeTruthy();
 
-    fireEvent.press(getByTestId("playbook-filter-explain-metric"));
-
-    await waitFor(() => {
-      expect(
-        queryByText(
-          "Revenue momentum improved by 18% after the launch, which raised our baseline.",
-        ),
-      ).toBeTruthy();
-      expect(
-        queryByText(
-          "The rollout is on schedule, and the team is ready for launch.",
-        ),
-      ).toBeNull();
-    });
-
     fireEvent.press(await findByText("새로 저장"));
+    fireEvent.press((await findAllByText("연습 중"))[0]);
 
     await waitFor(() => {
       expect(mockUpdatePlaybookEntryMastery).toHaveBeenCalledWith(

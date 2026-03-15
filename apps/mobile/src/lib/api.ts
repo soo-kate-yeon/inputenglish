@@ -44,6 +44,9 @@ export interface SessionListItem {
   title: string;
   description?: string;
   duration: number;
+  start_time?: number;
+  end_time?: number;
+  sentence_ids?: string[];
   difficulty?: "beginner" | "intermediate" | "advanced";
   thumbnail_url?: string;
   order_index: number;
@@ -113,6 +116,9 @@ export async function fetchLearningSessionDetail(
         title,
         description,
         duration,
+        start_time,
+        end_time,
+        sentence_ids,
         difficulty,
         thumbnail_url,
         order_index,
@@ -151,6 +157,13 @@ export async function fetchLearningSessionDetail(
     title: data.title,
     description: data.description || undefined,
     duration: Number(data.duration),
+    start_time:
+      typeof data.start_time === "number" ? Number(data.start_time) : undefined,
+    end_time:
+      typeof data.end_time === "number" ? Number(data.end_time) : undefined,
+    sentence_ids: Array.isArray(data.sentence_ids)
+      ? (data.sentence_ids as string[])
+      : [],
     difficulty: data.difficulty as SessionListItem["difficulty"],
     thumbnail_url:
       data.thumbnail_url ||

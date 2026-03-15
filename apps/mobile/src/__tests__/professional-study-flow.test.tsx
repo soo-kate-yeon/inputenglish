@@ -9,6 +9,9 @@ const mockSessionDetail = {
   title: "OpenAI 데모로 배우는 지표 설명하는 법",
   description: "지표 변화를 설명하는 흐름을 연습해요.",
   duration: 24,
+  start_time: 30,
+  end_time: 54,
+  sentence_ids: ["s2", "s3"],
   order_index: 0,
   source_type: "demo" as const,
   speaking_function: "explain-metric" as const,
@@ -29,17 +32,32 @@ const mockVideo = {
   video_id: "test-video-123",
   title: "Test Study Video",
   transcript: [
-    { id: "s1", text: "Hello world", startTime: 0, endTime: 2, highlights: [] },
+    {
+      id: "s1",
+      text: "Session 밖 문장",
+      startTime: 0,
+      endTime: 8,
+      highlights: [],
+    },
     {
       id: "s2",
-      text: "How are you?",
-      startTime: 2,
-      endTime: 4,
+      text: "Session 첫 문장",
+      startTime: 30,
+      endTime: 40,
+      highlights: [],
+    },
+    {
+      id: "s3",
+      text: "Session 둘째 문장",
+      startTime: 40,
+      endTime: 54,
       highlights: [],
     },
   ],
-  snippet_start_time: 0,
+  snippet_start_time: 120,
 };
+
+const mockPlayerProps: { startSeconds?: number } = {};
 
 jest.mock("expo-router", () => ({
   router: {
@@ -124,8 +142,10 @@ jest.mock("../../src/components/player/YouTubePlayer", () => {
   const React = require("react");
   const { View } = require("react-native");
   const MockPlayer = React.forwardRef(
-    (_props: object, _ref: React.Ref<unknown>) =>
-      React.createElement(View, { testID: "youtube-player" }),
+    (props: { startSeconds?: number }, _ref: React.Ref<unknown>) => {
+      mockPlayerProps.startSeconds = props.startSeconds;
+      return React.createElement(View, { testID: "youtube-player" });
+    },
   );
   MockPlayer.displayName = "YouTubePlayer";
   return { __esModule: true, default: MockPlayer };
@@ -137,17 +157,18 @@ describe("StudyScreen professional context flow", () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     mockRouterPush.mockClear();
+    mockPlayerProps.startSeconds = undefined;
   });
 
-  it("shows the locked premium brief and opens study content after continue", async () => {
+  it("shows only the selected session range and starts playback at the session offset", async () => {
     const { findByText, getByText, queryByText } = render(<StudyScreen />);
 
     expect(await findByText("학습 전 브리프")).toBeTruthy();
 
     expect(
-      await findByText("이 세션의 프리러닝 브리프는 프리미엄에서 열립니다."),
+      await findByText("전체 브리프는 프리미엄에서 확인할 수 있어요"),
     ).toBeTruthy();
-    expect(await findByText("브리프 열기")).toBeTruthy();
+    expect(await findByText("프리미엄 시작")).toBeTruthy();
     expect(queryByText("리스닝")).toBeNull();
 
     await waitFor(() => {
@@ -158,15 +179,20 @@ describe("StudyScreen professional context flow", () => {
       });
     });
 
-    fireEvent.press(getByText("브리프 열기"));
+    fireEvent.press(getByText("프리미엄 시작"));
     expect(mockRouterPush).toHaveBeenCalledWith("/paywall");
 
-    fireEvent.press(getByText("바로 학습 시작"));
+    fireEvent.press(getByText("학습 시작"));
 
     await waitFor(() => {
       expect(getByText("리스닝")).toBeTruthy();
       expect(getByText("쉐도잉")).toBeTruthy();
     });
+
+    expect(getByText("Session 첫 문장")).toBeTruthy();
+    expect(getByText("Session 둘째 문장")).toBeTruthy();
+    expect(queryByText("Session 밖 문장")).toBeNull();
+    expect(mockPlayerProps.startSeconds).toBe(150);
 
     expect(mockTrackEvent).toHaveBeenCalledWith("session_start", {
       sessionId: "session-1",
