@@ -4,8 +4,6 @@ import {
   Dimensions,
   FlatList,
   Image,
-  Modal,
-  Pressable,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -13,7 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import BottomSheet from "../../src/components/common/BottomSheet";
 import { fetchLearningSessions, SessionListItem } from "../../src/lib/api";
 import {
   DIFFICULTY_LABELS,
@@ -81,54 +81,48 @@ function FilterDropdown({
           ]}
           numberOfLines={1}
         >
-          {selected?.label ?? label}
+          {isFiltered ? selected?.label : label}
         </Text>
-        <Text
-          style={[
-            styles.dropdownArrow,
-            isFiltered && styles.dropdownArrowActive,
-          ]}
-        >
-          ▾
-        </Text>
+        <Ionicons
+          name="chevron-down"
+          size={14}
+          color={isFiltered ? COLOR.textInverse : COLOR.textMuted}
+        />
       </TouchableOpacity>
 
-      <Modal visible={open} transparent animationType="fade">
-        <Pressable
-          style={styles.dropdownOverlay}
-          onPress={() => setOpen(false)}
-        >
-          <View style={styles.dropdownMenu}>
-            <Text style={styles.dropdownMenuTitle}>{label}</Text>
-            {options.map((opt) => {
-              const active = opt.key === value;
-              return (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[
-                    styles.dropdownItem,
-                    active && styles.dropdownItemActive,
-                  ]}
-                  onPress={() => {
-                    onSelect(opt.key);
-                    setOpen(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.dropdownItemText,
-                      active && styles.dropdownItemTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
+      <BottomSheet visible={open} onClose={() => setOpen(false)}>
+        <Text style={styles.sheetTitle}>{label}</Text>
+        {options.map((opt) => {
+          const active = opt.key === value;
+          return (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.sheetItem, active && styles.sheetItemActive]}
+              onPress={() => {
+                onSelect(opt.key);
+                setOpen(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.sheetItemText,
+                  active && styles.sheetItemTextActive,
+                ]}
+              >
+                {opt.label}
+              </Text>
+              {active && (
+                <Ionicons
+                  name="checkmark"
+                  size={18}
+                  color={COLOR.textInverse}
+                />
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </BottomSheet>
     </>
   );
 }
@@ -493,52 +487,33 @@ const styles = StyleSheet.create({
   dropdownTriggerTextActive: {
     color: COLOR.textInverse,
   },
-  dropdownArrow: {
-    fontSize: 10,
-    color: COLOR.textMuted,
-  },
-  dropdownArrowActive: {
-    color: COLOR.textInverse,
-  },
 
-  // ── Dropdown overlay / menu ──
-  dropdownOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
-  dropdownMenu: {
-    backgroundColor: COLOR.bg,
-    borderWidth: 1,
-    borderColor: COLOR.border,
-    width: "100%",
-    maxWidth: 280,
-    paddingVertical: 8,
-  },
-  dropdownMenuTitle: {
+  // ── Bottom sheet content ──
+  sheetTitle: {
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 2,
     color: COLOR.textMuted,
     textTransform: "uppercase",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
-  dropdownItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  sheetItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
-  dropdownItemActive: {
+  sheetItemActive: {
     backgroundColor: COLOR.text,
   },
-  dropdownItemText: {
-    fontSize: 13,
+  sheetItemText: {
+    fontSize: 15,
     fontWeight: "600",
     color: COLOR.text,
   },
-  dropdownItemTextActive: {
+  sheetItemTextActive: {
     color: COLOR.textInverse,
   },
 

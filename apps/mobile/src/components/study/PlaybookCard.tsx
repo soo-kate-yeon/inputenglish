@@ -1,13 +1,8 @@
 import React, { useState } from "react";
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import BottomSheet from "../common/BottomSheet";
 import type {
   PlaybookEntry,
   PlaybookMasteryStatus,
@@ -106,41 +101,44 @@ export default function PlaybookCard({
           <Text style={styles.masteryTriggerText}>
             {PLAYBOOK_MASTERY_LABELS[entry.mastery_status]}
           </Text>
-          <Text style={styles.masteryArrow}>▾</Text>
+          <Ionicons name="chevron-down" size={14} color={COLOR.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Mastery dropdown modal */}
-      <Modal visible={masteryOpen} transparent animationType="fade">
-        <Pressable style={styles.overlay} onPress={() => setMasteryOpen(false)}>
-          <View style={styles.menu}>
-            <Text style={styles.menuTitle}>숙련도</Text>
-            {MASTERY_OPTIONS.map((opt) => {
-              const active = opt.key === entry.mastery_status;
-              return (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.menuItem, active && styles.menuItemActive]}
-                  onPress={() => {
-                    onSetMastery(entry, opt.key);
-                    setMasteryOpen(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.menuItemText,
-                      active && styles.menuItemTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
+      {/* Mastery bottom sheet */}
+      <BottomSheet visible={masteryOpen} onClose={() => setMasteryOpen(false)}>
+        <Text style={styles.sheetTitle}>숙련도</Text>
+        {MASTERY_OPTIONS.map((opt) => {
+          const active = opt.key === entry.mastery_status;
+          return (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.sheetItem, active && styles.sheetItemActive]}
+              onPress={() => {
+                onSetMastery(entry, opt.key);
+                setMasteryOpen(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.sheetItemText,
+                  active && styles.sheetItemTextActive,
+                ]}
+              >
+                {opt.label}
+              </Text>
+              {active && (
+                <Ionicons
+                  name="checkmark"
+                  size={18}
+                  color={COLOR.textInverse}
+                />
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </BottomSheet>
     </View>
   );
 }
@@ -237,49 +235,33 @@ const styles = StyleSheet.create({
     color: COLOR.text,
     fontWeight: "700",
   },
-  masteryArrow: {
-    fontSize: 8,
-    color: COLOR.text,
-  },
 
-  // Dropdown modal
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
-  menu: {
-    backgroundColor: COLOR.bg,
-    borderWidth: 1,
-    borderColor: COLOR.border,
-    width: "100%",
-    maxWidth: 240,
-    paddingVertical: 8,
-  },
-  menuTitle: {
+  // Bottom sheet content
+  sheetTitle: {
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 2,
     color: COLOR.textMuted,
     textTransform: "uppercase",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
-  menuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  sheetItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
-  menuItemActive: {
+  sheetItemActive: {
     backgroundColor: COLOR.text,
   },
-  menuItemText: {
-    fontSize: 13,
+  sheetItemText: {
+    fontSize: 15,
     fontWeight: "600",
     color: COLOR.text,
   },
-  menuItemTextActive: {
+  sheetItemTextActive: {
     color: COLOR.textInverse,
   },
 });
