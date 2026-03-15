@@ -3,7 +3,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import ContextBriefCard from "../ContextBriefCard";
 
 describe("ContextBriefCard", () => {
-  it("renders unlocked professional context content", () => {
+  it("renders unlocked brief content and fires start", () => {
     const onStartLearning = jest.fn();
     const { getByText } = render(
       <ContextBriefCard
@@ -20,18 +20,14 @@ describe("ContextBriefCard", () => {
           expected_takeaway:
             "사용자는 프로젝트 지표 변화를 더 설득력 있게 설명할 수 있다.",
         }}
-        sourceType="earnings-call"
-        speakingFunction="explain-metric"
-        premiumRequired={true}
         locked={false}
+        ctaLabel="학습 시작"
         onUnlock={jest.fn()}
         onStartLearning={onStartLearning}
       />,
     );
 
     expect(getByText("학습 전 브리프")).toBeTruthy();
-    expect(getByText("실적 발표")).toBeTruthy();
-    expect(getByText("지표 설명")).toBeTruthy();
     expect(
       getByText("이 발화는 수치를 자신감 있게 설명하는 톤을 보여준다."),
     ).toBeTruthy();
@@ -42,36 +38,55 @@ describe("ContextBriefCard", () => {
     expect(onStartLearning).toHaveBeenCalledTimes(1);
   });
 
-  it("renders locked premium state and calls unlock and continue handlers", () => {
+  it("renders gradient lock overlay for free users", () => {
     const onUnlock = jest.fn();
     const onStartLearning = jest.fn();
     const { getByText } = render(
       <ContextBriefCard
         context={{
-          strategic_intent: "잠금 상태에서는 상세 브리프를 숨긴다.",
+          strategic_intent: "잠금 상태에서도 브리프 내용은 보인다.",
           speaking_function: "summarize",
           reusable_scenarios: [],
           key_vocabulary: [],
           grammar_rhetoric_note: "",
           expected_takeaway: "핵심 내용을 먼저 파악한다.",
         }}
-        sourceType="podcast"
-        speakingFunction="summarize"
-        premiumRequired={true}
         locked={true}
+        ctaLabel="학습 시작"
         onUnlock={onUnlock}
         onStartLearning={onStartLearning}
       />,
     );
 
     expect(
-      getByText("이 세션의 프리러닝 브리프는 프리미엄에서 열립니다."),
+      getByText("전체 브리프는 프리미엄에서 확인할 수 있어요"),
     ).toBeTruthy();
 
-    fireEvent.press(getByText("브리프 열기"));
+    fireEvent.press(getByText("프리미엄 시작"));
     expect(onUnlock).toHaveBeenCalledTimes(1);
 
-    fireEvent.press(getByText("바로 학습 시작"));
+    fireEvent.press(getByText("학습 시작"));
     expect(onStartLearning).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows continue label when ctaLabel is set", () => {
+    const { getByText } = render(
+      <ContextBriefCard
+        context={{
+          strategic_intent: "테스트",
+          speaking_function: "summarize",
+          reusable_scenarios: [],
+          key_vocabulary: [],
+          grammar_rhetoric_note: "",
+          expected_takeaway: "",
+        }}
+        locked={false}
+        ctaLabel="학습 계속하기"
+        onUnlock={jest.fn()}
+        onStartLearning={jest.fn()}
+      />,
+    );
+
+    expect(getByText("학습 계속하기")).toBeTruthy();
   });
 });

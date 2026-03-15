@@ -1,242 +1,137 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type {
-  SessionContext,
-  SessionSourceType,
-  SessionSpeakingFunction,
-} from "@shadowoo/shared";
-import {
-  SOURCE_TYPE_LABELS,
-  SPEAKING_FUNCTION_LABELS,
-} from "../../lib/professional-labels";
+import { LinearGradient } from "expo-linear-gradient";
+import type { SessionContext } from "@shadowoo/shared";
 
 interface ContextBriefCardProps {
   context: SessionContext | null;
-  sourceType?: SessionSourceType;
-  speakingFunction?: SessionSpeakingFunction;
-  premiumRequired?: boolean;
   locked: boolean;
+  ctaLabel: string;
   onUnlock: () => void;
   onStartLearning: () => void;
 }
 
 export default function ContextBriefCard({
   context,
-  sourceType,
-  speakingFunction,
-  premiumRequired = false,
   locked,
+  ctaLabel,
   onUnlock,
   onStartLearning,
 }: ContextBriefCardProps) {
-  if (!context && !speakingFunction && !sourceType) return null;
+  const hasContent = Boolean(
+    context?.strategic_intent ||
+    context?.expected_takeaway ||
+    context?.key_vocabulary?.length ||
+    context?.reusable_scenarios?.length,
+  );
 
   return (
-    <View style={styles.card}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.kicker}>학습 전 브리프</Text>
-        {premiumRequired ? (
-          <View style={[styles.badge, locked && styles.badgeLocked]}>
-            <Text style={[styles.badgeText, locked && styles.badgeTextLocked]}>
-              {locked ? "프리미엄" : "열람 가능"}
-            </Text>
-          </View>
-        ) : null}
       </View>
 
-      <View style={styles.metaRow}>
-        {sourceType ? (
-          <View style={styles.metaBadge}>
-            <Text style={styles.metaText}>
-              {SOURCE_TYPE_LABELS[sourceType]}
+      {/* Brief content */}
+      <View style={styles.content}>
+        {context?.strategic_intent ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>이 세션이 길러주는 말하기</Text>
+            <Text style={styles.bodyText}>{context.strategic_intent}</Text>
+          </View>
+        ) : null}
+
+        {context?.expected_takeaway ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
+            <Text style={styles.bodyText}>{context.expected_takeaway}</Text>
+          </View>
+        ) : null}
+
+        {context?.key_vocabulary?.length ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>핵심 표현</Text>
+            <Text style={styles.bodyText}>
+              {context.key_vocabulary.join(", ")}
             </Text>
           </View>
         ) : null}
-        {context?.speaking_function || speakingFunction ? (
-          <View style={styles.metaBadge}>
-            <Text style={styles.metaText}>
-              {
-                SPEAKING_FUNCTION_LABELS[
-                  (context?.speaking_function ||
-                    speakingFunction) as SessionSpeakingFunction
-                ]
-              }
-            </Text>
-          </View>
-        ) : null}
-      </View>
 
-      {locked ? (
-        <View style={styles.lockedState}>
-          <Text style={styles.lockedTitle}>
-            이 세션의 프리러닝 브리프는 프리미엄에서 열립니다.
-          </Text>
-          <Text style={styles.lockedText}>
-            세션이 어떤 말하기 상황을 훈련하는지, 왜 이 표현이 좋은지, 어떤 업무
-            장면에 재사용할 수 있는지 먼저 확인할 수 있어요.
-          </Text>
-          <TouchableOpacity
-            style={styles.unlockButton}
-            onPress={onUnlock}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.unlockButtonText}>브리프 열기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.startButtonSecondary}
-            onPress={onStartLearning}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.startButtonSecondaryText}>바로 학습 시작</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.content}>
-          {context?.strategic_intent ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>이 세션이 길러주는 말하기</Text>
-              <Text style={styles.bodyText}>{context.strategic_intent}</Text>
-            </View>
-          ) : null}
-
-          {context?.expected_takeaway ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
-              <Text style={styles.bodyText}>{context.expected_takeaway}</Text>
-            </View>
-          ) : null}
-
-          {context?.key_vocabulary?.length ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>핵심 표현</Text>
-              <Text style={styles.bodyText}>
-                {context.key_vocabulary.join(", ")}
+        {context?.reusable_scenarios?.length ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>다시 써먹을 수 있는 상황</Text>
+            {context.reusable_scenarios.map((scenario) => (
+              <Text key={scenario} style={styles.listText}>
+                • {scenario}
               </Text>
-            </View>
-          ) : null}
+            ))}
+          </View>
+        ) : null}
 
-          {context?.reusable_scenarios?.length ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>다시 써먹을 수 있는 상황</Text>
-              {context.reusable_scenarios.map((scenario) => (
-                <Text key={scenario} style={styles.listText}>
-                  • {scenario}
-                </Text>
-              ))}
-            </View>
-          ) : null}
+        {!hasContent ? (
+          <Text style={styles.emptyText}>
+            이 세션에는 브리프가 아직 없습니다.
+          </Text>
+        ) : null}
+      </View>
 
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={onStartLearning}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.startButtonText}>학습 시작</Text>
-          </TouchableOpacity>
+      {/* Gradient dimming for free users */}
+      {locked && hasContent ? (
+        <View style={styles.gradientWrapper}>
+          <LinearGradient
+            colors={[
+              "rgba(255,255,255,0)",
+              "rgba(255,255,255,0.95)",
+              "#FFFFFF",
+            ]}
+            locations={[0, 0.5, 1]}
+            style={styles.gradient}
+          />
+          <View style={styles.lockCta}>
+            <Text style={styles.lockText}>
+              전체 브리프는 프리미엄에서 확인할 수 있어요
+            </Text>
+            <TouchableOpacity
+              style={styles.unlockButton}
+              onPress={onUnlock}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.unlockButtonText}>프리미엄 시작</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
+      ) : null}
+
+      {/* Start / Continue CTA */}
+      <TouchableOpacity
+        style={styles.startButton}
+        onPress={onStartLearning}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.startButtonText}>{ctaLabel}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#111111",
-    backgroundColor: "#FAFAFA",
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
     gap: 12,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   kicker: {
     fontSize: 11,
     fontWeight: "700",
     color: "#111111",
-  },
-  badge: {
-    borderWidth: 1,
-    borderColor: "#111111",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: "#FFFFFF",
-  },
-  badgeLocked: {
-    backgroundColor: "#111111",
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#111111",
-  },
-  badgeTextLocked: {
-    color: "#FFFFFF",
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  metaBadge: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  metaText: {
-    fontSize: 10,
-    color: "#666666",
-    fontWeight: "600",
-  },
-  lockedState: {
-    gap: 10,
-  },
-  lockedTitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#111111",
-    fontWeight: "700",
-  },
-  lockedText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: "#666666",
-  },
-  unlockButton: {
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: "#111111",
-    backgroundColor: "#111111",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  unlockButtonText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  startButtonSecondary: {
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: "#111111",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "#FFFFFF",
-  },
-  startButtonSecondaryText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#111111",
+    letterSpacing: 1,
   },
   content: {
-    gap: 10,
+    gap: 12,
   },
   section: {
     gap: 4,
@@ -256,18 +151,56 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: "#111111",
   },
-  startButton: {
-    alignSelf: "flex-start",
+  emptyText: {
+    fontSize: 13,
+    color: "#888888",
+  },
+
+  // Gradient lock overlay
+  gradientWrapper: {
+    marginTop: -80,
+    paddingTop: 0,
+  },
+  gradient: {
+    height: 80,
+  },
+  lockCta: {
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+  },
+  lockText: {
+    fontSize: 12,
+    color: "#888888",
+    textAlign: "center",
+  },
+  unlockButton: {
     borderWidth: 1,
     borderColor: "#111111",
     backgroundColor: "#111111",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    marginTop: 4,
   },
-  startButtonText: {
+  unlockButtonText: {
     fontSize: 11,
     fontWeight: "700",
     color: "#FFFFFF",
+    letterSpacing: 1,
+  },
+
+  // Start CTA
+  startButton: {
+    borderWidth: 1,
+    borderColor: "#111111",
+    backgroundColor: "#111111",
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  startButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 1.5,
   },
 });

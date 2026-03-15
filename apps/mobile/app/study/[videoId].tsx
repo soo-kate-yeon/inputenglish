@@ -96,6 +96,7 @@ export default function StudyScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [briefExpanded, setBriefExpanded] = useState(true);
+  const [hasStarted, setHasStarted] = useState(false);
   const [uploadedRecordingUrls, setUploadedRecordingUrls] = useState<
     Record<string, string>
   >({});
@@ -175,9 +176,7 @@ export default function StudyScreen() {
 
   useEffect(() => {
     if (!sessionDetail) return;
-    setBriefExpanded(
-      Boolean(sessionDetail.context || sessionDetail.premium_required),
-    );
+    setBriefExpanded(true);
     setPracticePrompts([]);
     setPracticeMode("slot-in");
     setPracticeDraft("");
@@ -651,24 +650,25 @@ export default function StudyScreen() {
         startSeconds={video.snippet_start_time}
       />
 
-      <ContextBriefCard
-        context={sessionDetail?.context ?? null}
-        sourceType={sessionDetail?.source_type}
-        speakingFunction={sessionDetail?.speaking_function}
-        premiumRequired={sessionDetail?.premium_required}
-        locked={Boolean(sessionDetail?.premium_required && plan === "FREE")}
-        onUnlock={() => router.push("/paywall")}
-        onStartLearning={() => {
-          if (sessionDetail) {
-            trackEvent("session_start", {
-              sessionId: sessionDetail.id,
-              sourceType: sessionDetail.source_type,
-              speakingFunction: sessionDetail.speaking_function,
-            });
-          }
-          setBriefExpanded(false);
-        }}
-      />
+      {briefExpanded ? (
+        <ContextBriefCard
+          context={sessionDetail?.context ?? null}
+          locked={Boolean(sessionDetail?.premium_required && plan === "FREE")}
+          ctaLabel={hasStarted ? "학습 계속하기" : "학습 시작"}
+          onUnlock={() => router.push("/paywall")}
+          onStartLearning={() => {
+            if (!hasStarted && sessionDetail) {
+              trackEvent("session_start", {
+                sessionId: sessionDetail.id,
+                sourceType: sessionDetail.source_type,
+                speakingFunction: sessionDetail.speaking_function,
+              });
+              setHasStarted(true);
+            }
+            setBriefExpanded(false);
+          }}
+        />
+      ) : null}
 
       {briefExpanded ? null : (
         <>
@@ -849,29 +849,39 @@ export default function StudyScreen() {
             />
           ) : null}
 
-          {/* Bottom bar: script toggle (left) + end CTA (right) */}
+          {/* Bottom bar: brief + script icons (left) + end CTA (right) */}
           {!isRecording ? (
             <View style={styles.bottomBar}>
-              {mainTab === "transformation" ? (
-                <View style={styles.bottomBtnPlaceholder} />
-              ) : (
-                <TouchableOpacity
-                  style={styles.bottomBtn}
-                  onPress={() => setScriptVisible((v) => !v)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={
-                      scriptVisible ? "document-text" : "document-text-outline"
-                    }
-                    size={18}
-                    color={C.text}
-                  />
-                  <Text style={styles.bottomBtnText}>
-                    {scriptVisible ? "HIDE SCRIPT" : "SHOW SCRIPT"}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <View style={styles.bottomLeft}>
+                {sessionDetail?.context ? (
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    onPress={() => setBriefExpanded(true)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="reader-outline" size={20} color={C.text} />
+                  </TouchableOpacity>
+                ) : null}
+                {mainTab !== "transformation" ? (
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    onPress={() => setScriptVisible((v) => !v)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name={
+                        scriptVisible
+                          ? "document-text"
+                          : "document-text-outline"
+                      }
+                      size={20}
+                      color={C.text}
+                    />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
 
               <TouchableOpacity
                 style={styles.endBtn}
@@ -959,15 +969,18 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? 28 : 12,
     backgroundColor: C.bg,
   },
-  bottomBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
-  bottomBtnPlaceholder: {
-    width: 100,
+  bottomLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
   },
-  bottomBtnText: {
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: "700",
-    color: C.text,
+  iconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.borderLight,
   },
   endBtn: {
     borderWidth: 1,
