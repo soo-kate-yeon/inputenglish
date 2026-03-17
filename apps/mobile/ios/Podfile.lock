@@ -238,6 +238,8 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (14.0.3):
     - ExpoModulesCore
+  - ExpoLinearGradient (14.0.2):
+    - ExpoModulesCore
   - ExpoLinking (7.0.5):
     - ExpoModulesCore
   - ExpoModulesCore (2.2.3):
@@ -2015,6 +2017,7 @@ DEPENDENCIES:
   - "ExpoFont (from `../../../node_modules/.pnpm/expo-font@13.0.4_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core@7_06ca0c81f77b6fbe7288ad12f640790b/node_modules/expo-font/ios`)"
   - "ExpoHead (from `../../../node_modules/.pnpm/expo-router@4.0.22_fd0fe6623847806db6b46a72f2cebcb4/node_modules/expo-router/ios`)"
   - "ExpoKeepAwake (from `../../../node_modules/.pnpm/expo-keep-awake@14.0.3_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+_254479d3c235d51ee27047657c1fe286/node_modules/expo-keep-awake/ios`)"
+  - "ExpoLinearGradient (from `../../../node_modules/.pnpm/expo-linear-gradient@14.0.2_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@b_a46b51ba64daa8dbb173c78e72cbce0d/node_modules/expo-linear-gradient/ios`)"
   - "ExpoLinking (from `../../../node_modules/.pnpm/expo-linking@7.0.5_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core_0df8530e7751c9b23c375bd17f97679a/node_modules/expo-linking/ios`)"
   - "ExpoModulesCore (from `../../../node_modules/.pnpm/expo-modules-core@2.2.3/node_modules/expo-modules-core`)"
   - "ExpoSecureStore (from `../../../node_modules/.pnpm/expo-secure-store@14.2.4_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babe_b8684b5c9e96b5c44c95ca4959dfc1bd/node_modules/expo-secure-store/ios`)"
@@ -2145,6 +2148,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/expo-router@4.0.22_fd0fe6623847806db6b46a72f2cebcb4/node_modules/expo-router/ios"
   ExpoKeepAwake:
     :path: "../../../node_modules/.pnpm/expo-keep-awake@14.0.3_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+_254479d3c235d51ee27047657c1fe286/node_modules/expo-keep-awake/ios"
+  ExpoLinearGradient:
+    :path: "../../../node_modules/.pnpm/expo-linear-gradient@14.0.2_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@b_a46b51ba64daa8dbb173c78e72cbce0d/node_modules/expo-linear-gradient/ios"
   ExpoLinking:
     :path: "../../../node_modules/.pnpm/expo-linking@7.0.5_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core_0df8530e7751c9b23c375bd17f97679a/node_modules/expo-linking/ios"
   ExpoModulesCore:
@@ -2321,6 +2326,7 @@ SPEC CHECKSUMS:
   ExpoFont: f354e926f8feae5e831ec8087f36652b44a0b188
   ExpoHead: 2a14db58219c0a506e4a409ea83f884eab23f555
   ExpoKeepAwake: b0171a73665bfcefcfcc311742a72a956e6aa680
+  ExpoLinearGradient: 35ebd83b16f80b3add053a2fd68cc328ed927f60
   ExpoLinking: 8d12bee174ba0cdf31239706578e29e74a417402
   ExpoModulesCore: 98297c2cc7977c43740a2e52d850d94ac8dbf176
   ExpoSecureStore: 3f1b632d6d40bcc62b4983ef9199cd079592a50a

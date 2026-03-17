@@ -28,8 +28,44 @@ describe("ContextBriefCard", () => {
     expect(
       getByText("이 발화는 수치를 자신감 있게 설명하는 톤을 보여준다."),
     ).toBeTruthy();
-    expect(getByText("inflection point, momentum")).toBeTruthy();
+    expect(getByText("inflection point")).toBeTruthy();
+    expect(getByText("momentum")).toBeTruthy();
     expect(getByText("• 주간 지표 업데이트를 설명할 때")).toBeTruthy();
+  });
+
+  it("renders key_vocabulary with expression+example entries", () => {
+    const { getByText } = render(
+      <ContextBriefCard
+        context={{
+          strategic_intent: "테스트",
+          speaking_function: "explain-metric",
+          reusable_scenarios: [],
+          key_vocabulary: [
+            {
+              expression: "We're seeing",
+              example: "We're seeing strong momentum across all segments.",
+              translation: "전 부문에서 강한 성장세가 보이고 있습니다.",
+            },
+            { expression: "net-net", example: "" },
+            "legacy-string-item",
+          ],
+          grammar_rhetoric_note: "",
+          expected_takeaway: "테스트",
+        }}
+        locked={false}
+        onUnlock={jest.fn()}
+      />,
+    );
+
+    expect(getByText("We're seeing")).toBeTruthy();
+    expect(
+      getByText("We're seeing strong momentum across all segments."),
+    ).toBeTruthy();
+    expect(
+      getByText("전 부문에서 강한 성장세가 보이고 있습니다."),
+    ).toBeTruthy();
+    expect(getByText("net-net")).toBeTruthy();
+    expect(getByText("legacy-string-item")).toBeTruthy();
   });
 
   it("renders gradient lock overlay for free users", () => {

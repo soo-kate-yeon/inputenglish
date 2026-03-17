@@ -121,12 +121,18 @@ export const PLAYBOOK_MASTERY_STATUSES = [
 
 export type PlaybookMasteryStatus = (typeof PLAYBOOK_MASTERY_STATUSES)[number];
 
+export interface KeyVocabularyEntry {
+  expression: string;
+  example: string;
+  translation?: string;
+}
+
 export interface SessionContext {
   session_id?: string;
   strategic_intent: string;
   speaking_function?: SessionSpeakingFunction;
   reusable_scenarios: string[];
-  key_vocabulary: string[];
+  key_vocabulary: (string | KeyVocabularyEntry)[];
   grammar_rhetoric_note: string;
   expected_takeaway: string;
   generated_by?: string;

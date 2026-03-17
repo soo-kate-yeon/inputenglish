@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { extractVideoId } from "@shadowoo/shared";
+import { extractVideoId, normalizeYouTubeUrl } from "@shadowoo/shared";
 import type {
   Sentence,
   LearningSession,
@@ -82,6 +82,10 @@ function AdminPageContent() {
 
   const getVideoId = () => extractVideoId(youtubeUrl);
 
+  const handleYoutubeUrlChange = (nextUrl: string) => {
+    setYoutubeUrl(normalizeYouTubeUrl(nextUrl));
+  };
+
   const handlePlayerReady = (playerInstance: YT.Player) => {
     setPlayer(playerInstance);
   };
@@ -103,7 +107,9 @@ function AdminPageContent() {
 
         if (data) {
           setYoutubeUrl(
-            data.youtube_url || `https://youtu.be/${data.video_id}`,
+            normalizeYouTubeUrl(
+              data.youtube_url || `https://youtu.be/${data.video_id}`,
+            ),
           );
           setTitle(data.title || "");
           setDifficulty(data.difficulty || "intermediate");
@@ -507,7 +513,7 @@ function AdminPageContent() {
         tags={tags}
         loading={loading}
         sentencesCount={sentences.length}
-        onYoutubeUrlChange={setYoutubeUrl}
+        onYoutubeUrlChange={handleYoutubeUrlChange}
         onTitleChange={setTitle}
         onDifficultyChange={setDifficulty}
         onTagsChange={setTags}

@@ -4,3 +4,16 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output
+
+# Ruby
+vendor/
+.bundle/
+Gemfile.lock
+
+# EAS
+.eas/

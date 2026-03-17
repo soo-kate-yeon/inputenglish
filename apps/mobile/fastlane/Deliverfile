@@ -1,0 +1,27 @@
+# Deliver configuration for App Store Connect
+
+# App metadata
+app_identifier "kr.shadowoo.app"
+username ENV["APPLE_ID"] || "YOUR_APPLE_ID@example.com"
+
+# Metadata path
+metadata_path "./fastlane/metadata"
+screenshots_path "./fastlane/screenshots"
+
+# Submission settings
+submit_for_review false
+automatic_release false
+phased_release true
+
+# Skip binary (EAS handles builds)
+skip_binary_upload true
+
+# Price tier (0 = Free)
+price_tier 0
+
+# App rating (configure for language learning app)
+app_rating_config_path "./fastlane/rating_config.json"
+
+# Precheck
+precheck_include_in_app_purchases false
+run_precheck_before_submit true

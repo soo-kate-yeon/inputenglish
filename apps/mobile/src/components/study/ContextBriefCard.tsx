@@ -1,7 +1,19 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import type { SessionContext } from "@shadowoo/shared";
+import type { SessionContext, KeyVocabularyEntry } from "@shadowoo/shared";
+
+function normalizeVocabEntry(
+  item: string | KeyVocabularyEntry,
+): Required<KeyVocabularyEntry> {
+  if (typeof item === "string")
+    return { expression: item, example: "", translation: "" };
+  return {
+    expression: item.expression ?? "",
+    example: item.example ?? "",
+    translation: item.translation ?? "",
+  };
+}
 
 interface ContextBriefCardProps {
   context: SessionContext | null;
@@ -27,8 +39,10 @@ export default function ContextBriefCard({
         <Text style={styles.kicker}>학습 전 브리프</Text>
       </View>
 
-      {/* Brief content */}
-      <View style={styles.content}>
+      {/* Brief content — clipped when locked */}
+      <View
+        style={[styles.content, locked && hasContent && styles.contentLocked]}
+      >
         {context?.strategic_intent ? (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>이 세션이 길러주는 말하기</Text>
@@ -46,9 +60,22 @@ export default function ContextBriefCard({
         {context?.key_vocabulary?.length ? (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>핵심 표현</Text>
-            <Text style={styles.bodyText}>
-              {context.key_vocabulary.join(", ")}
-            </Text>
+            {context.key_vocabulary.map((item, idx) => {
+              const entry = normalizeVocabEntry(item);
+              return (
+                <View key={idx} style={styles.vocabItem}>
+                  <Text style={styles.vocabExpression}>{entry.expression}</Text>
+                  {entry.example ? (
+                    <Text style={styles.vocabExample}>{entry.example}</Text>
+                  ) : null}
+                  {entry.translation ? (
+                    <Text style={styles.vocabTranslation}>
+                      {entry.translation}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         ) : null}
 
@@ -76,10 +103,13 @@ export default function ContextBriefCard({
           <LinearGradient
             colors={[
               "rgba(255,255,255,0)",
-              "rgba(255,255,255,0.95)",
+              "rgba(255,255,255,0.15)",
+              "rgba(255,255,255,0.4)",
+              "rgba(255,255,255,0.7)",
+              "rgba(255,255,255,0.9)",
               "#FFFFFF",
             ]}
-            locations={[0, 0.5, 1]}
+            locations={[0, 0.15, 0.35, 0.55, 0.75, 1]}
             style={styles.gradient}
           />
           <View style={styles.lockCta}>
@@ -138,18 +168,43 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: "#111111",
   },
+  vocabItem: {
+    marginBottom: 6,
+  },
+  vocabExpression: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
+    color: "#111111",
+  },
+  vocabExample: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#888888",
+    marginTop: 1,
+  },
+  vocabTranslation: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#AAAAAA",
+    marginTop: 1,
+  },
   emptyText: {
     fontSize: 13,
     color: "#888888",
   },
 
+  contentLocked: {
+    maxHeight: 110,
+    overflow: "hidden",
+  },
+
   // Gradient lock overlay
   gradientWrapper: {
-    marginTop: -80,
-    paddingTop: 0,
+    marginTop: -60,
   },
   gradient: {
-    height: 80,
+    height: 60,
   },
   lockCta: {
     backgroundColor: "#FFFFFF",

@@ -87,8 +87,8 @@ describe("POST /api/admin/analyze-scenes", () => {
 
     expect(response.status).toBe(200);
     expect(payload.scenes).toHaveLength(3);
-    expect(prompt).toContain("Business Scenario Reuse");
-    expect(prompt).toContain("Sessionization Potential");
+    expect(prompt).toContain("업무 재사용성");
+    expect(prompt).toContain("독립 세션 가능성");
     expect(prompt).toContain("maximize product value");
   });
 });

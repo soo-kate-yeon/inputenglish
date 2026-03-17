@@ -1,0 +1,139 @@
+default_platform(:ios)
+
+platform :ios do
+  # ─────────────────────────────────────────────
+  # Metadata Management
+  # ─────────────────────────────────────────────
+
+  desc "Upload metadata to App Store Connect (no binary)"
+  lane :upload_metadata do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        add_id_info_uses_idfa: false
+      }
+    )
+  end
+
+  desc "Upload screenshots to App Store Connect"
+  lane :upload_screenshots do
+    deliver(
+      skip_binary_upload: true,
+      skip_metadata: true,
+      force: true,
+      overwrite_screenshots: true
+    )
+  end
+
+  desc "Upload metadata + screenshots"
+  lane :upload_all_metadata do
+    deliver(
+      skip_binary_upload: true,
+      force: true,
+      overwrite_screenshots: true,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        add_id_info_uses_idfa: false
+      }
+    )
+  end
+
+  desc "Download existing metadata from App Store Connect"
+  lane :download_metadata do
+    deliver(
+      download_metadata: true,
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      force: true
+    )
+  end
+
+  desc "Download existing screenshots from App Store Connect"
+  lane :download_screenshots do
+    deliver(
+      download_screenshots: true,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      force: true
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # Screenshots (Automated via Simulator)
+  # ─────────────────────────────────────────────
+
+  desc "Capture screenshots using snapshot"
+  lane :screenshots do
+    snapshot(
+      devices: [
+        "iPhone 16 Pro Max",
+        "iPhone 16 Pro",
+        "iPhone SE (3rd generation)",
+        "iPad Pro (12.9-inch) (6th generation)"
+      ],
+      languages: ["ko", "en-US"],
+      output_directory: "./fastlane/screenshots",
+      clear_previous_screenshots: true
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # Version Management
+  # ─────────────────────────────────────────────
+
+  desc "Bump version number"
+  lane :bump_version do |options|
+    type = options[:type] || "patch" # major, minor, patch
+    current = get_version_number_from_app_json
+    new_version = bump_semver(current, type)
+    update_app_json_version(new_version)
+    UI.success("Version bumped: #{current} -> #{new_version}")
+  end
+
+  # ─────────────────────────────────────────────
+  # Full Release Pipeline
+  # ─────────────────────────────────────────────
+
+  desc "Full release: metadata + EAS build + submit"
+  lane :release do |options|
+    # Step 1: Upload metadata
+    upload_metadata
+
+    # Step 2: Trigger EAS build (runs externally)
+    UI.important("Run EAS build separately:")
+    UI.message("  eas build --platform ios --profile production --non-interactive")
+    UI.message("Then submit with:")
+    UI.message("  eas submit --platform ios --latest")
+  end
+
+  # ─────────────────────────────────────────────
+  # Helpers
+  # ─────────────────────────────────────────────
+
+  def get_version_number_from_app_json
+    app_json = JSON.parse(File.read("../app.json"))
+    app_json["expo"]["version"]
+  end
+
+  def update_app_json_version(new_version)
+    app_json_path = "../app.json"
+    app_json = JSON.parse(File.read(app_json_path))
+    app_json["expo"]["version"] = new_version
+    File.write(app_json_path, JSON.pretty_generate(app_json) + "\n")
+  end
+
+  def bump_semver(version, type)
+    parts = version.split(".").map(&:to_i)
+    case type
+    when "major"
+      "#{parts[0] + 1}.0.0"
+    when "minor"
+      "#{parts[0]}.#{parts[1] + 1}.0"
+    when "patch"
+      "#{parts[0]}.#{parts[1]}.#{parts[2] + 1}"
+    end
+  end
+end

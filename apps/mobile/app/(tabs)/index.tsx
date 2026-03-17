@@ -17,7 +17,6 @@ import BottomSheet from "../../src/components/common/BottomSheet";
 import { fetchLearningSessions, SessionListItem } from "../../src/lib/api";
 import {
   DIFFICULTY_LABELS,
-  ROLE_RELEVANCE_LABELS,
   SOURCE_TYPE_LABELS,
   SPEAKING_FUNCTION_LABELS,
 } from "../../src/lib/professional-labels";
@@ -138,8 +137,6 @@ function SessionCard({ item }: { item: SessionListItem }) {
   const speakingLabel = item.speaking_function
     ? SPEAKING_FUNCTION_LABELS[item.speaking_function]
     : null;
-  const roleLabels =
-    item.role_relevance?.map((role) => ROLE_RELEVANCE_LABELS[role]) ?? [];
 
   return (
     <TouchableOpacity
@@ -195,19 +192,14 @@ function SessionCard({ item }: { item: SessionListItem }) {
             ) : null}
             {item.premium_required ? (
               <View style={styles.premiumBadge}>
+                <Ionicons
+                  name="cash-outline"
+                  size={10}
+                  color={COLOR.textInverse}
+                />
                 <Text style={styles.premiumText}>프리미엄</Text>
               </View>
             ) : null}
-          </View>
-        ) : null}
-
-        {roleLabels.length ? (
-          <View style={styles.roleRow}>
-            {roleLabels.map((role) => (
-              <View key={role} style={styles.roleBadge}>
-                <Text style={styles.roleText}>{role}</Text>
-              </View>
-            ))}
           </View>
         ) : null}
 
@@ -600,12 +592,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 2,
   },
-  roleRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 2,
-  },
   taxonomyBadge: {
     borderWidth: 1,
     borderColor: COLOR.borderLight,
@@ -619,6 +605,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   premiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     borderWidth: 1,
     borderColor: COLOR.border,
     paddingHorizontal: 8,
@@ -629,18 +618,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLOR.textInverse,
     fontWeight: "700",
-  },
-  roleBadge: {
-    borderWidth: 1,
-    borderColor: COLOR.borderLight,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: "#F7F7F7",
-  },
-  roleText: {
-    fontSize: 10,
-    color: COLOR.textMuted,
-    fontWeight: "600",
   },
   channel: {
     fontSize: 12,

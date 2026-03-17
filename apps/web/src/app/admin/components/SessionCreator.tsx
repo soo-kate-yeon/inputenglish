@@ -4,6 +4,7 @@ import type {
   SceneRecommendation,
   LearningSession,
   SessionContext,
+  KeyVocabularyEntry,
   SessionRoleRelevance,
   SessionSourceType,
   SessionSpeakingFunction,
@@ -69,6 +70,34 @@ function multilineToArray(value: string): string[] {
     .split("\n")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function vocabToMultiline(items: (string | KeyVocabularyEntry)[]): string {
+  return items
+    .map((item) => {
+      if (typeof item === "string") return item;
+      const parts = [item.expression || ""];
+      if (item.example) parts.push(item.example);
+      if (item.translation) parts.push(item.translation);
+      return parts.join(" — ");
+    })
+    .join("\n");
+}
+
+function multilineToVocab(value: string): (string | KeyVocabularyEntry)[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(" — ").map((p) => p.trim());
+      if (parts.length < 2) return line;
+      return {
+        expression: parts[0],
+        example: parts[1] || "",
+        translation: parts[2] || "",
+      };
+    });
 }
 
 interface SessionCreatorProps {
@@ -910,14 +939,14 @@ export function SessionCreator({
                 />
 
                 <textarea
-                  value={arrayToMultiline(context.key_vocabulary)}
+                  value={vocabToMultiline(context.key_vocabulary)}
                   onChange={(e) =>
                     setContext((prev) => ({
                       ...prev,
-                      key_vocabulary: multilineToArray(e.target.value),
+                      key_vocabulary: multilineToVocab(e.target.value),
                     }))
                   }
-                  placeholder="핵심 표현 (한 줄에 하나씩)"
+                  placeholder="표현 — 예문 — 번역 (한 줄에 하나씩, 예: We're seeing — We're seeing strong momentum. — 강한 성장세가 보이고 있어요.)"
                   rows={3}
                   className="w-full text-xs focus:outline-none resize-none"
                   style={{

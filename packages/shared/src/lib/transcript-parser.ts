@@ -112,11 +112,18 @@ export function parseTranscriptToSentences(
   return sentences;
 }
 
+function sanitizeYouTubeInput(input: string): string {
+  return input
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/^[\s"'`]+|[\s"'`]+$/g, "")
+    .trim();
+}
+
 /**
  * Extract YouTube video ID from URL
  */
 export function extractVideoId(url: string): string | null {
-  const trimmed = url.trim();
+  const trimmed = sanitizeYouTubeInput(url);
   if (!trimmed) return null;
 
   // Accept a bare 11-char YouTube id directly.
@@ -178,6 +185,16 @@ export function extractVideoId(url: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Normalize user-provided YouTube input into a canonical share URL when possible.
+ */
+export function normalizeYouTubeUrl(url: string): string {
+  const sanitized = sanitizeYouTubeInput(url);
+  const videoId = extractVideoId(sanitized);
+
+  return videoId ? `https://youtu.be/${videoId}` : sanitized;
 }
 
 /**

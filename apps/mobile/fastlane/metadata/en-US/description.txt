@@ -1,0 +1,13 @@
+Shadowoo is an AI-powered shadowing app for English learners. Listen to native speakers and repeat after them to improve your speaking skills naturally.
+
+Key Features:
+- Shadowing Practice: Listen and repeat after native speakers
+- AI Analysis: Get AI feedback on your pronunciation and intonation
+- Listening Practice: Improve comprehension with diverse content
+- Progress Tracking: Manage your learning journey systematically
+- Personalized Learning: Content tailored to your level
+
+What is Shadowing?
+Shadowing is a language learning technique where you repeat what a native speaker says, like a shadow. It's one of the most effective methods for naturally acquiring pronunciation, intonation, and rhythm.
+
+Start improving your English with Shadowoo today!
