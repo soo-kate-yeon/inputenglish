@@ -65,19 +65,30 @@ platform :ios do
   # Screenshots (Automated via Simulator)
   # ─────────────────────────────────────────────
 
-  desc "Capture screenshots using snapshot"
+  desc "Capture screenshots from running simulators (Expo-compatible)"
   lane :screenshots do
-    snapshot(
-      devices: [
-        "iPhone 16 Pro Max",
-        "iPhone 16 Pro",
-        "iPhone SE (3rd generation)",
-        "iPad Pro (12.9-inch) (6th generation)"
-      ],
-      languages: ["ko", "en-US"],
-      output_directory: "./fastlane/screenshots",
-      clear_previous_screenshots: true
-    )
+    devices = [
+      "iPhone 17 Pro Max",
+      "iPhone 17 Pro",
+      "iPhone 16e",
+      "iPad Pro 13-inch (M5)"
+    ]
+    output_dir = "./fastlane/screenshots"
+    FileUtils.mkdir_p(output_dir)
+
+    devices.each do |device|
+      UI.message("📸 Capturing: #{device}")
+      safe_name = device.gsub(/[^a-zA-Z0-9]/, "_")
+      filename = "#{output_dir}/#{safe_name}.png"
+      # Find booted simulator matching device name
+      udid = sh("xcrun simctl list devices booted | grep '#{device}' | head -1 | grep -oE '[0-9A-F\\-]{36}' || true").strip
+      if udid.empty?
+        UI.important("⚠️  #{device} is not booted, skipping. Boot it first: xcrun simctl boot '#{device}'")
+        next
+      end
+      sh("xcrun simctl io #{udid} screenshot '#{filename}'")
+      UI.success("✅ Saved: #{filename}")
+    end
   end
 
   # ─────────────────────────────────────────────
