@@ -60,7 +60,7 @@ Download existing screenshots from App Store Connect
 [bundle exec] fastlane ios screenshots
 ```
 
-Capture screenshots using snapshot
+Capture screenshots from running simulators (Expo-compatible)
 
 ### ios bump_version
 

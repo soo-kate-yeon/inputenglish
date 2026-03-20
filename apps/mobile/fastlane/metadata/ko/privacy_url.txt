@@ -1,1 +1,1 @@
-https://shadowoo.kr/privacy
+https://shadowoo.vercel.app/privacy

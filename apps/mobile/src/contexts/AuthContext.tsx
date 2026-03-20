@@ -35,6 +35,7 @@ interface AuthContextType {
     provider: "google" | "github" | "kakao" | "azure",
   ) => Promise<void>;
   refreshUser: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -273,6 +274,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(false);
   }, [fetchUser]);
 
+  const deleteAccount = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const { error: deleteError } = await supabase.rpc("delete_user");
+      if (deleteError) throw deleteError;
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      router.replace("/(auth)/login");
+    } catch (err) {
+      console.error("[AuthContext] Delete account error:", err);
+      setError(
+        err instanceof Error ? err : new Error("Failed to delete account"),
+      );
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -286,6 +307,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signOut,
       signInWithOAuth,
       refreshUser,
+      deleteAccount,
     }),
     [
       user,
@@ -298,6 +320,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signOut,
       signInWithOAuth,
       refreshUser,
+      deleteAccount,
     ],
   );
 

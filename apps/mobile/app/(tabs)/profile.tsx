@@ -1,7 +1,8 @@
 // @MX:NOTE: [AUTO] Profile screen with avatar, study stats, join date, plan upgrade, and notification settings.
 // @MX:SPEC: SPEC-MOBILE-005, SPEC-MOBILE-006, SPEC-MOBILE-007
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -69,7 +70,35 @@ const rowStyles = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
-  const { user, signOut, isAuthenticated } = useAuth();
+  const { user, signOut, deleteAccount, isAuthenticated } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "계정 삭제",
+      "정말로 계정을 삭제하시겠습니까? 모든 학습 데이터가 영구적으로 삭제되며 복구할 수 없습니다.",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              await deleteAccount();
+            } catch {
+              Alert.alert(
+                "오류",
+                "계정 삭제에 실패했습니다. 다시 시도해주세요.",
+              );
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
   const { plan } = useSubscription();
   const savedSentences = appStore((state) => state.savedSentences);
   const highlights = appStore((state) => state.highlights);
@@ -221,6 +250,23 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── Delete account ── */}
+        <View style={styles.group}>
+          <View style={styles.groupSurface}>
+            <TouchableOpacity
+              style={styles.signOutRow}
+              onPress={handleDeleteAccount}
+              disabled={isDeleting}
+              accessibilityRole="button"
+              accessibilityLabel="계정 삭제"
+            >
+              <Text style={styles.deleteText}>
+                {isDeleting ? "삭제 중..." : "계정 삭제"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -349,5 +395,11 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontWeight: "700",
     color: COLOR.text,
+  },
+  deleteText: {
+    fontSize: 11,
+    letterSpacing: 0.5,
+    fontWeight: "500",
+    color: "#FF3B30",
   },
 });
