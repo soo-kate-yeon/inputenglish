@@ -1,4 +1,4 @@
-import type { Sentence } from "@shadowoo/shared";
+import type { Sentence } from "@inputenglish/shared";
 import { useEffect, useRef } from "react";
 
 interface SentenceItemProps {

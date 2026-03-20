@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractVideoId, normalizeYouTubeUrl } from "@shadowoo/shared";
+import { extractVideoId, normalizeYouTubeUrl } from "@inputenglish/shared";
 
 describe("extractVideoId", () => {
   it("extracts ids from common YouTube URL formats", () => {

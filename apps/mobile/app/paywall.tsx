@@ -172,7 +172,7 @@ export default function PaywallScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Title */}
-        <Text style={styles.title}>SHADOWOO{"\n"}PREMIUM</Text>
+        <Text style={styles.title}>인풋영어{"\n"}PREMIUM</Text>
         <Text style={styles.subtitle}>
           AI 기능으로 영어 쉐도잉을 더 효과적으로
         </Text>

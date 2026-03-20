@@ -73,8 +73,8 @@ jest.mock("../../lib/stores", () => ({
   appStore: jest.fn(() => ({})),
 }));
 
-// Mock @shadowoo/shared
-jest.mock("@shadowoo/shared", () => ({
+// Mock @inputenglish/shared
+jest.mock("@inputenglish/shared", () => ({
   groupSentencesByMode: jest.fn((sentences) => sentences),
 }));
 

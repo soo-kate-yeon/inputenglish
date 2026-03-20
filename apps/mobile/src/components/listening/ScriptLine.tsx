@@ -2,7 +2,7 @@
 // @MX:SPEC: SPEC-MOBILE-003 - REQ-E-002, REQ-E-003, REQ-E-004, REQ-E-005, REQ-S-001, AC-002
 import React, { memo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type { Sentence } from "@shadowoo/shared";
+import type { Sentence } from "@inputenglish/shared";
 import LoopToggle from "./LoopToggle";
 import SaveToggle from "./SaveToggle";
 

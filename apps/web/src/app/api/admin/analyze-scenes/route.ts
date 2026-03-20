@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { Sentence, SceneAnalysisResponse } from "@shadowoo/shared";
+import type { Sentence, SceneAnalysisResponse } from "@inputenglish/shared";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";

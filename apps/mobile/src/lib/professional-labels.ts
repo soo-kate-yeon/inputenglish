@@ -4,7 +4,7 @@ import type {
   SessionRoleRelevance,
   SessionSourceType,
   SessionSpeakingFunction,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 
 export const DIFFICULTY_LABELS: Record<string, string> = {
   beginner: "입문",

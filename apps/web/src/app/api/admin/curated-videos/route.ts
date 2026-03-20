@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/server";
-import { parseTranscriptToSentences, extractVideoId } from "@shadowoo/shared";
+import {
+  parseTranscriptToSentences,
+  extractVideoId,
+} from "@inputenglish/shared";
 
 export async function POST(request: NextRequest) {
   try {

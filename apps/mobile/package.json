@@ -1,5 +1,5 @@
 {
-  "name": "@shadowoo/mobile",
+  "name": "@inputenglish/mobile",
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
@@ -30,7 +30,7 @@
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/bottom-tabs": "^7.15.5",
-    "@shadowoo/shared": "workspace:*",
+    "@inputenglish/shared": "workspace:*",
     "@supabase/supabase-js": "^2.49.1",
     "expo": "~52.0.0",
     "expo-auth-session": "^5.5.2",

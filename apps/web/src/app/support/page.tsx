@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Support - Shadowoo",
-  description: "Shadowoo Support",
+  title: "Support - InputEnglish",
+  description: "InputEnglish Support",
 };
 
 export default function SupportPage() {
@@ -41,7 +41,7 @@ export default function SupportPage() {
               <h3 className="font-medium">How do I cancel my subscription?</h3>
               <p className="text-gray-600">
                 Go to Settings &gt; Apple ID &gt; Subscriptions on your iPhone,
-                find Shadowoo, and tap Cancel Subscription.
+                find InputEnglish, and tap Cancel Subscription.
               </p>
             </div>
             <div>

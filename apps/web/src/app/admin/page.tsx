@@ -2,13 +2,13 @@
 
 import { Suspense, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { extractVideoId, normalizeYouTubeUrl } from "@shadowoo/shared";
+import { extractVideoId, normalizeYouTubeUrl } from "@inputenglish/shared";
 import type {
   Sentence,
   LearningSession,
   SceneRecommendation,
   SceneAnalysisResponse,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import { useSentenceEditor } from "./hooks/useSentenceEditor";
 import { useTranscriptFetch } from "./hooks/useTranscriptFetch";
 import {

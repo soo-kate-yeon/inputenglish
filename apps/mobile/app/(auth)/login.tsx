@@ -37,7 +37,7 @@ export default function LoginScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Shadowoo</Text>
+      <Text style={styles.title}>인풋영어</Text>
       <Text style={styles.subtitle}>영어 쉐도잉 학습을 시작하세요</Text>
 
       <OAuthButtons />

@@ -28,7 +28,7 @@ export function OAuthButtons() {
       setLoadingProvider(provider);
 
       const redirectTo = AuthSession.makeRedirectUri({
-        scheme: "shadowoo",
+        scheme: "inputenglish",
         path: "auth/callback",
       });
 

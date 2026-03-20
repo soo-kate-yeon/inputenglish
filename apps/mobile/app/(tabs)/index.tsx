@@ -333,7 +333,7 @@ export default function HomeScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
 
       <View style={styles.header}>
-        <Text style={styles.headerWordmark}>SHADOWOO</Text>
+        <Text style={styles.headerWordmark}>인풋영어</Text>
         <Text style={styles.headerLabel}>업무 영어 세션</Text>
       </View>
 

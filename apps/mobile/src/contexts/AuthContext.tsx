@@ -257,7 +257,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: provider as Provider,
         options: {
-          redirectTo: "shadowoo://auth/callback",
+          redirectTo: "inputenglish://auth/callback",
         },
       });
 

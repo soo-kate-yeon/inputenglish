@@ -1,17 +1,19 @@
-// @MX:NOTE: Web-specific store instantiation using @shadowoo/shared factories
+// @MX:NOTE: Web-specific store instantiation using @inputenglish/shared factories
 // Mobile will have its own instantiation with AsyncStorage
-import { createAppStore, createStudyStore } from '@shadowoo/shared';
-import { createClient } from '@/utils/supabase/client';
+import { createAppStore, createStudyStore } from "@inputenglish/shared";
+import { createClient } from "@/utils/supabase/client";
 
 const supabaseClient = createClient();
 
 const getCurrentUserId = async (): Promise<string | null> => {
-  const { data: { user } } = await supabaseClient.auth.getUser();
+  const {
+    data: { user },
+  } = await supabaseClient.auth.getUser();
   return user?.id ?? null;
 };
 
 export const useStore = createAppStore(supabaseClient, getCurrentUserId);
 
 export const useStudyStore = createStudyStore(
-  typeof window !== 'undefined' ? localStorage : undefined
+  typeof window !== "undefined" ? localStorage : undefined,
 );

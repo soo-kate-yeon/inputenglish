@@ -1,4 +1,4 @@
-Initial release! Meet Shadowoo.
+Initial release! Meet InputEnglish.
 
 - Shadowing practice
 - AI-powered pronunciation analysis

@@ -13,7 +13,11 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as Crypto from "expo-crypto";
-import type { Sentence, SavedSentence, CuratedVideo } from "@shadowoo/shared";
+import type {
+  Sentence,
+  SavedSentence,
+  CuratedVideo,
+} from "@inputenglish/shared";
 import { fetchCuratedVideo } from "../../src/lib/api";
 import { appStore } from "../../src/lib/stores";
 import YouTubePlayer, {

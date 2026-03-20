@@ -6,7 +6,7 @@ import type {
   SessionContext,
   SessionRoleRelevance,
   SessionSpeakingFunction,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import {
   PRACTICE_MODE_LABELS,
   SPEAKING_FUNCTION_LABELS,

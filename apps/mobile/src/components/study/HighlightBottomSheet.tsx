@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { Sentence } from "@shadowoo/shared";
+import type { Sentence } from "@inputenglish/shared";
 
 interface HighlightBottomSheetProps {
   visible: boolean;

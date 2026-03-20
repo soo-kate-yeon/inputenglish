@@ -8,12 +8,12 @@ import type {
   SessionRoleRelevance,
   SessionSourceType,
   SessionSpeakingFunction,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import {
   SESSION_ROLE_RELEVANCE,
   SESSION_SOURCE_TYPES,
   SESSION_SPEAKING_FUNCTIONS,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import { Check, Plus, Trash2, Clock, Edit2, Sparkles } from "lucide-react";
 import {
   Sheet,

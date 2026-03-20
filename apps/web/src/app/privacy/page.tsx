@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Shadowoo",
-  description: "Shadowoo Privacy Policy",
+  title: "Privacy Policy - InputEnglish",
+  description: "InputEnglish Privacy Policy",
 };
 
 export default function PrivacyPage() {
@@ -15,8 +15,8 @@ export default function PrivacyPage() {
         <div>
           <h2 className="mb-2 text-xl font-semibold">1. Overview</h2>
           <p>
-            Shadowoo (&quot;we&quot;, &quot;our&quot;, &quot;the app&quot;) is
-            an AI-powered English shadowing learning application. We are
+            InputEnglish (&quot;we&quot;, &quot;our&quot;, &quot;the app&quot;)
+            is an AI-powered English shadowing learning application. We are
             committed to protecting your privacy and handling your personal
             information responsibly.
           </p>
@@ -140,8 +140,8 @@ export default function PrivacyPage() {
             9. Children&apos;s Privacy
           </h2>
           <p>
-            Shadowoo is not directed at children under 14. We do not knowingly
-            collect personal information from children under 14.
+            InputEnglish is not directed at children under 14. We do not
+            knowingly collect personal information from children under 14.
           </p>
         </div>
 

@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Shadowoo",
-    "slug": "shadowoo",
+    "name": "인풋영어",
+    "slug": "inputenglish",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "shadowoo",
+    "scheme": "inputenglish",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "kr.shadowoo.app",
+      "bundleIdentifier": "com.morak.inputenglish",
       "buildNumber": "1",
       "entitlements": {
         "aps-environment": "production"
@@ -28,7 +28,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "kr.shadowoo.app",
+      "package": "com.morak.inputenglish",
       "versionCode": 1,
       "permissions": [
         "RECORD_AUDIO",

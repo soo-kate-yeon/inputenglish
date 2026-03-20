@@ -26,7 +26,7 @@ import type {
   PlaybookEntry,
   PlaybookMasteryStatus,
   SavedSentence,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import UndoToast from "@/components/common/UndoToast";
 import ErrorToast from "@/components/common/ErrorToast";
 import SwipeableRow from "@/components/common/SwipeableRow";

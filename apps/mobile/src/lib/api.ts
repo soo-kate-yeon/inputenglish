@@ -14,7 +14,7 @@ import type {
   SessionRoleRelevance,
   SessionSourceType,
   SessionSpeakingFunction,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import { buildDefaultPracticePrompts } from "./professional-practice";
 
 export interface VideoListItem {

@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import type { SessionContext, KeyVocabularyEntry } from "@shadowoo/shared";
+import type { SessionContext, KeyVocabularyEntry } from "@inputenglish/shared";
 
 function normalizeVocabEntry(
   item: string | KeyVocabularyEntry,

@@ -1,4 +1,4 @@
-# Shadowoo App Store Deployment Guide
+# InputEnglish App Store Deployment Guide
 
 ## Prerequisites (One-time Setup)
 
@@ -26,10 +26,10 @@ Then update `app.json`:
 2. My Apps -> "+" -> New App
 3. Fill in:
    - Platform: iOS
-   - Name: Shadowoo
+   - Name: InputEnglish
    - Primary Language: Korean
-   - Bundle ID: kr.shadowoo.app
-   - SKU: shadowoo
+   - Bundle ID: com.morak.inputenglish
+   - SKU: inputenglish
 4. Note the **Apple ID** (number) from the app page URL
 
 ### 4. Update Credentials
@@ -130,8 +130,8 @@ Before first submission:
 
 - [ ] App Store screenshots (6.7", 6.5", 5.5" iPhone + iPad if applicable)
 - [ ] App icon 1024x1024 (already exists in Xcode assets)
-- [ ] Privacy Policy page at https://shadowoo.kr/privacy
-- [ ] Support page at https://shadowoo.kr/support
+- [ ] Privacy Policy page at https://inputenglish.kr/privacy
+- [ ] Support page at https://inputenglish.kr/support
 - [ ] Review app metadata in `fastlane/metadata/ko/` and `en-US/`
 - [ ] Set up RevenueCat production API keys
 - [ ] Configure push notification certificates (APN)

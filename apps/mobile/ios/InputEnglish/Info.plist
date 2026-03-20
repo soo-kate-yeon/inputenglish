@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Shadowoo</string>
+    <string>인풋영어</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,14 +27,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>shadowoo</string>
-          <string>kr.shadowoo.app</string>
+          <string>inputenglish</string>
+          <string>com.morak.inputenglish</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>exp+shadowoo</string>
+          <string>exp+inputenglish</string>
         </array>
       </dict>
     </array>

@@ -76,10 +76,10 @@ jobs:
           fi
 
       - name: Type check
-        run: pnpm --filter @shadowoo/mobile typecheck
+        run: pnpm --filter @inputenglish/mobile typecheck
 
       - name: Run tests
-        run: pnpm --filter @shadowoo/mobile test
+        run: pnpm --filter @inputenglish/mobile test
         continue-on-error: true
 
       - name: Build

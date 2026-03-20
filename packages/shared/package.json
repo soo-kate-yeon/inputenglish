@@ -1,5 +1,5 @@
 {
-  "name": "@shadowoo/shared",
+  "name": "@inputenglish/shared",
   "version": "0.0.1",
   "private": false,
   "main": "./src/index.ts",

@@ -3,7 +3,7 @@
 import React, { memo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { Sentence } from "@shadowoo/shared";
+import type { Sentence } from "@inputenglish/shared";
 
 interface ShadowingScriptLineProps {
   sentence: Sentence;

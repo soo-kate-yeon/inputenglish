@@ -18,8 +18,8 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
-import type { Sentence, CuratedVideo } from "@shadowoo/shared";
-import { groupSentencesByMode } from "@shadowoo/shared";
+import type { Sentence, CuratedVideo } from "@inputenglish/shared";
+import { groupSentencesByMode } from "@inputenglish/shared";
 import { fetchCuratedVideo } from "../../src/lib/api";
 import { studyStore, appStore } from "../../src/lib/stores";
 import YouTubePlayer, {

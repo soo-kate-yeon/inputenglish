@@ -1,10 +1,10 @@
 {
-  "name": "shadowoo-monorepo",
+  "name": "inputenglish-monorepo",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "scripts": {
-    "dev": "turbo run dev --filter=@shadowoo/web",
+    "dev": "turbo run dev --filter=@inputenglish/web",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",

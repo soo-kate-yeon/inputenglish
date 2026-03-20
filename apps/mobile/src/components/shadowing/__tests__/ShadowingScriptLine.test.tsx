@@ -2,7 +2,7 @@
 import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import ShadowingScriptLine from "../ShadowingScriptLine";
-import type { Sentence } from "@shadowoo/shared";
+import type { Sentence } from "@inputenglish/shared";
 
 const mockSentence: Sentence = {
   id: "sent-001",

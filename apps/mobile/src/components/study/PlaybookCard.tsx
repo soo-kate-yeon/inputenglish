@@ -7,7 +7,7 @@ import type {
   PlaybookEntry,
   PlaybookMasteryStatus,
   SessionSpeakingFunction,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import {
   PLAYBOOK_MASTERY_LABELS,
   SPEAKING_FUNCTION_LABELS,

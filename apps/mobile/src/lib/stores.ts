@@ -1,7 +1,7 @@
-// @MX:NOTE: [AUTO] Mobile-specific store instantiation using @shadowoo/shared factories.
+// @MX:NOTE: [AUTO] Mobile-specific store instantiation using @inputenglish/shared factories.
 // Uses MMKV for study store persistence and SecureStore-backed supabase for auth.
 import * as ExpoCrypto from "expo-crypto";
-import { createAppStore, createStudyStore } from "@shadowoo/shared";
+import { createAppStore, createStudyStore } from "@inputenglish/shared";
 import { supabase } from "./supabase";
 import { mmkvStorage } from "./mmkv";
 

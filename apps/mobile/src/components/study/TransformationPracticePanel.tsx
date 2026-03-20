@@ -13,7 +13,7 @@ import type {
   PracticePrompt,
   Sentence,
   SessionSpeakingFunction,
-} from "@shadowoo/shared";
+} from "@inputenglish/shared";
 import {
   PRACTICE_MODE_LABELS,
   SPEAKING_FUNCTION_LABELS,

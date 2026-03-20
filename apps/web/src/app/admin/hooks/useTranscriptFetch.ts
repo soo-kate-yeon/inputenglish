@@ -2,8 +2,8 @@ import { useState } from "react";
 import {
   parseTranscriptToSentences,
   parseRawTextToSentences,
-} from "@shadowoo/shared";
-import type { TranscriptItem, Sentence } from "@shadowoo/shared";
+} from "@inputenglish/shared";
+import type { TranscriptItem, Sentence } from "@inputenglish/shared";
 
 export interface UseTranscriptFetchReturn {
   loading: boolean;

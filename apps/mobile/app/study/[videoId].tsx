@@ -26,8 +26,8 @@ import type {
   PracticePrompt,
   SavedSentence,
   Sentence,
-} from "@shadowoo/shared";
-import { groupSentencesByMode } from "@shadowoo/shared";
+} from "@inputenglish/shared";
+import { groupSentencesByMode } from "@inputenglish/shared";
 import {
   ensurePracticePrompts,
   fetchCuratedVideo,
