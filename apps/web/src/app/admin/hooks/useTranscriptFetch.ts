@@ -1,8 +1,5 @@
 import { useState } from "react";
-import {
-  parseTranscriptToSentences,
-  parseRawTextToSentences,
-} from "@inputenglish/shared";
+import { parseRawTextToSentences } from "@inputenglish/shared";
 import type { TranscriptItem, Sentence } from "@inputenglish/shared";
 
 export interface UseTranscriptFetchReturn {
@@ -74,7 +71,7 @@ export function useTranscriptFetch(): UseTranscriptFetchReturn {
     setError(null);
 
     try {
-      // Fetch transcript data from API if available (for timestamps)
+      // Fetch transcript data from API if available (for timestamps only)
       let transcriptItems: TranscriptItem[] = [];
 
       console.log("🔍 [parseScript] Starting parse:", {
@@ -95,7 +92,7 @@ export function useTranscriptFetch(): UseTranscriptFetchReturn {
               start: item.start ?? item.offset ?? 0,
             }));
             console.log(
-              "✅ [parseScript] Fetched transcript items:",
+              "✅ [parseScript] Fetched transcript items for timestamps:",
               transcriptItems.length,
             );
           }
@@ -105,18 +102,53 @@ export function useTranscriptFetch(): UseTranscriptFetchReturn {
         }
       }
 
-      // Parse using transcript-parser logic
-      console.log(
-        "📝 [parseScript] Using:",
-        transcriptItems.length > 0
-          ? "parseTranscriptToSentences"
-          : "parseRawTextToSentences",
-      );
+      // Always parse from the refined rawScript text
+      // Use transcript items only to align timestamps if available
+      console.log("📝 [parseScript] Parsing refined rawScript text");
 
-      const parsedSentences =
-        transcriptItems.length > 0
-          ? parseTranscriptToSentences(transcriptItems)
-          : parseRawTextToSentences(rawScript);
+      const parsedSentences = parseRawTextToSentences(rawScript);
+
+      // If transcript items are available, try to align timestamps
+      if (transcriptItems.length > 0 && parsedSentences.length > 0) {
+        console.log(
+          "⏱️ [parseScript] Aligning timestamps from transcript items",
+        );
+        const fullTranscriptText = transcriptItems
+          .map((item) => item.text)
+          .join(" ")
+          .toLowerCase();
+
+        let searchFrom = 0;
+        for (const sentence of parsedSentences) {
+          const sentenceWords = sentence.text.toLowerCase().split(/\s+/);
+          const firstWord = sentenceWords[0];
+          if (!firstWord) continue;
+
+          // Find matching transcript item for sentence start
+          for (let i = searchFrom; i < transcriptItems.length; i++) {
+            const itemText = transcriptItems[i].text.toLowerCase();
+            if (itemText.includes(firstWord)) {
+              sentence.startTime = transcriptItems[i].start;
+              // Find end time from last word
+              const lastWord = sentenceWords[sentenceWords.length - 1];
+              for (
+                let j = i;
+                j <
+                Math.min(i + sentenceWords.length + 5, transcriptItems.length);
+                j++
+              ) {
+                if (transcriptItems[j].text.toLowerCase().includes(lastWord)) {
+                  sentence.endTime =
+                    transcriptItems[j].start + transcriptItems[j].duration;
+                  searchFrom = j + 1;
+                  break;
+                }
+              }
+              break;
+            }
+          }
+        }
+      }
 
       console.log(
         "✅ [parseScript] Result:",

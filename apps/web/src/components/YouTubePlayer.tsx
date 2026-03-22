@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 declare global {
   interface Window {
@@ -23,20 +23,48 @@ export default function YouTubePlayer({
   onTimeUpdate,
   showNativeControls = true,
 }: YouTubePlayerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Wrapper div is managed by React; inner target div is created imperatively
+  // so React never tries to removeChild on a node YouTube replaced with <iframe>
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YT.Player | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const destroyPlayer = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (playerRef.current) {
+      try {
+        playerRef.current.destroy();
+      } catch {
+        // Player may already be destroyed
+      }
+      playerRef.current = null;
+    }
+    // Clear any leftover DOM from YouTube's iframe replacement
+    if (wrapperRef.current) {
+      wrapperRef.current.innerHTML = "";
+    }
+  }, []);
+
   useEffect(() => {
     const initPlayer = () => {
-      if (!containerRef.current) return;
+      if (!wrapperRef.current) return;
 
-      if (playerRef.current) {
-        playerRef.current.destroy();
-      }
+      // Clean up previous player and DOM
+      destroyPlayer();
 
-      playerRef.current = new YT.Player(containerRef.current, {
+      // Create a fresh target div for YT.Player (not tracked by React)
+      const targetEl = document.createElement("div");
+      targetEl.style.width = "100%";
+      targetEl.style.height = "100%";
+      wrapperRef.current.appendChild(targetEl);
+
+      playerRef.current = new YT.Player(targetEl, {
         videoId,
+        width: "100%",
+        height: "100%",
         playerVars: {
           controls: showNativeControls ? 1 : 0,
           rel: 0,
@@ -47,8 +75,16 @@ export default function YouTubePlayer({
             onReady?.(event.target);
             if (onTimeUpdate) {
               intervalRef.current = setInterval(() => {
-                const time = event.target.getCurrentTime();
-                onTimeUpdate(time);
+                try {
+                  const time = event.target.getCurrentTime();
+                  onTimeUpdate(time);
+                } catch {
+                  // Player may have been destroyed
+                  if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
+                  }
+                }
               }, 100);
             }
           },
@@ -73,12 +109,8 @@ export default function YouTubePlayer({
       }
     }
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
+    return destroyPlayer;
   }, [videoId]);
 
-  return <div ref={containerRef} className={className} />;
+  return <div ref={wrapperRef} className={className} />;
 }

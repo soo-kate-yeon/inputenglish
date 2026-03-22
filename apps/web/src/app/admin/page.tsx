@@ -285,6 +285,7 @@ function AdminPageContent() {
   const handleRefineScript = () => {
     const refined = rawScript
       .replace(/^>.*$/gm, "")
+      .replace(/>>/g, "")
       .replace(/\[.*?\]/g, "")
       .replace(/^.+?:\s*/gm, "")
       .replace(/\n\s*\n/g, "\n")
