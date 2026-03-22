@@ -12,7 +12,8 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "eas-build-post-install": "cd ../.. && pnpm install --frozen-lockfile"
   },
   "jest": {
     "preset": "jest-expo",
