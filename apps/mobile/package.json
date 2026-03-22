@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "jest --passWithNoTests",
-    "eas-build-post-install": "cd ../.. && pnpm install --frozen-lockfile"
+    "eas-build-pre-install": "cd ../.. && pnpm install --frozen-lockfile"
   },
   "jest": {
     "preset": "jest-expo",
