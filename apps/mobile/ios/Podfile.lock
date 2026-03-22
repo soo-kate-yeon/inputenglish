@@ -222,7 +222,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - ExpoAsset (11.0.5):
+  - ExpoAsset (55.0.10):
     - ExpoModulesCore
   - ExpoBlur (14.0.3):
     - ExpoModulesCore
@@ -2009,7 +2009,7 @@ DEPENDENCIES:
   - "expo-dev-launcher (from `../../../node_modules/.pnpm/expo-dev-launcher@5.0.35_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babe_29d88ba26d01bcfd49c3a2035b60b45c/node_modules/expo-dev-launcher`)"
   - "expo-dev-menu (from `../../../node_modules/.pnpm/expo-dev-menu@6.0.25_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+co_ae88f5178bd608f402fd51bbadda2a44/node_modules/expo-dev-menu`)"
   - "expo-dev-menu-interface (from `../../../node_modules/.pnpm/expo-dev-menu-interface@1.9.3_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0__a4bff35a70a9b512cb1be9511a4501b2/node_modules/expo-dev-menu-interface/ios`)"
-  - "ExpoAsset (from `../../../node_modules/.pnpm/expo-asset@11.0.5_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core@_3f04f76031494758d301c2f01e8bf930/node_modules/expo-asset/ios`)"
+  - "ExpoAsset (from `../../../node_modules/.pnpm/expo-asset@55.0.10_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core_978eabdcf8b81a2ad23d4bf928faf412/node_modules/expo-asset/ios`)"
   - "ExpoBlur (from `../../../node_modules/.pnpm/expo-blur@14.0.3_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core@7_6ffe1187ddc6ea236b0aec1e92c48034/node_modules/expo-blur/ios`)"
   - "ExpoCrypto (from `../../../node_modules/.pnpm/expo-crypto@14.1.5_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core_2fb657087887163a1732df7fd987785e/node_modules/expo-crypto/ios`)"
   - "ExpoDevice (from `../../../node_modules/.pnpm/expo-device@7.0.3_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core@_b2bd9ea15c9f0c5760b0862dd47a3059/node_modules/expo-device/ios`)"
@@ -2133,7 +2133,7 @@ EXTERNAL SOURCES:
   expo-dev-menu-interface:
     :path: "../../../node_modules/.pnpm/expo-dev-menu-interface@1.9.3_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0__a4bff35a70a9b512cb1be9511a4501b2/node_modules/expo-dev-menu-interface/ios"
   ExpoAsset:
-    :path: "../../../node_modules/.pnpm/expo-asset@11.0.5_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core@_3f04f76031494758d301c2f01e8bf930/node_modules/expo-asset/ios"
+    :path: "../../../node_modules/.pnpm/expo-asset@55.0.10_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core_978eabdcf8b81a2ad23d4bf928faf412/node_modules/expo-asset/ios"
   ExpoBlur:
     :path: "../../../node_modules/.pnpm/expo-blur@14.0.3_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core@7_6ffe1187ddc6ea236b0aec1e92c48034/node_modules/expo-blur/ios"
   ExpoCrypto:
@@ -2318,7 +2318,7 @@ SPEC CHECKSUMS:
   expo-dev-launcher: 38917025dd30d095f1275df2aca3ac60771a2c16
   expo-dev-menu: f7f6d13f2c6a5a71a212184d9d5cd576393cfe42
   expo-dev-menu-interface: 00dc42302a72722fdecec3fa048de84a9133bcc4
-  ExpoAsset: 48386d40d53a8c1738929b3ed509bcad595b5516
+  ExpoAsset: 4efd0227e808dfa84d286aa3663ded641ef73479
   ExpoBlur: 392c1207f71d0ecf22371621c1fbd44ba84d9742
   ExpoCrypto: a9f1d75baeea6ef8b03c1660621585196c382e85
   ExpoDevice: d36ab4186b6799a28fd449bb9a1c77455f23fd1a
@@ -2409,6 +2409,6 @@ SPEC CHECKSUMS:
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 3deb2471faa9916c8a82dda2a22d3fba2620ad37
 
-PODFILE CHECKSUM: 2c5b33acb45297726184b1d930bc17b938ea22ac
+PODFILE CHECKSUM: 0ad8a26003bd15c6f7dbf3a8e41d1bb0adc0b273
 
 COCOAPODS: 1.16.2

@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'InputEnglish'
+rootProject.name = '인풋영어'
 
 dependencyResolutionManagement {
   versionCatalogs {

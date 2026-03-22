@@ -35,7 +35,7 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
       - name: Start Next.js server
-        run: pnpm --filter @shadowoo/web start &
+        run: pnpm --filter @inputenglish/web start &
         env:
           PORT: 3000
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321

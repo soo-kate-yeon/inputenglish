@@ -49,8 +49,8 @@ check "apps/mobile/package.json" "$ROOT/apps/mobile/package.json"
 
 echo ""
 echo "--- Content Verification ---"
-# Check @shadowoo/shared name in package.json
-if grep -q '"name": "@shadowoo/shared"' "$ROOT/packages/shared/package.json" 2>/dev/null; then
+# Check @inputenglish/shared name in package.json
+if grep -q '"name": "@inputenglish/shared"' "$ROOT/packages/shared/package.json" 2>/dev/null; then
   echo "  [PASS] packages/shared has correct package name"
   PASS=$((PASS + 1))
 else
@@ -95,11 +95,11 @@ else
 fi
 
 # Check workspace dependency in apps/mobile
-if grep -q '"@shadowoo/shared": "workspace:\*"' "$ROOT/apps/mobile/package.json" 2>/dev/null; then
-  echo "  [PASS] apps/mobile depends on @shadowoo/shared workspace"
+if grep -q '"@inputenglish/shared": "workspace:\*"' "$ROOT/apps/mobile/package.json" 2>/dev/null; then
+  echo "  [PASS] apps/mobile depends on @inputenglish/shared workspace"
   PASS=$((PASS + 1))
 else
-  echo "  [FAIL] apps/mobile missing @shadowoo/shared workspace dependency"
+  echo "  [FAIL] apps/mobile missing @inputenglish/shared workspace dependency"
   FAIL=$((FAIL + 1))
 fi
 

@@ -17,10 +17,10 @@ export default function SupportPage() {
             For questions, bug reports, or feature requests, please reach out to
             us at{" "}
             <a
-              href="mailto:support@shadowoo.kr"
+              href="mailto:support@inputenglish.kr"
               className="text-blue-600 underline"
             >
-              support@shadowoo.kr
+              support@inputenglish.kr
             </a>
             .
           </p>
@@ -47,7 +47,7 @@ export default function SupportPage() {
             <div>
               <h3 className="font-medium">How do I delete my account?</h3>
               <p className="text-gray-600">
-                Contact us at support@shadowoo.kr and we will process your
+                Contact us at support@inputenglish.kr and we will process your
                 account deletion within 30 days.
               </p>
             </div>

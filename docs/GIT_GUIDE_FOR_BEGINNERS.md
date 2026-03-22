@@ -5,6 +5,7 @@
 > 이 문서는 Git을 처음 접하는 분들이 **실전에서 바로 사용**할 수 있도록 만들어졌습니다.
 
 ## 📋 목차
+
 1. [Git이란 무엇인가?](#git이란-무엇인가)
 2. [핵심 개념 3가지](#핵심-개념-3가지)
 3. [실전 워크플로우](#실전-워크플로우)
@@ -23,6 +24,7 @@
 ### 🏢 현실 세계 비유
 
 **Git 없이 작업하기**:
+
 ```
 작업.docx
 작업_최종.docx
@@ -33,6 +35,7 @@
 ```
 
 **Git으로 작업하기**:
+
 ```
 작업.docx (하나의 파일)
   ├─ 버전 1: 초안 작성 (2025-01-01)
@@ -67,12 +70,13 @@ Remote Repository (원격 저장소)
 ```
 
 **예시**:
+
 ```bash
 # 로컬 저장소 위치
-/Users/asleep/Developer/shadowing-ninja
+/Users/asleep/Developer/inputenglish
 
 # 원격 저장소 주소
-https://github.com/your-username/shadowing-ninja
+https://github.com/your-username/inputenglish
 ```
 
 ---
@@ -99,6 +103,7 @@ https://github.com/your-username/shadowing-ninja
 #### 좋은 Commit vs 나쁜 Commit
 
 **❌ 나쁜 예시**:
+
 ```bash
 git commit -m "수정"
 git commit -m "ㅇㅇ"
@@ -106,6 +111,7 @@ git commit -m "아무튼 고침"
 ```
 
 **✅ 좋은 예시**:
+
 ```bash
 git commit -m "feat: 사용자 프로필 페이지 추가"
 git commit -m "fix: 로그인 시 세션 만료 오류 수정"
@@ -205,15 +211,16 @@ hotfix/critical-bug
 ```bash
 # 1. GitHub에서 저장소 클론 (최초 1회)
 cd ~/Developer
-git clone https://github.com/your-username/shadowing-ninja.git
-cd shadowing-ninja
+git clone https://github.com/your-username/inputenglish.git
+cd inputenglish
 
 # 이제 이 폴더가 Git 저장소!
 ```
 
 **결과**:
+
 ```
-📁 shadowing-ninja/
+📁 inputenglish/
   ├─ .git/           ← Git 설정 폴더 (건드리지 말 것!)
   ├─ src/            ← 소스 코드
   ├─ package.json
@@ -236,6 +243,7 @@ git status
 ```
 
 **git status 결과 해석**:
+
 ```bash
 $ git status
 
@@ -266,6 +274,7 @@ git commit -m "feat: 새로운 기능 추가"
 ```
 
 **과정 시각화**:
+
 ```
 Working Directory        Staging Area        Local Repository
 (작업 중인 파일)          (저장 대기)          (저장 완료)
@@ -299,6 +308,7 @@ git push origin main
 ```
 
 **결과**:
+
 - 로컬 커밋이 GitHub에 업로드됨
 - **CI/CD 자동 실행** ← 여기서 배포 파이프라인 시작!
 - 3~5분 후 실제 서비스에 반영
@@ -310,6 +320,7 @@ git push origin main
 #### 왜 Branch를 사용하나?
 
 **Branch 없이**:
+
 ```
 main 브랜치에서 직접 작업
   ↓
@@ -321,6 +332,7 @@ main에 푸시
 ```
 
 **Branch 사용**:
+
 ```
 feature 브랜치에서 작업
   ↓
@@ -354,6 +366,7 @@ git branch
 ```
 
 **명명 규칙**:
+
 ```
 feature/기능이름         → 새 기능
 fix/버그이름             → 버그 수정
@@ -387,6 +400,7 @@ git push origin feature/user-profile
 **3단계: Pull Request (PR) 생성**
 
 **PR이란?**
+
 - Pull Request = "이 코드 main에 합쳐주세요" 라는 요청
 - 코드 리뷰를 받는 과정
 - CI/CD 자동 테스트 실행
@@ -440,6 +454,7 @@ GitHub Actions 워크플로우:
 ```
 
 **PR 페이지에서 확인**:
+
 ```
 GitHub PR 페이지:
 
@@ -451,7 +466,7 @@ Checks
   🌐 Deploy Preview
 
 Preview URL:
-https://shadowing-ninja-git-feature-user-profile.vercel.app
+https://inputenglish-git-feature-user-profile.vercel.app
 ```
 
 ---
@@ -461,6 +476,7 @@ https://shadowing-ninja-git-feature-user-profile.vercel.app
 **혼자 작업**: 스킵 가능
 
 **팀 작업**:
+
 ```
 1. 팀원에게 리뷰 요청
 2. 팀원이 코드 검토
@@ -489,6 +505,7 @@ PR 페이지에서:
 ```
 
 **자동 실행**:
+
 ```
 main 브랜치에 Merge 완료
   ↓
@@ -563,6 +580,7 @@ git status
 ```
 
 **결과 해석**:
+
 ```bash
 On branch main                           # 현재 main 브랜치
 Your branch is up to date with 'origin/main'.  # 최신 상태
@@ -581,6 +599,7 @@ nothing to commit, working tree clean    # 변경 사항 없음
 #### `git add` - 저장할 파일 선택
 
 **사용법**:
+
 ```bash
 # 특정 파일만
 git add src/app/page.tsx
@@ -599,6 +618,7 @@ git add -A
 ```
 
 **주의사항**:
+
 ```bash
 # ❌ 이런 파일은 add하지 마세요!
 git add .env              # 환경 변수 (비밀 정보!)
@@ -613,6 +633,7 @@ git add .DS_Store         # OS 파일
 #### `git commit` - 저장
 
 **기본 사용**:
+
 ```bash
 # 간단한 메시지
 git commit -m "feat: 새 기능 추가"
@@ -626,6 +647,7 @@ git commit -m "feat: 사용자 프로필 기능 추가
 ```
 
 **고급 사용**:
+
 ```bash
 # add + commit 한번에 (수정된 파일만)
 git commit -am "fix: 버그 수정"
@@ -643,6 +665,7 @@ git commit --amend --no-edit
 #### `git push` - GitHub에 업로드
 
 **기본 사용**:
+
 ```bash
 # 현재 브랜치를 origin에 푸시
 git push origin 브랜치이름
@@ -655,6 +678,7 @@ git push origin feature/new-feature
 ```
 
 **처음 푸시할 때**:
+
 ```bash
 # 브랜치 생성 + 푸시 (최초 1회)
 git push -u origin feature/new-feature
@@ -678,6 +702,7 @@ git pull
 ```
 
 **충돌 발생 시**:
+
 ```bash
 $ git pull origin main
 
@@ -687,6 +712,7 @@ Automatic merge failed; fix conflicts and then commit the result.
 ```
 
 **해결 방법**:
+
 1. 충돌 파일 열기
 2. 충돌 부분 찾기:
    ```typescript
@@ -852,6 +878,7 @@ git reset --hard abc1234
 ```
 
 **HEAD~1 의미**:
+
 - HEAD = 현재 커밋
 - HEAD~1 = 한 단계 이전
 - HEAD~2 = 두 단계 이전
@@ -871,6 +898,7 @@ git revert HEAD
 ```
 
 **reset vs revert**:
+
 ```
 git reset:
   커밋 히스토리에서 삭제
@@ -949,12 +977,14 @@ git revert:
 #### Event 1: PR 생성/업데이트
 
 **트리거**:
+
 ```bash
 git push origin feature/new-feature
 # + GitHub에서 PR 생성
 ```
 
 **실행되는 워크플로우**:
+
 ```yaml
 # .github/workflows/ci.yml
 on:
@@ -973,6 +1003,7 @@ on:
 ```
 
 **결과**:
+
 ```
 ✅ 자동 테스트 실행
 🌐 Preview 배포 생성
@@ -985,12 +1016,14 @@ on:
 #### Event 2: main 브랜치 푸시
 
 **트리거**:
+
 ```bash
 git push origin main
 # 또는 PR merge
 ```
 
 **실행되는 워크플로우**:
+
 ```yaml
 # .github/workflows/deploy-production.yml
 on:
@@ -1000,6 +1033,7 @@ on:
 ```
 
 **결과**:
+
 ```
 ✅ 모든 테스트 재실행
 🚀 Production 배포
@@ -1017,34 +1051,46 @@ on:
 # 1. 브랜치 생성
 git checkout -b fix/login-session-error
 ```
+
 ↓
+
 ```bash
 # 2. 코드 수정
 # src/app/api/auth/login/route.ts 수정
 ```
+
 ↓
+
 ```bash
 # 3. 커밋
 git add src/app/api/auth/login/route.ts
 git commit -m "fix: 세션 만료 시 리다이렉트 오류 수정"
 ```
+
 ↓
+
 ```bash
 # 4. GitHub에 푸시
 git push origin fix/login-session-error
 ```
+
 ↓
+
 ```
 GitHub에서 자동 실행:
 - 코드 저장소 업데이트
 - Webhook 발송
 ```
+
 ↓
+
 ```
 GitHub Actions 트리거:
 - ci.yml 실행 시작
 ```
+
 ↓
+
 ```
 CI 파이프라인:
 ├─ ✅ ESLint 검사 (30초)
@@ -1053,37 +1099,49 @@ CI 파이프라인:
 ├─ ✅ npm audit 보안 검사 (1분)
 └─ ✅ secret 스캔 (1분)
 ```
+
 ↓
+
 ```
 PR 생성:
 - GitHub 웹에서 "Create Pull Request" 클릭
 ```
+
 ↓
+
 ```
 deploy-preview.yml 실행:
 - Vercel Preview 배포
 - 결과: https://app-git-fix-login.vercel.app
 ```
+
 ↓
+
 ```
 lighthouse-ci.yml 실행:
 - 성능 측정
 - 결과: Performance 95/100
 ```
+
 ↓
+
 ```
 PR 검토:
 - 코드 리뷰
 - Preview 테스트
 - 승인
 ```
+
 ↓
+
 ```
 PR Merge:
 - "Merge pull request" 클릭
 - main 브랜치에 합쳐짐
 ```
+
 ↓
+
 ```
 deploy-production.yml 자동 실행:
 ├─ 테스트 재실행
@@ -1091,7 +1149,9 @@ deploy-production.yml 자동 실행:
 ├─ Vercel 배포
 └─ DB 마이그레이션
 ```
+
 ↓
+
 ```
 3~5분 후:
 ✅ https://yourdomain.com 업데이트
@@ -1099,6 +1159,7 @@ deploy-production.yml 자동 실행:
 ```
 
 **총 소요 시간**:
+
 - PR 생성까지: ~9분
 - Production 배포까지: +5분
 - 합계: **약 15분**
@@ -1112,6 +1173,7 @@ deploy-production.yml 자동 실행:
 #### 문제 1: "Permission denied (publickey)"
 
 **증상**:
+
 ```bash
 $ git push origin main
 Permission denied (publickey).
@@ -1123,6 +1185,7 @@ fatal: Could not read from remote repository.
 **해결**:
 
 **Option A: HTTPS로 변경 (추천)**
+
 ```bash
 # 1. 현재 remote 확인
 git remote -v
@@ -1135,6 +1198,7 @@ git push origin main
 ```
 
 **Option B: SSH 키 등록**
+
 ```bash
 # 1. SSH 키 생성
 ssh-keygen -t ed25519 -C "your_email@example.com"
@@ -1151,6 +1215,7 @@ cat ~/.ssh/id_ed25519.pub
 #### 문제 2: "Your branch is behind 'origin/main'"
 
 **증상**:
+
 ```bash
 $ git status
 Your branch is behind 'origin/main' by 3 commits.
@@ -1159,6 +1224,7 @@ Your branch is behind 'origin/main' by 3 commits.
 **원인**: GitHub의 코드가 더 최신
 
 **해결**:
+
 ```bash
 # 최신 코드 받기
 git pull origin main
@@ -1173,6 +1239,7 @@ git commit -m "merge: 충돌 해결"
 #### 문제 3: "fatal: not a git repository"
 
 **증상**:
+
 ```bash
 $ git status
 fatal: not a git repository (or any of the parent directories)
@@ -1181,9 +1248,10 @@ fatal: not a git repository (or any of the parent directories)
 **원인**: Git 저장소가 아닌 폴더에서 명령어 실행
 
 **해결**:
+
 ```bash
 # 1. 올바른 폴더로 이동
-cd ~/Developer/shadowing-ninja
+cd ~/Developer/inputenglish
 
 # 2. 확인
 ls -la
@@ -1198,6 +1266,7 @@ git clone https://github.com/username/repo.git
 #### 문제 4: "Please commit your changes or stash them"
 
 **증상**:
+
 ```bash
 $ git checkout main
 error: Your local changes would be overwritten by checkout.
@@ -1207,6 +1276,7 @@ Please commit your changes or stash them.
 **원인**: 변경 사항이 있는데 브랜치 이동하려고 함
 
 **해결 Option A: 커밋**
+
 ```bash
 git add .
 git commit -m "WIP: 작업 중"
@@ -1214,6 +1284,7 @@ git checkout main
 ```
 
 **해결 Option B: Stash (임시 저장)**
+
 ```bash
 # 1. 변경 사항 임시 저장
 git stash
@@ -1233,6 +1304,7 @@ git stash pop
 **시나리오**: .env 파일을 커밋해버림 (비밀 정보!)
 
 **해결 (아직 push 안했을 때)**:
+
 ```bash
 # 1. 최근 커밋 취소
 git reset HEAD~1
@@ -1249,6 +1321,7 @@ git commit -m "feat: 기능 추가 (env 제외)"
 ```
 
 **해결 (이미 push 했을 때)**:
+
 ```bash
 # 1. 파일 제거 및 .gitignore 추가
 git rm --cached .env
@@ -1269,12 +1342,14 @@ git push origin main
 #### 문제 6: Merge Conflict (충돌)
 
 **증상**:
+
 ```bash
 $ git merge feature/branch
 CONFLICT (content): Merge conflict in src/app/page.tsx
 ```
 
 **해결**:
+
 ```bash
 # 1. 충돌 파일 확인
 git status
@@ -1379,8 +1454,8 @@ git config --list
 
 ```bash
 cd ~/Developer
-git clone https://github.com/your-username/shadowing-ninja.git
-cd shadowing-ninja
+git clone https://github.com/your-username/inputenglish.git
+cd inputenglish
 ```
 
 ### 4. 첫 커밋 해보기
@@ -1478,11 +1553,13 @@ Git Push → GitHub → GitHub Actions → Vercel → 배포 완료
 이제 Git의 기본 개념과 CI/CD 파이프라인의 연결을 이해하셨습니다.
 
 다음 단계:
+
 1. 실제로 커밋해보기
 2. PR 만들어보기
 3. 자동 배포 확인하기
 
 궁금한 점이 있으면:
+
 - 이 문서에서 Ctrl+F로 검색
 - [DEPLOYMENT_SCENARIOS.md](./DEPLOYMENT_SCENARIOS.md) 참고
 - 또는 추가 질문 환영!

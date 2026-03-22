@@ -116,10 +116,10 @@ export default function PrivacyPage() {
           <p className="mt-2">
             To exercise these rights, contact us at{" "}
             <a
-              href="mailto:support@shadowoo.kr"
+              href="mailto:support@inputenglish.kr"
               className="text-blue-600 underline"
             >
-              support@shadowoo.kr
+              support@inputenglish.kr
             </a>
             .
           </p>
@@ -160,10 +160,10 @@ export default function PrivacyPage() {
           <p>
             For questions about this privacy policy, contact us at{" "}
             <a
-              href="mailto:support@shadowoo.kr"
+              href="mailto:support@inputenglish.kr"
               className="text-blue-600 underline"
             >
-              support@shadowoo.kr
+              support@inputenglish.kr
             </a>
             .
           </p>

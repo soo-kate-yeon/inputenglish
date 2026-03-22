@@ -3,6 +3,7 @@
 실제로 자주 발생하는 상황들과 대응 방법을 단계별로 설명합니다.
 
 ## 📋 목차
+
 1. [첫 배포하기](#시나리오-1-첫-배포하기)
 2. [긴급 버그 수정](#시나리오-2-긴급-버그-수정)
 3. [대규모 기능 추가](#시나리오-3-대규모-기능-추가)
@@ -15,6 +16,7 @@
 ## 시나리오 1: 첫 배포하기
 
 ### 상황
+
 ```
 개발 완료 ✅
 로컬 테스트 완료 ✅
@@ -26,6 +28,7 @@
 #### 1단계: Vercel 계정 및 프로젝트 생성 (5분)
 
 **1.1 Vercel 가입**
+
 ```
 1. https://vercel.com 접속
 2. "Sign Up" 클릭
@@ -33,6 +36,7 @@
 ```
 
 **1.2 프로젝트 import**
+
 ```
 1. Dashboard → "Add New..." → "Project"
 2. GitHub 저장소 선택
@@ -44,6 +48,7 @@
 #### 2단계: 환경 변수 설정 (3분)
 
 **2.1 Supabase 정보 가져오기**
+
 ```
 1. Supabase Dashboard 접속
 2. Settings → API
@@ -54,6 +59,7 @@
 ```
 
 **2.2 Google AI API 키 생성**
+
 ```
 1. https://makersuite.google.com/app/apikey
 2. "Create API Key" 클릭
@@ -61,6 +67,7 @@
 ```
 
 **2.3 Vercel에 환경 변수 추가**
+
 ```
 Project Settings → Environment Variables
 
@@ -91,6 +98,7 @@ Project Settings → Environment Variables
 ```
 
 **주의사항**:
+
 ```
 ⚠️ SERVICE_ROLE_KEY는 Preview에 추가하지 마세요!
    → 보안 위험
@@ -102,6 +110,7 @@ Project Settings → Environment Variables
 #### 3단계: 첫 배포 실행 (2분)
 
 **3.1 자동 배포 트리거**
+
 ```
 Vercel이 자동으로 감지:
 1. main 브랜치 코드 읽기
@@ -112,6 +121,7 @@ Vercel이 자동으로 감지:
 ```
 
 **3.2 배포 진행 상황**
+
 ```
 Vercel Dashboard → Deployments
 
@@ -135,6 +145,7 @@ Vercel Dashboard → Deployments
 #### 4단계: 배포 확인 (5분)
 
 **4.1 Health Check**
+
 ```bash
 # 터미널에서 실행
 curl https://your-app.vercel.app/api/health
@@ -149,6 +160,7 @@ curl https://your-app.vercel.app/api/health
 ```
 
 **4.2 주요 기능 테스트**
+
 ```
 체크리스트:
 ☑ 메인 페이지 로딩
@@ -159,6 +171,7 @@ curl https://your-app.vercel.app/api/health
 ```
 
 **4.3 브라우저 콘솔 확인**
+
 ```
 F12 → Console 탭
 
@@ -173,10 +186,11 @@ F12 → Console 탭
 #### 5단계: 도메인 연결 (선택사항, 10분)
 
 **5.1 커스텀 도메인 추가**
+
 ```
 Vercel Project Settings → Domains
 
-1. 도메인 입력 (예: shadowing.ninja)
+1. 도메인 입력 (예: inputenglish.kr)
 2. DNS 설정 안내 확인
 3. 도메인 제공업체에서 DNS 레코드 추가:
 
@@ -196,6 +210,7 @@ Vercel Project Settings → Domains
 #### 6단계: GitHub Actions 설정 (10분)
 
 **6.1 Vercel Token 생성**
+
 ```
 1. Vercel Account Settings → Tokens
 2. "Create Token" 클릭
@@ -205,6 +220,7 @@ Vercel Project Settings → Domains
 ```
 
 **6.2 GitHub Secrets 추가**
+
 ```
 GitHub Repository → Settings → Secrets
 
@@ -215,6 +231,7 @@ GitHub Repository → Settings → Secrets
 ```
 
 **6.3 Project IDs 확인**
+
 ```bash
 # 터미널에서 실행
 cd your-project
@@ -231,6 +248,7 @@ cat .vercel/project.json
 ```
 
 **6.4 Supabase Access Token 생성**
+
 ```
 1. Supabase Dashboard → Account → Access Tokens
 2. "Generate new token" 클릭
@@ -246,14 +264,16 @@ cat .vercel/project.json
 #### 7단계: 첫 PR 테스트 (5분)
 
 **7.1 테스트 브랜치 생성**
+
 ```bash
 git checkout -b test/first-deployment
 ```
 
 **7.2 간단한 변경**
+
 ```bash
 # README.md 수정
-echo "# Shadowing Ninja - 첫 배포 완료!" > README.md
+echo "# InputEnglish - 첫 배포 완료!" > README.md
 
 git add README.md
 git commit -m "docs: 첫 배포 완료 기념"
@@ -261,6 +281,7 @@ git push origin test/first-deployment
 ```
 
 **7.3 PR 생성**
+
 ```
 1. GitHub 저장소 접속
 2. "Compare & pull request" 클릭
@@ -269,6 +290,7 @@ git push origin test/first-deployment
 ```
 
 **7.4 자동화 확인**
+
 ```
 GitHub PR 페이지에서 확인:
 
@@ -307,6 +329,7 @@ Preview URL 생성:
 ## 시나리오 2: 긴급 버그 수정
 
 ### 상황
+
 ```
 ⚠️ 긴급 상황!
 사용자 보고: "로그인이 안돼요!"
@@ -319,6 +342,7 @@ Preview URL 생성:
 #### Step 1: 문제 확인 (1분)
 
 **1.1 에러 로그 확인**
+
 ```
 Vercel Dashboard → 해당 프로젝트 → Logs
 
@@ -332,6 +356,7 @@ Vercel Dashboard → 해당 프로젝트 → Logs
 ```
 
 **1.2 영향 범위 파악**
+
 ```
 Vercel Analytics → Real-time
 
@@ -346,6 +371,7 @@ Vercel Analytics → Real-time
 #### Step 2: 즉시 조치 - Rollback (1분)
 
 **Option A: Vercel Dashboard에서 롤백**
+
 ```
 1. Vercel → Deployments
 2. 정상 작동하던 이전 버전 찾기
@@ -357,6 +383,7 @@ Vercel Analytics → Real-time
 ```
 
 **확인**:
+
 ```
 1. 사이트 접속 → 로그인 테스트
 2. Vercel Analytics → 에러율 확인
@@ -369,6 +396,7 @@ Vercel Analytics → Real-time
 #### Step 3: 근본 원인 파악 (3분)
 
 **3.1 최근 변경사항 확인**
+
 ```bash
 # Git 로그 확인
 git log --oneline -n 10
@@ -379,6 +407,7 @@ def5678 feat: add new login method  ← 의심!
 ```
 
 **3.2 변경된 코드 검토**
+
 ```bash
 git show def5678
 
@@ -388,13 +417,14 @@ git show def5678
 ```
 
 **문제 발견**:
+
 ```typescript
 // ❌ 문제 코드
-const user = session.user
+const user = session.user;
 // session이 null일 때 에러 발생!
 
 // ✅ 수정 코드
-const user = session?.user
+const user = session?.user;
 // null-safe 접근
 ```
 
@@ -403,6 +433,7 @@ const user = session?.user
 #### Step 4: 긴급 수정 (2분)
 
 **4.1 Hotfix 브랜치 생성**
+
 ```bash
 # main 브랜치로 이동
 git checkout main
@@ -413,17 +444,19 @@ git checkout -b hotfix/login-null-error
 ```
 
 **4.2 코드 수정**
+
 ```typescript
 // src/app/login/page.tsx
 
 // Before:
-const user = session.user
+const user = session.user;
 
 // After:
-const user = session?.user ?? null
+const user = session?.user ?? null;
 ```
 
 **4.3 로컬 테스트**
+
 ```bash
 # 빌드 테스트
 npm run build
@@ -444,6 +477,7 @@ npm run dev
 #### Step 5: 긴급 배포 (3분)
 
 **5.1 커밋 및 푸시**
+
 ```bash
 git add src/app/login/page.tsx
 git commit -m "hotfix: null 체크 추가하여 로그인 에러 수정
@@ -457,6 +491,7 @@ git push origin hotfix/login-null-error
 ```
 
 **5.2 PR 생성 (생략 가능)**
+
 ```
 긴급 상황:
 → PR 없이 main에 직접 merge 가능
@@ -466,6 +501,7 @@ git push origin hotfix/login-null-error
 ```
 
 **5.3 Main에 Merge**
+
 ```bash
 git checkout main
 git merge hotfix/login-null-error
@@ -479,6 +515,7 @@ git push origin main
 #### Step 6: 배포 모니터링 (2분)
 
 **6.1 배포 진행 확인**
+
 ```
 GitHub → Actions 탭
 
@@ -492,6 +529,7 @@ GitHub → Actions 탭
 ```
 
 **6.2 배포 완료 확인**
+
 ```
 Vercel Dashboard
 
@@ -501,6 +539,7 @@ Vercel Dashboard
 ```
 
 **6.3 Health Check**
+
 ```bash
 curl https://your-app.vercel.app/api/health
 
@@ -512,6 +551,7 @@ curl https://your-app.vercel.app/api/health
 #### Step 7: 사후 조치 (5분)
 
 **7.1 기능 테스트**
+
 ```
 체크리스트:
 ☑ 로그인 (다양한 시나리오)
@@ -524,6 +564,7 @@ curl https://your-app.vercel.app/api/health
 ```
 
 **7.2 모니터링**
+
 ```
 Vercel Analytics (15분간 관찰)
 
@@ -534,12 +575,13 @@ Vercel Analytics (15분간 관찰)
 ```
 
 **7.3 사용자 공지**
+
 ```
 공지 작성 예시:
 
 제목: [해결] 로그인 오류 긴급 수정 완료
 
-안녕하세요, Shadowing Ninja 팀입니다.
+안녕하세요, InputEnglish 팀입니다.
 
 오늘 오후 2시~2시 10분 사이 로그인 오류가
 발생했던 점 사과드립니다.
@@ -552,16 +594,19 @@ Vercel Analytics (15분간 관찰)
 ```
 
 **7.4 사후 분석 문서 작성**
+
 ```markdown
 # Incident Report: 2025-01-15 로그인 오류
 
 ## 요약
+
 - 발생 시간: 14:00 ~ 14:10 (10분)
 - 영향: 모든 사용자의 로그인 불가
 - 원인: session.user null-check 누락
 - 조치: Rollback → 수정 → 재배포
 
 ## 타임라인
+
 - 14:00: 배포
 - 14:01: 에러 보고 접수
 - 14:02: Rollback 실행
@@ -571,6 +616,7 @@ Vercel Analytics (15분간 관찰)
 - 14:10: 재배포 완료
 
 ## 재발 방지 대책
+
 1. 로그인 관련 E2E 테스트 추가
 2. Null-check 린트 규칙 강화
 3. Canary 배포 도입 검토
@@ -598,6 +644,7 @@ Vercel Analytics (15분간 관찰)
 ## 시나리오 3: 대규모 기능 추가
 
 ### 상황
+
 ```
 신규 기능: AI 발음 분석 기능
 영향 범위:
@@ -615,19 +662,23 @@ Vercel Analytics (15분간 관찰)
 #### Phase 1: 기획 및 설계 (1일)
 
 **1.1 기능 명세서 작성**
+
 ```markdown
 # AI 발음 분석 기능
 
 ## 목적
+
 사용자의 발음을 AI가 분석하여 피드백 제공
 
 ## 기능
+
 1. 음성 녹음
 2. 발음 분석 (Google Speech API)
 3. 점수 및 피드백 표시
 4. 분석 기록 저장
 
 ## 기술 스택
+
 - Frontend: React, Web Audio API
 - Backend: Next.js API Routes
 - AI: Google Cloud Speech-to-Text
@@ -635,6 +686,7 @@ Vercel Analytics (15분간 관찰)
 ```
 
 **1.2 데이터베이스 스키마 설계**
+
 ```sql
 CREATE TABLE pronunciation_analyses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -656,11 +708,13 @@ CREATE INDEX idx_pronunciation_user
 #### Phase 2: 브랜치 전략 (개발 시작)
 
 **2.1 Feature 브랜치 생성**
+
 ```bash
 git checkout -b feature/ai-pronunciation-analysis
 ```
 
 **2.2 개발 중 Preview 배포**
+
 ```
 매번 푸시할 때마다:
 → GitHub Actions 자동 실행
@@ -673,6 +727,7 @@ git checkout -b feature/ai-pronunciation-analysis
 #### Phase 3: 단계별 개발 (5일)
 
 **Day 1: 데이터베이스**
+
 ```bash
 # 마이그레이션 생성
 npm run supabase:migration new add_pronunciation_table
@@ -690,6 +745,7 @@ git push origin feature/ai-pronunciation-analysis
 ```
 
 **Preview 배포 확인**:
+
 ```
 GitHub PR 자동 생성
 → Preview URL 생성
@@ -699,53 +755,50 @@ GitHub PR 자동 생성
 ---
 
 **Day 2-3: 백엔드 API**
+
 ```typescript
 // src/app/api/pronunciation/analyze/route.ts
 
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient()
+  const supabase = createClient();
 
   // 1. 인증 확인
-  const { data: { user }, error: authError } =
-    await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    )
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // 2. 요청 데이터 파싱
-  const { audioBlob, videoId, expectedText } =
-    await request.json()
+  const { audioBlob, videoId, expectedText } = await request.json();
 
   // 3. Google Speech API 호출
-  const analysis = await analyzePronunciation(
-    audioBlob,
-    expectedText
-  )
+  const analysis = await analyzePronunciation(audioBlob, expectedText);
 
   // 4. DB 저장
   const { data, error } = await supabase
-    .from('pronunciation_analyses')
+    .from("pronunciation_analyses")
     .insert({
       user_id: user.id,
       video_id: videoId,
       transcript: analysis.transcript,
       accuracy_score: analysis.score,
-      feedback: analysis.feedback
+      feedback: analysis.feedback,
     })
-    .select()
+    .select();
 
-  return NextResponse.json({ data })
+  return NextResponse.json({ data });
 }
 ```
 
 **커밋 및 푸시**:
+
 ```bash
 git add src/app/api/pronunciation/
 git commit -m "feat(api): 발음 분석 API 구현
@@ -760,6 +813,7 @@ git push origin feature/ai-pronunciation-analysis
 ---
 
 **Day 4-5: 프론트엔드**
+
 ```typescript
 // src/app/pronunciation/page.tsx
 
@@ -816,24 +870,26 @@ export default function PronunciationPage() {
 #### Phase 4: 테스트 (1일)
 
 **4.1 단위 테스트**
+
 ```typescript
 // src/app/api/pronunciation/__tests__/analyze.test.ts
 
-describe('POST /api/pronunciation/analyze', () => {
-  it('인증되지 않은 요청은 401 반환', async () => {
-    const res = await POST(mockRequest)
-    expect(res.status).toBe(401)
-  })
+describe("POST /api/pronunciation/analyze", () => {
+  it("인증되지 않은 요청은 401 반환", async () => {
+    const res = await POST(mockRequest);
+    expect(res.status).toBe(401);
+  });
 
-  it('정상 요청은 분석 결과 반환', async () => {
-    const res = await POST(mockAuthRequest)
-    expect(res.status).toBe(200)
-    expect(res.data).toHaveProperty('accuracy_score')
-  })
-})
+  it("정상 요청은 분석 결과 반환", async () => {
+    const res = await POST(mockAuthRequest);
+    expect(res.status).toBe(200);
+    expect(res.data).toHaveProperty("accuracy_score");
+  });
+});
 ```
 
 **4.2 통합 테스트 (Preview에서)**
+
 ```
 Preview URL:
 https://your-app-git-feature-pronunciation.vercel.app
@@ -849,6 +905,7 @@ https://your-app-git-feature-pronunciation.vercel.app
 ```
 
 **4.3 성능 테스트**
+
 ```bash
 # Lighthouse 점수 확인
 npm run lighthouse
@@ -867,6 +924,7 @@ curl -w "@curl-format.txt" -o /dev/null -s \
 #### Phase 5: 코드 리뷰 (1일)
 
 **5.1 PR 생성**
+
 ```
 PR 제목:
 feat: AI 발음 분석 기능 추가
@@ -900,6 +958,7 @@ PR 설명:
 ```
 
 **5.2 팀 리뷰**
+
 ```
 리뷰어 1 (백엔드):
 ✅ API 로직 확인
@@ -916,6 +975,7 @@ PR 설명:
 ```
 
 **5.3 피드백 반영**
+
 ```bash
 # 1. 음성 파일 크기 제한
 # src/app/api/pronunciation/analyze/route.ts
@@ -951,9 +1011,10 @@ git push origin feature/ai-pronunciation-analysis
 #### Phase 6: Staging 배포 (선택사항)
 
 **6.1 Staging 환경 설정**
+
 ```
 Vercel → New Project
-- Project Name: "shadowing-ninja-staging"
+- Project Name: "inputenglish-staging"
 - Git Branch: "staging"
 
 환경 변수:
@@ -962,16 +1023,18 @@ Vercel → New Project
 ```
 
 **6.2 Staging 배포**
+
 ```bash
 git checkout staging
 git merge feature/ai-pronunciation-analysis
 git push origin staging
 
 # 자동 배포
-# 🌐 https://shadowing-ninja-staging.vercel.app
+# 🌐 https://inputenglish-staging.vercel.app
 ```
 
 **6.3 Staging 테스트**
+
 ```
 실제 사용자 환경과 동일:
 - 실제 도메인과 유사
@@ -990,6 +1053,7 @@ git push origin staging
 #### Phase 7: Production 배포
 
 **7.1 최종 확인**
+
 ```
 배포 전 체크리스트:
 ☑ PR 승인 완료
@@ -1003,6 +1067,7 @@ git push origin staging
 ```
 
 **7.2 배포 시간 선택**
+
 ```
 권장 시간:
 - 평일 오후 2-4시 (사용자 적음)
@@ -1015,6 +1080,7 @@ git push origin staging
 ```
 
 **7.3 Main 브랜치에 Merge**
+
 ```bash
 # GitHub에서 PR Merge 버튼 클릭
 # 또는:
@@ -1026,6 +1092,7 @@ git push origin main
 ```
 
 **7.4 배포 모니터링**
+
 ```
 GitHub Actions:
 ✅ Lint Check (30초)
@@ -1047,6 +1114,7 @@ Vercel Dashboard:
 #### Phase 8: 배포 후 모니터링
 
 **8.1 즉시 확인 (5분)**
+
 ```
 1. Health Check
 curl https://yourdomain.com/api/health
@@ -1062,6 +1130,7 @@ curl https://yourdomain.com/api/health
 ```
 
 **8.2 실시간 모니터링 (1시간)**
+
 ```
 Vercel Analytics:
 - 에러율: 확인
@@ -1080,6 +1149,7 @@ Google Cloud Console:
 ```
 
 **8.3 사용자 피드백 수집 (1일)**
+
 ```
 채널:
 - 인앱 피드백 양식
@@ -1119,6 +1189,7 @@ Week 2:
 ## 시나리오 4: 데이터베이스 스키마 변경
 
 ### 상황
+
 ```
 요구사항: 사용자 프로필에 "학습 목표" 필드 추가
 영향:
@@ -1132,6 +1203,7 @@ Week 2:
 #### Step 1: 마이그레이션 계획 (30분)
 
 **1.1 변경 사항 명세**
+
 ```sql
 -- 추가할 컬럼
 ALTER TABLE users
@@ -1144,6 +1216,7 @@ WHERE learning_goal IS NULL;
 ```
 
 **1.2 영향 분석**
+
 ```
 영향받는 부분:
 ✅ users 테이블
@@ -1158,6 +1231,7 @@ WHERE learning_goal IS NULL;
 ```
 
 **1.3 롤백 계획**
+
 ```sql
 -- 롤백 시 실행할 SQL
 ALTER TABLE users
@@ -1169,6 +1243,7 @@ DROP COLUMN learning_goal;
 #### Step 2: 로컬 테스트 (1시간)
 
 **2.1 마이그레이션 파일 생성**
+
 ```bash
 npm run supabase:migration new add_learning_goal_to_users
 
@@ -1177,6 +1252,7 @@ npm run supabase:migration new add_learning_goal_to_users
 ```
 
 **2.2 마이그레이션 SQL 작성**
+
 ```sql
 -- supabase/migrations/20250115_add_learning_goal.sql
 
@@ -1195,6 +1271,7 @@ CREATE INDEX idx_users_learning_goal
 ```
 
 **2.3 로컬 Supabase에서 테스트**
+
 ```bash
 # 로컬 Supabase 시작
 npm run supabase:start
@@ -1220,40 +1297,43 @@ GROUP BY learning_goal;
 #### Step 3: 코드 수정 및 테스트
 
 **3.1 타입 정의 업데이트**
+
 ```typescript
 // src/types/database.types.ts
 
 export interface User {
-  id: string
-  email: string
-  name: string
-  learning_goal: string | null  // 추가
-  created_at: string
-  updated_at: string
+  id: string;
+  email: string;
+  name: string;
+  learning_goal: string | null; // 추가
+  created_at: string;
+  updated_at: string;
 }
 ```
 
 **3.2 API 수정**
+
 ```typescript
 // src/app/api/profile/update/route.ts
 
 export async function POST(request: NextRequest) {
-  const { name, learning_goal } = await request.json()
+  const { name, learning_goal } = await request.json();
 
   const { data, error } = await supabase
-    .from('users')
+    .from("users")
     .update({
       name,
-      learning_goal  // 추가
+      learning_goal, // 추가
     })
-    .eq('id', userId)
-    .select()
+    .eq("id", userId)
+    .select();
 
-  return NextResponse.json({ data, error })
+  return NextResponse.json({ data, error });
 }
 ```
 
 **3.3 프론트엔드 수정**
+
 ```typescript
 // src/app/profile/page.tsx
 
@@ -1288,6 +1368,7 @@ export default function ProfilePage() {
 #### Step 4: PR 및 Preview 배포
 
 **4.1 커밋 및 푸시**
+
 ```bash
 git add .
 git commit -m "feat(db): 사용자 학습 목표 필드 추가
@@ -1302,33 +1383,41 @@ git push origin feature/add-learning-goal
 ```
 
 **4.2 PR 생성**
-```markdown
+
+````markdown
 ## DB 스키마 변경 사항
 
 ### 변경 내용
+
 - `users` 테이블에 `learning_goal TEXT` 컬럼 추가
 
 ### 마이그레이션 전략
+
 1. 컬럼 추가 (NULL 허용)
 2. 기존 사용자에게 기본값 설정
 3. 인덱스 추가
 
 ### 롤백 계획
+
 ```sql
 ALTER TABLE users DROP COLUMN learning_goal;
 ```
+````
 
 ### 테스트 완료
+
 - ✅ 로컬 마이그레이션 성공
 - ✅ 기존 데이터 영향 없음
 - ✅ API 정상 작동
 - ✅ UI 정상 표시
 
 ### Preview
+
 🌐 https://your-app-git-feature-learning-goal.vercel.app
 
 ⚠️ 주의: Preview 환경은 별도 DB 사용
-```
+
+````
 
 ---
 
@@ -1339,9 +1428,10 @@ ALTER TABLE users DROP COLUMN learning_goal;
 # Supabase Dashboard
 # Settings → Database → Backups
 # "Create Backup" 클릭
-```
+````
 
 **5.2 Staging 배포**
+
 ```bash
 git checkout staging
 git merge feature/add-learning-goal
@@ -1354,6 +1444,7 @@ git push origin staging
 ```
 
 **5.3 마이그레이션 확인**
+
 ```bash
 # Supabase Dashboard → SQL Editor
 
@@ -1370,6 +1461,7 @@ LIMIT 10;
 ```
 
 **5.4 전체 기능 테스트**
+
 ```
 Staging 사이트에서:
 ☑ 기존 사용자 로그인
@@ -1387,6 +1479,7 @@ Staging 사이트에서:
 #### Step 6: Production 마이그레이션
 
 **6.1 배포 전 최종 준비**
+
 ```
 체크리스트:
 ☑ Staging 테스트 완료
@@ -1397,6 +1490,7 @@ Staging 사이트에서:
 ```
 
 **6.2 Main 브랜치 Merge**
+
 ```bash
 # PR 승인 후
 git checkout main
@@ -1407,6 +1501,7 @@ git push origin main
 ```
 
 **6.3 마이그레이션 실행 모니터링**
+
 ```
 GitHub Actions 로그:
 
@@ -1427,6 +1522,7 @@ Total time: 15 seconds
 ```
 
 **6.4 즉시 확인**
+
 ```bash
 # Supabase Dashboard → SQL Editor
 
@@ -1445,6 +1541,7 @@ SELECT * FROM users WHERE learning_goal = '일상 회화 마스터하기';
 #### Step 7: 모니터링 및 검증
 
 **7.1 실시간 모니터링 (30분)**
+
 ```
 Supabase Dashboard → Logs:
 
@@ -1456,6 +1553,7 @@ Supabase Dashboard → Logs:
 ```
 
 **7.2 기능 테스트**
+
 ```
 Production 사이트:
 ☑ 기존 사용자 로그인
@@ -1466,6 +1564,7 @@ Production 사이트:
 ```
 
 **7.3 성능 확인**
+
 ```bash
 # API 응답 시간 측정
 curl -w "@curl-format.txt" \
@@ -1529,6 +1628,7 @@ WHERE learning_goal IS NULL;
 ## 시나리오 5: 배포 중 에러 발생
 
 ### 상황
+
 ```
 배포 실행 중...
 ⏱️ 경과 시간: 2분
@@ -1541,6 +1641,7 @@ Error: Module not found: '@/components/NewFeature'
 #### Step 1: 배포 중단 (즉시)
 
 **Option A: GitHub Actions 취소**
+
 ```
 GitHub → Actions 탭
 → 실행 중인 워크플로우 선택
@@ -1550,6 +1651,7 @@ GitHub → Actions 탭
 ```
 
 **Option B: Vercel Dashboard**
+
 ```
 Vercel → Deployments
 → Building 상태인 배포 선택
@@ -1559,6 +1661,7 @@ Vercel → Deployments
 ```
 
 **중요**:
+
 ```
 ❗ 배포 중단 시:
 → 이전 버전이 계속 운영 ✅
@@ -1571,6 +1674,7 @@ Vercel → Deployments
 #### Step 2: 에러 원인 파악 (2분)
 
 **2.1 에러 로그 확인**
+
 ```
 GitHub Actions 로그:
 
@@ -1583,14 +1687,16 @@ GitHub Actions 로그:
 ```
 
 **2.2 코드 확인**
+
 ```typescript
 // src/app/some-page/page.tsx
-import { NewFeature } from '@/components/NewFeature'
+import { NewFeature } from "@/components/NewFeature";
 //                          ^^^^^^^^^^^^^^^^^^^^^^^^
 //                          파일이 존재하지 않음!
 ```
 
 **2.3 문제 발견**
+
 ```
 원인:
 - 파일명 오타: NewFeature.tsx vs NewFeature.ts
@@ -1603,6 +1709,7 @@ import { NewFeature } from '@/components/NewFeature'
 #### Step 3: 긴급 수정 (5분)
 
 **3.1 파일 확인**
+
 ```bash
 # 파일 존재 여부 확인
 ls src/components/
@@ -1612,6 +1719,7 @@ NewFeatures.tsx  ← 's' 추가로 오타!
 ```
 
 **3.2 수정**
+
 ```typescript
 // Option 1: import 경로 수정
 import { NewFeature } from '@/components/NewFeatures'
@@ -1622,6 +1730,7 @@ mv src/components/NewFeatures.tsx \
 ```
 
 **3.3 로컬 테스트**
+
 ```bash
 # 빌드 테스트
 npm run build
@@ -1640,6 +1749,7 @@ Build completed in 2m 34s
 #### Step 4: 재배포 (3분)
 
 **4.1 커밋 및 푸시**
+
 ```bash
 git add .
 git commit -m "fix: 컴포넌트 import 경로 수정"
@@ -1649,6 +1759,7 @@ git push origin main
 ```
 
 **4.2 배포 모니터링**
+
 ```
 GitHub Actions:
 ✅ Checkout code
@@ -1668,27 +1779,30 @@ Vercel:
 #### 시나리오 5-1: TypeScript 타입 에러
 
 **에러**:
+
 ```
 Error: Type 'string | undefined' is not assignable to type 'string'
 ```
 
 **원인**:
+
 ```typescript
-const userId: string = session?.user?.id
+const userId: string = session?.user?.id;
 //                     ^^^^^^^^^^^^^^^^
 //                     undefined 가능성 있음
 ```
 
 **해결**:
+
 ```typescript
-const userId = session?.user?.id ?? ''
+const userId = session?.user?.id ?? "";
 // 또는
-const userId = session?.user?.id || 'anonymous'
+const userId = session?.user?.id || "anonymous";
 // 또는
 if (!session?.user?.id) {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
-const userId: string = session.user.id
+const userId: string = session.user.id;
 ```
 
 ---
@@ -1696,11 +1810,13 @@ const userId: string = session.user.id
 #### 시나리오 5-2: 환경 변수 누락
 
 **에러**:
+
 ```
 Error: GOOGLE_AI_API_KEY is not defined
 ```
 
 **확인**:
+
 ```
 Vercel Dashboard → Settings → Environment Variables
 
@@ -1709,6 +1825,7 @@ Vercel Dashboard → Settings → Environment Variables
 ```
 
 **해결**:
+
 ```
 1. 환경 변수 추가:
    - Name: GOOGLE_AI_API_KEY
@@ -1726,17 +1843,20 @@ Vercel Dashboard → Settings → Environment Variables
 #### 시나리오 5-3: 패키지 의존성 충돌
 
 **에러**:
+
 ```
 Error: Cannot find module 'new-package'
 ```
 
 **원인**:
+
 ```json
 // package.json에 추가했지만
 // package-lock.json이 업데이트 안됨
 ```
 
 **해결**:
+
 ```bash
 # 로컬에서 재설치
 rm -rf node_modules package-lock.json
@@ -1753,17 +1873,20 @@ git push origin main
 #### 시나리오 5-4: 빌드 메모리 부족
 
 **에러**:
+
 ```
 Error: JavaScript heap out of memory
 ```
 
 **원인**:
+
 ```
 빌드 중 메모리 부족
 (대용량 이미지, 복잡한 번들링)
 ```
 
 **해결**:
+
 ```json
 // package.json
 {
@@ -1774,6 +1897,7 @@ Error: JavaScript heap out of memory
 ```
 
 **Vercel 설정**:
+
 ```json
 // vercel.json
 {
@@ -1794,6 +1918,7 @@ Error: JavaScript heap out of memory
 ## 시나리오 6: 성능 저하 대응
 
 ### 상황
+
 ```
 📊 모니터링 알림:
 ⚠️ 페이지 로딩 시간 3초 → 8초로 증가
@@ -1806,6 +1931,7 @@ Error: JavaScript heap out of memory
 #### Step 1: 문제 분석 (15분)
 
 **1.1 Vercel Analytics 확인**
+
 ```
 Vercel Dashboard → Analytics
 
@@ -1816,6 +1942,7 @@ Vercel Dashboard → Analytics
 ```
 
 **1.2 Lighthouse 리포트 확인**
+
 ```bash
 npm run lighthouse -- --url=https://yourdomain.com
 
@@ -1832,6 +1959,7 @@ Diagnostics:
 ```
 
 **1.3 네트워크 분석**
+
 ```
 Chrome DevTools → Network 탭
 
@@ -1846,6 +1974,7 @@ Chrome DevTools → Network 탭
 #### Step 2: 즉시 조치 (긴급)
 
 **2.1 문제 파일 확인**
+
 ```bash
 # 큰 이미지 찾기
 find public -type f -size +1M -exec ls -lh {} \;
@@ -1856,6 +1985,7 @@ find public -type f -size +1M -exec ls -lh {} \;
 ```
 
 **2.2 임시 조치: 이미지 교체**
+
 ```bash
 # 최적화된 이미지로 교체
 # (이미 준비되어 있다면)
@@ -1874,19 +2004,21 @@ git push origin main
 #### Step 3: 근본 해결 (1일)
 
 **3.1 이미지 최적화**
+
 ```typescript
 // next.config.ts에 이미지 최적화 설정 추가
 const nextConfig: NextConfig = {
   images: {
-    formats: ['image/avif', 'image/webp'],
+    formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200],
     imageSizes: [16, 32, 48, 64, 96],
     minimumCacheTTL: 60,
   },
-}
+};
 ```
 
 **3.2 Next.js Image 컴포넌트 사용**
+
 ```typescript
 // Before: ❌
 <img src="/thumbnails/video1.jpg" />
@@ -1905,6 +2037,7 @@ import Image from 'next/image'
 ```
 
 **3.3 번들 크기 최적화**
+
 ```bash
 # 번들 분석
 npm run analyze
@@ -1915,17 +2048,19 @@ npm run analyze
 ```
 
 **수정**:
+
 ```typescript
 // Before: ❌
-import _ from 'lodash'
-import moment from 'moment'
+import _ from "lodash";
+import moment from "moment";
 
 // After: ✅
-import debounce from 'lodash/debounce'
-import { formatDistanceToNow } from 'date-fns'
+import debounce from "lodash/debounce";
+import { formatDistanceToNow } from "date-fns";
 ```
 
 **3.4 Code Splitting**
+
 ```typescript
 // Before: ❌
 import HeavyComponent from './HeavyComponent'
@@ -1944,36 +2079,36 @@ const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
 #### Step 4: 캐싱 전략 개선
 
 **4.1 API 응답 캐싱**
+
 ```typescript
 // src/app/api/videos/route.ts
 
 export async function GET(request: NextRequest) {
   // Before: 매번 DB 조회 ❌
-  const videos = await supabase
-    .from('curated_videos')
-    .select('*')
+  const videos = await supabase.from("curated_videos").select("*");
 
   // After: 캐싱 추가 ✅
   return NextResponse.json(videos, {
     headers: {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
-    }
-  })
+      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+    },
+  });
 }
 ```
 
 **4.2 정적 페이지 생성**
+
 ```typescript
 // src/app/videos/[id]/page.tsx
 
 // 정적 생성 활성화
-export const revalidate = 3600 // 1시간마다 재생성
+export const revalidate = 3600; // 1시간마다 재생성
 
 export async function generateStaticParams() {
-  const videos = await getVideos()
+  const videos = await getVideos();
   return videos.map((video) => ({
     id: video.id,
-  }))
+  }));
 }
 ```
 
@@ -1982,6 +2117,7 @@ export async function generateStaticParams() {
 #### Step 5: 데이터베이스 쿼리 최적화
 
 **5.1 느린 쿼리 발견**
+
 ```
 Supabase Dashboard → Logs → Slow Queries
 
@@ -1992,6 +2128,7 @@ Supabase Dashboard → Logs → Slow Queries
 ```
 
 **5.2 인덱스 추가**
+
 ```sql
 -- 마이그레이션 생성
 -- supabase/migrations/20250116_add_indexes.sql
@@ -2004,18 +2141,17 @@ CREATE INDEX idx_videos_created_at
 ```
 
 **5.3 쿼리 개선**
+
 ```typescript
 // Before: ❌ 모든 컬럼 조회
-const videos = await supabase
-  .from('curated_videos')
-  .select('*')
+const videos = await supabase.from("curated_videos").select("*");
 
 // After: ✅ 필요한 컬럼만
 const videos = await supabase
-  .from('curated_videos')
-  .select('id, title, thumbnail_url, created_at')
-  .order('created_at', { ascending: false })
-  .limit(20)
+  .from("curated_videos")
+  .select("id, title, thumbnail_url, created_at")
+  .order("created_at", { ascending: false })
+  .limit(20);
 ```
 
 ---
@@ -2023,6 +2159,7 @@ const videos = await supabase
 #### Step 6: 성능 테스트 및 배포
 
 **6.1 로컬 성능 테스트**
+
 ```bash
 # Lighthouse 실행
 npm run lighthouse
@@ -2035,6 +2172,7 @@ Performance: 92/100 ✅ (이전: 45)
 ```
 
 **6.2 번들 크기 확인**
+
 ```bash
 npm run build
 
@@ -2050,6 +2188,7 @@ Route (app)                              Size     First Load JS
 ```
 
 **6.3 배포**
+
 ```bash
 git add .
 git commit -m "perf: 성능 최적화
@@ -2070,6 +2209,7 @@ git push origin main
 #### Step 7: 모니터링 및 검증
 
 **7.1 배포 후 성능 확인**
+
 ```
 Vercel Analytics (1시간 후):
 
@@ -2083,6 +2223,7 @@ Lighthouse 점수:
 ```
 
 **7.2 사용자 피드백**
+
 ```
 모니터링 (1주일):
 - 이탈률: 45% → 12% ✅
@@ -2129,14 +2270,14 @@ Lighthouse 점수:
 
 ### 각 시나리오별 대응 시간
 
-| 시나리오 | 즉시 대응 | 근본 해결 | 총 시간 |
-|---------|---------|---------|---------|
-| 1. 첫 배포 | - | 1시간 | 1시간 |
-| 2. 긴급 버그 | 1분 (Rollback) | 10분 | 15분 |
-| 3. 대규모 기능 | - | 1-2주 | 1-2주 |
-| 4. DB 마이그레이션 | - | 2-3시간 | 반나절 |
-| 5. 배포 에러 | 즉시 (취소) | 5-10분 | 10분 |
-| 6. 성능 저하 | 10분 (임시 수정) | 1일 | 1일 |
+| 시나리오           | 즉시 대응        | 근본 해결 | 총 시간 |
+| ------------------ | ---------------- | --------- | ------- |
+| 1. 첫 배포         | -                | 1시간     | 1시간   |
+| 2. 긴급 버그       | 1분 (Rollback)   | 10분      | 15분    |
+| 3. 대규모 기능     | -                | 1-2주     | 1-2주   |
+| 4. DB 마이그레이션 | -                | 2-3시간   | 반나절  |
+| 5. 배포 에러       | 즉시 (취소)      | 5-10분    | 10분    |
+| 6. 성능 저하       | 10분 (임시 수정) | 1일       | 1일     |
 
 ### 핵심 교훈
 

@@ -1,4 +1,4 @@
-# 📚 Shadowing Ninja 문서 센터
+# 📚 InputEnglish 문서 센터
 
 프로젝트의 모든 문서를 한 곳에서 확인하세요.
 
@@ -29,6 +29,7 @@
 ### 🎓 학습 (비개발자 친화적)
 
 #### 1. Git & 협업
+
 - **[Git 완벽 가이드](./GIT_GUIDE_FOR_BEGINNERS.md)** ⭐⭐⭐
   - 대상: Git을 처음 접하는 사람
   - 내용: Commit, Push, PR, Branch, CI/CD 연결
@@ -36,6 +37,7 @@
   - 예상 시간: 30분
 
 #### 2. 배포 기초
+
 - **[배포 가이드 (한국어)](./DEPLOYMENT_GUIDE_KR.md)** ⭐⭐⭐
   - 대상: 배포가 처음인 사람
   - 내용: Vercel, CI/CD, 안전장치
@@ -43,6 +45,7 @@
   - 예상 시간: 1시간
 
 #### 3. 플랫폼 비교
+
 - **[배포 플랫폼 비교](./DEPLOYMENT_COMPARISON.md)** ⭐⭐
   - 대상: 배포 전략을 고민하는 사람
   - 내용: Vercel vs AWS vs 기타
@@ -50,6 +53,7 @@
   - 예상 시간: 30분
 
 #### 4. 실전 시나리오
+
 - **[실전 배포 시나리오](./DEPLOYMENT_SCENARIOS.md)** ⭐⭐⭐
   - 대상: 실제 배포를 앞둔 사람
   - 내용: 6가지 실전 상황과 대응
@@ -61,6 +65,7 @@
 ### 🔧 실무 (개발자 친화적)
 
 #### 5. 빠른 배포
+
 - **[QUICKSTART.md](../QUICKSTART.md)** ⭐⭐⭐
   - 대상: 바로 배포하고 싶은 사람
   - 내용: 5분 안에 배포하기
@@ -68,6 +73,7 @@
   - 예상 시간: 10분
 
 #### 6. 배포 완전 정복
+
 - **[DEPLOYMENT.md](../DEPLOYMENT.md)** ⭐⭐
   - 대상: 배포의 모든 것을 알고 싶은 사람
   - 내용: 플랫폼, 환경변수, DB 마이그레이션
@@ -75,6 +81,7 @@
   - 예상 시간: 2시간
 
 #### 7. GitHub Actions 설정
+
 - **[.github/SETUP.md](../.github/SETUP.md)** ⭐⭐
   - 대상: CI/CD를 설정하려는 사람
   - 내용: Secrets 설정, Token 생성
@@ -86,30 +93,39 @@
 ## 🎯 상황별 가이드
 
 ### "Git이 뭔지 모르겠어요"
+
 → **[Git 완벽 가이드](./GIT_GUIDE_FOR_BEGINNERS.md)** 읽기
 
 ### "5분 안에 배포하고 싶어요"
+
 → **[QUICKSTART.md](../QUICKSTART.md)** 따라하기
 
 ### "배포는 했는데 어떻게 된 건지 모르겠어요"
+
 → **[배포 가이드 (한국어)](./DEPLOYMENT_GUIDE_KR.md)** 읽기
 
 ### "왜 Vercel을 선택했는지 궁금해요"
+
 → **[배포 플랫폼 비교](./DEPLOYMENT_COMPARISON.md)** 읽기
 
 ### "배포 중 에러가 발생했어요!"
+
 → **[실전 배포 시나리오](./DEPLOYMENT_SCENARIOS.md)** → 시나리오 5
 
 ### "긴급 버그를 수정하고 빠르게 배포하고 싶어요"
+
 → **[실전 배포 시나리오](./DEPLOYMENT_SCENARIOS.md)** → 시나리오 2
 
 ### "GitHub Secrets를 어떻게 설정하나요?"
+
 → **[.github/SETUP.md](../.github/SETUP.md)** 읽기
 
 ### "데이터베이스를 변경하고 싶어요"
+
 → **[실전 배포 시나리오](./DEPLOYMENT_SCENARIOS.md)** → 시나리오 4
 
 ### "성능이 느려졌어요"
+
 → **[실전 배포 시나리오](./DEPLOYMENT_SCENARIOS.md)** → 시나리오 6
 
 ---
@@ -211,21 +227,25 @@ Week 2: 실전 연습
 ### 키워드로 빠르게 찾기
 
 **Git 관련**:
+
 - Commit, Push, Pull → Git 완벽 가이드
 - Branch, PR → Git 완벽 가이드
 - Merge, Conflict → Git 완벽 가이드
 
 **배포 관련**:
+
 - Vercel, AWS → 배포 플랫폼 비교
 - 환경 변수 → DEPLOYMENT.md
 - Preview, Production → 배포 가이드 (한국어)
 
 **문제 해결**:
+
 - 에러, 실패 → 실전 시나리오
 - 롤백 → 실전 시나리오 2, 5
 - 성능, 느림 → 실전 시나리오 6
 
 **설정**:
+
 - GitHub Actions → .github/SETUP.md
 - Secrets, Token → .github/SETUP.md
 - Docker → DEPLOYMENT.md
@@ -292,4 +312,4 @@ Week 2: 실전 연습
 
 ---
 
-Made with ❤️ by Shadowing Ninja Team
+Made with ❤️ by InputEnglish Team

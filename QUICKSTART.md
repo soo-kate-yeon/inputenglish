@@ -124,14 +124,14 @@ curl http://localhost:3000/api/health
   pnpm ios
   pnpm android
 
-  #cd /Users/sooyeon/Developer/shadowoo
+  #cd /Users/sooyeon/Developer/inputenglish
 pkill -f "next dev|expo|metro|react-native" || true
 
 # 웹 API 서버
-pnpm --filter @shadowoo/web exec next dev -H 0.0.0.0 -p 3000
+pnpm --filter @inputenglish/web exec next dev -H 0.0.0.0 -p 3000
 
 # 모바일
-pnpm --filter @shadowoo/mobile exec expo start --dev-client --host lan -c
+pnpm --filter @inputenglish/mobile exec expo start --dev-client --host lan -c
 
   prebuild만 필요한 경우 (native 프로젝트 생성, 빌드 없이):
 

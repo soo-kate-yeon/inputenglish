@@ -37,8 +37,5 @@
       "prettier --write"
     ]
   },
-  "dependencies": {
-    "react-native-purchases": "^9.11.2",
-    "react-native-purchases-ui": "^9.11.2"
-  }
+  "dependencies": {}
 }

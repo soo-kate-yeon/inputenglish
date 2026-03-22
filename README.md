@@ -1,10 +1,10 @@
-# Shadowing Ninja 🥷
+# InputEnglish 🥷
 
 AI 기반 영어 쉐도잉 학습 플랫폼 (Turborepo 모노레포)
 
 ## 📚 프로젝트 소개
 
-Shadowing Ninja는 YouTube 영상을 활용한 영어 쉐도잉 학습을 돕는 웹 애플리케이션입니다. AI가 자막을 분석하고, 사용자의 학습을 효과적으로 지원합니다. pnpm + Turborepo 모노레포 구조로 웹(`apps/web`)과 모바일(`apps/mobile`) 앱을 위한 공유 패키지(`@shadowoo/shared`)를 제공합니다.
+InputEnglish는 YouTube 영상을 활용한 영어 쉐도잉 학습을 돕는 웹 애플리케이션입니다. AI가 자막을 분석하고, 사용자의 학습을 효과적으로 지원합니다. pnpm + Turborepo 모노레포 구조로 웹(`apps/web`)과 모바일(`apps/mobile`) 앱을 위한 공유 패키지(`@inputenglish/shared`)를 제공합니다.
 
 ## 🚀 빠른 시작
 
@@ -12,8 +12,8 @@ Shadowing Ninja는 YouTube 영상을 활용한 영어 쉐도잉 학습을 돕는
 
 ```bash
 # 저장소 클론
-git clone https://github.com/your-username/shadowing-ninja.git
-cd shadowing-ninja
+git clone https://github.com/your-username/inputenglish.git
+cd inputenglish
 
 # 의존성 설치 (pnpm 필요: npm install -g pnpm)
 pnpm install
@@ -151,7 +151,7 @@ npm run supabase:push       # 마이그레이션 적용
 ## 📁 프로젝트 구조
 
 ```
-shadowing-ninja/
+inputenglish/
 ├── src/
 │   ├── app/              # Next.js App Router 페이지
 │   │   ├── api/          # API Routes
@@ -262,10 +262,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 문제가 발생하거나 질문이 있으신 경우:
 
-1. [GitHub Issues](https://github.com/your-username/shadowing-ninja/issues) 생성
+1. [GitHub Issues](https://github.com/your-username/inputenglish/issues) 생성
 2. [배포 가이드](./docs/DEPLOYMENT_GUIDE_KR.md) 참고
 3. [실전 시나리오](./docs/DEPLOYMENT_SCENARIOS.md)에서 유사한 상황 찾기
 
 ---
 
-Made with ❤️ by Shadowing Ninja Team
+Made with ❤️ by InputEnglish Team

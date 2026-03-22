@@ -1,5 +1,5 @@
 #!/bin/bash
-# Full release script for Shadowoo mobile app
+# Full release script for InputEnglish mobile app
 # Usage: ./scripts/release.sh [major|minor|patch]
 #
 # This script:
@@ -14,7 +14,7 @@ APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 BUMP_TYPE="${1:-patch}"
 
-echo "=== Shadowoo Release Pipeline ==="
+echo "=== InputEnglish Release Pipeline ==="
 echo ""
 
 # Step 1: Version bump

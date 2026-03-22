@@ -1,7 +1,7 @@
 # Deliver configuration for App Store Connect
 
 # App metadata
-app_identifier "kr.shadowoo.app"
+app_identifier "com.morak.inputenglish"
 username ENV["APPLE_ID"] || "YOUR_APPLE_ID@example.com"
 
 # Metadata path

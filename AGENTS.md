@@ -1,10 +1,10 @@
 # AI Agent Instructions
 
-## FramingUI Workflow For Shadowoo Mobile
+## FramingUI Workflow For InputEnglish Mobile
 
 ### Overview
 
-Shadowoo mobile is an Expo + React Native app. In this repository, FramingUI is used as a direct-write design system assistant, not as a React Native runtime component library.
+InputEnglish mobile is an Expo + React Native app. In this repository, FramingUI is used as a direct-write design system assistant, not as a React Native runtime component library.
 
 The expected workflow is:
 
@@ -59,7 +59,7 @@ Example input:
 
 ```json
 {
-  "projectPath": "/Users/sooyeon/Developer/shadowoo/apps/mobile"
+  "projectPath": "/Users/sooyeon/Developer/inputenglish/apps/mobile"
 }
 ```
 
@@ -84,7 +84,7 @@ Example input:
 }
 ```
 
-For Shadowoo mobile, this should resolve to the React Native direct-write workflow. Do not assume Tailwind, CSS imports, or `@framingui/ui` runtime components.
+For InputEnglish mobile, this should resolve to the React Native direct-write workflow. Do not assume Tailwind, CSS imports, or `@framingui/ui` runtime components.
 
 Use discovery tools as needed:
 
@@ -94,7 +94,7 @@ Use discovery tools as needed:
 
 #### Step 3. Write React Native Code Directly
 
-Write RN code in the existing Shadowoo style:
+Write RN code in the existing InputEnglish style:
 
 - `StyleSheet.create`
 - Expo / `expo-router`
@@ -116,9 +116,9 @@ Example input:
 
 ```json
 {
-  "projectPath": "/Users/sooyeon/Developer/shadowoo/apps/mobile",
+  "projectPath": "/Users/sooyeon/Developer/inputenglish/apps/mobile",
   "sourceFiles": [
-    "/Users/sooyeon/Developer/shadowoo/apps/mobile/app/(auth)/signup.tsx"
+    "/Users/sooyeon/Developer/inputenglish/apps/mobile/app/(auth)/signup.tsx"
   ]
 }
 ```
@@ -132,7 +132,7 @@ This should:
   - hardcoded spacing or radius
   - web-only patterns like `className`
 
-### Shadowoo-Specific Rules
+### InputEnglish-Specific Rules
 
 1. Prefer direct-write React Native screens over screen-definition export.
 2. Treat FramingUI as contract, guidance, and QC.

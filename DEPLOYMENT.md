@@ -1,8 +1,9 @@
 # 배포 가이드
 
-이 문서는 Shadowing Ninja 프로젝트의 배포 전략과 방법을 설명합니다.
+이 문서는 InputEnglish 프로젝트의 배포 전략과 방법을 설명합니다.
 
 ## 목차
+
 - [배포 플랫폼](#배포-플랫폼)
 - [환경 변수 설정](#환경-변수-설정)
 - [Vercel 배포](#vercel-배포)
@@ -18,6 +19,7 @@
 ### 권장 플랫폼: Vercel (Production-ready)
 
 **장점:**
+
 - Next.js 최적화 (Edge Functions, ISR, SSR 완벽 지원)
 - 자동 스케일링 및 CDN
 - Zero-config 배포
@@ -25,6 +27,7 @@
 - 서울 리전(icn1) 지원
 
 **대안:**
+
 - **Docker + AWS ECS/Fargate**: 완전한 제어 필요 시
 - **Google Cloud Run**: 컨테이너 기반 서버리스
 - **Railway/Render**: 간단한 Docker 배포
@@ -91,6 +94,7 @@ vercel --prod
 ### 4. 자동 배포 설정
 
 GitHub 저장소를 Vercel과 연결하면:
+
 - `main` 브랜치 푸시 → Production 배포
 - PR 생성 → Preview 배포 자동 생성
 
@@ -102,7 +106,7 @@ GitHub 저장소를 Vercel과 연결하면:
 
 ```bash
 # 이미지 빌드
-docker build -t shadowing-ninja:latest \
+docker build -t inputenglish:latest \
   --build-arg NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
   --build-arg GOOGLE_GENERATIVE_AI_API_KEY=$GOOGLE_GENERATIVE_AI_API_KEY \
@@ -114,7 +118,7 @@ docker run -p 3000:3000 \
   -e NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
   -e SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY \
   -e GOOGLE_GENERATIVE_AI_API_KEY=$GOOGLE_GENERATIVE_AI_API_KEY \
-  shadowing-ninja:latest
+  inputenglish:latest
 ```
 
 ### Docker Compose 사용
@@ -141,11 +145,11 @@ docker-compose down
 aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com
 
 # 이미지 태그 및 푸시
-docker tag shadowing-ninja:latest <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/shadowing-ninja:latest
-docker push <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/shadowing-ninja:latest
+docker tag inputenglish:latest <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/inputenglish:latest
+docker push <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/inputenglish:latest
 
 # ECS 서비스 업데이트
-aws ecs update-service --cluster my-cluster --service shadowing-ninja --force-new-deployment
+aws ecs update-service --cluster my-cluster --service inputenglish --force-new-deployment
 ```
 
 ---
@@ -161,6 +165,7 @@ aws ecs update-service --cluster my-cluster --service shadowing-ninja --force-ne
 **트리거**: PR 생성/업데이트, main/develop 브랜치 푸시
 
 **작업:**
+
 - ESLint 검사
 - TypeScript 타입 체크
 - Next.js 빌드
@@ -171,6 +176,7 @@ aws ecs update-service --cluster my-cluster --service shadowing-ninja --force-ne
 **트리거**: `main` 브랜치에 푸시
 
 **작업:**
+
 - 테스트 실행
 - Vercel Production 배포
 - Supabase 마이그레이션 실행
@@ -181,6 +187,7 @@ aws ecs update-service --cluster my-cluster --service shadowing-ninja --force-ne
 **트리거**: PR 생성 (main/develop 대상)
 
 **작업:**
+
 - Vercel Preview 배포
 - E2E 테스트 (선택적)
 - Preview URL PR 코멘트
@@ -190,6 +197,7 @@ aws ecs update-service --cluster my-cluster --service shadowing-ninja --force-ne
 **트리거**: PR 생성
 
 **작업:**
+
 - 성능 측정 (Lighthouse)
 - 리포트 생성 및 업로드
 
@@ -262,6 +270,7 @@ npx supabase gen types typescript > src/types/database.types.ts
 ### 자동 마이그레이션 (CI/CD)
 
 `deploy-production.yml`에서 자동으로 실행됩니다:
+
 - `main` 브랜치 배포 시 자동으로 마이그레이션 적용
 
 ---
@@ -294,6 +303,7 @@ curl https://yourdomain.com/api/health
 ```
 
 응답:
+
 ```json
 {
   "status": "ok",
@@ -347,8 +357,8 @@ vercel rollback
 
 ```bash
 # 이전 이미지로 재배포
-docker pull <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/shadowing-ninja:previous-tag
-docker tag <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/shadowing-ninja:previous-tag shadowing-ninja:latest
+docker pull <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/inputenglish:previous-tag
+docker tag <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/inputenglish:previous-tag inputenglish:latest
 docker-compose up -d
 ```
 
@@ -398,6 +408,7 @@ npx supabase db reset
 ## 지원
 
 문제가 발생하면 다음을 확인하세요:
+
 1. GitHub Issues
 2. Vercel Support
 3. Supabase Discord

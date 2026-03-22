@@ -181,7 +181,7 @@ import { cn } from "@framingui/ui";
 
 ## Prompt
 
-/Users/sooyeon/Developer/shadowoo/apps/mobile 를 기준으로 FramingUI MCP를 써서
+/Users/sooyeon/Developer/inputenglish/apps/mobile 를 기준으로 FramingUI MCP를 써서
 React Native direct-write workflow로 진행해. 먼저 detect-project-context를
 실행하고, 그 결과를 바탕으로 회원가입 화면에 필요한 가이드를 모아줘. 웹 전용
 가정은 쓰지 말고 Expo + React Native + StyleSheet 기준으로만 답해.

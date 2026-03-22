@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version bump script for Shadowoo mobile app
+# Version bump script for InputEnglish mobile app
 # Usage: ./scripts/version-bump.sh [major|minor|patch]
 
 set -euo pipefail
