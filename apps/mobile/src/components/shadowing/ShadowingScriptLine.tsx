@@ -10,6 +10,7 @@ interface ShadowingScriptLineProps {
   isActive: boolean;
   hasRecording: boolean;
   isCurrentRecording: boolean;
+  showTranslation?: boolean;
   onRecord: (sentenceId: string) => void;
   onSeek: (sentenceId: string) => void;
   index: number;
@@ -22,6 +23,7 @@ function ShadowingScriptLine({
   isActive,
   hasRecording,
   isCurrentRecording,
+  showTranslation = false,
   onRecord,
   onSeek,
 }: ShadowingScriptLineProps) {
@@ -36,6 +38,9 @@ function ShadowingScriptLine({
         <Text style={[styles.text, isActive && styles.textActive]}>
           {sentence.text}
         </Text>
+        {showTranslation && sentence.translation ? (
+          <Text style={styles.translation}>{sentence.translation}</Text>
+        ) : null}
         {isCurrentRecording && (
           <View
             testID="current-recording-indicator"
@@ -97,6 +102,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 16,
     lineHeight: 26,
+  },
+  translation: {
+    fontSize: 12,
+    color: "#BBBBBB",
+    marginTop: 4,
+    lineHeight: 18,
   },
   recordingIndicator: {
     flexDirection: "row",

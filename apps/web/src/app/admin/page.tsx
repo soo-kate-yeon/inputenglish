@@ -32,6 +32,16 @@ import { useSearchParams } from "next/navigation";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** Parse "mm:ss" or "hh:mm:ss" or plain seconds to seconds */
+function parseTimeToSeconds(input: string): number {
+  const trimmed = input.trim();
+  if (!trimmed) return 0;
+  const parts = trimmed.split(":").map(Number);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return Number(trimmed) || 0;
+}
+
 function AdminPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,6 +65,8 @@ function AdminPageContent() {
   // Raw Script State
   const [rawScript, setRawScript] = useState("");
   const scriptRef = useRef<HTMLTextAreaElement>(null);
+  const [transcriptStartTime, setTranscriptStartTime] = useState("");
+  const [transcriptEndTime, setTranscriptEndTime] = useState("");
 
   // Sync Editor State (using custom hook)
   const {
@@ -267,11 +279,23 @@ function AdminPageContent() {
     }
   };
 
-  // --- Translation Logic ---
-  const handleAutoTranslate = async () => {
+  // --- Translation Logic (session-level, called from SessionCreator) ---
+  const handleTranslateSelected = async (sentenceIds: string[]) => {
     try {
-      const translated = await transcriptFetch.autoTranslate(sentences);
-      setSentences(translated);
+      const selected = sentences.filter((s) => sentenceIds.includes(s.id));
+      if (selected.length === 0) return;
+      const translated = await transcriptFetch.autoTranslate(selected);
+      // Merge translations back into full sentences list
+      const translationMap = new Map(
+        translated.map((s) => [s.id, s.translation]),
+      );
+      setSentences((prev) =>
+        prev.map((s) =>
+          translationMap.has(s.id)
+            ? { ...s, translation: translationMap.get(s.id) }
+            : s,
+        ),
+      );
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
     } catch (err: unknown) {
@@ -283,22 +307,24 @@ function AdminPageContent() {
 
   // --- Refine Script Logic ---
   const handleRefineScript = () => {
-    const refined = rawScript
-      .replace(/^>.*$/gm, "")
-      .replace(/>>/g, "")
-      .replace(/\[.*?\]/g, "")
-      .replace(/^.+?:\s*/gm, "")
-      .replace(/\n\s*\n/g, "\n")
-      .trim();
-
-    setRawScript(refined);
+    setRawScript(rawScript.replace(/>>/g, ""));
   };
 
   // --- Fetch Transcript Logic ---
   const handleFetchTranscript = async () => {
     const videoId = getVideoId();
     try {
-      const rawText = await transcriptFetch.fetchTranscript(videoId || "");
+      const timeRange: { startTime?: number; endTime?: number } = {};
+      if (transcriptStartTime) {
+        timeRange.startTime = parseTimeToSeconds(transcriptStartTime);
+      }
+      if (transcriptEndTime) {
+        timeRange.endTime = parseTimeToSeconds(transcriptEndTime);
+      }
+      const rawText = await transcriptFetch.fetchTranscript(
+        videoId || "",
+        Object.keys(timeRange).length > 0 ? timeRange : undefined,
+      );
       setRawScript(rawText);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
@@ -666,6 +692,10 @@ function AdminPageContent() {
             onFetchTranscript={handleFetchTranscript}
             onRefineScript={handleRefineScript}
             scriptRef={scriptRef}
+            startTime={transcriptStartTime}
+            endTime={transcriptEndTime}
+            onStartTimeChange={setTranscriptStartTime}
+            onEndTimeChange={setTranscriptEndTime}
           />
         </div>
 
@@ -677,7 +707,6 @@ function AdminPageContent() {
             loading={loading}
             rawScript={rawScript}
             onParseScript={handleParseScript}
-            onAutoTranslate={handleAutoTranslate}
             onAnalyzeScenes={handleAnalyzeScenes}
             analyzingScenes={analyzingScenes}
             onUpdateTime={updateSentenceTime}
@@ -695,6 +724,7 @@ function AdminPageContent() {
             onSessionsChange={setCreatedSessions}
             initialSessions={createdSessions}
             suggestedScenes={analyzedScenes}
+            onTranslateSelected={handleTranslateSelected}
           />
         </div>
       </div>

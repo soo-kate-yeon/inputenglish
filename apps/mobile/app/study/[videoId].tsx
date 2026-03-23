@@ -124,6 +124,7 @@ export default function StudyScreen() {
   const [mainTab, setMainTab] = useState<MainTab>("listening");
   const [playing, setPlaying] = useState(false);
   const [scriptVisible, setScriptVisible] = useState(true);
+  const [translationVisible, setTranslationVisible] = useState(false);
   const [activeSentenceId, setActiveSentenceId] = useState<string | null>(null);
 
   // Listening state
@@ -147,6 +148,7 @@ export default function StudyScreen() {
   const loopIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const seekDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewStartRef = useRef<number | null>(null);
 
   // Stores
   const savedSentences = appStore((s) => s.savedSentences);
@@ -288,11 +290,20 @@ export default function StudyScreen() {
   }, []);
 
   // ── 100ms poll: sentence sync ──
+  const isPremiumLocked =
+    Boolean(sessionDetail?.premium_required) && plan === "FREE";
+  const PREVIEW_DURATION = 10; // seconds
+
   useEffect(() => {
     if (!playing || !video) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
+    // Track when preview playback starts
+    if (isPremiumLocked && previewStartRef.current === null) {
+      previewStartRef.current = Date.now();
+    }
+
     const allSentences = studySentences;
     const offset = playerBaseOffset;
     const activeSentences =
@@ -302,6 +313,17 @@ export default function StudyScreen() {
       const t = await playerRef.current?.getCurrentTime();
       if (t === undefined) return;
       const rel = Math.max(0, t - offset);
+
+      // Premium preview: stop after 10 seconds and show paywall
+      if (isPremiumLocked && previewStartRef.current !== null) {
+        const elapsed = (Date.now() - previewStartRef.current) / 1000;
+        if (elapsed >= PREVIEW_DURATION) {
+          setPlaying(false);
+          previewStartRef.current = null;
+          router.push("/paywall");
+          return;
+        }
+      }
 
       if (sessionEndTime > 0 && rel >= sessionEndTime) {
         setPlaying(false);
@@ -363,6 +385,7 @@ export default function StudyScreen() {
     shadowingSentences,
     studySentences,
     video,
+    isPremiumLocked,
   ]);
 
   // ── Listening handlers ──
@@ -860,6 +883,7 @@ export default function StudyScreen() {
                       (s) => s.sentenceId === item.id && s.videoId === videoId,
                     )}
                     scriptHidden={false}
+                    showTranslation={translationVisible}
                     onTap={handleSentenceTap}
                     onLoopToggle={handleLoopToggle}
                     onSaveToggle={handleSaveToggle}
@@ -886,6 +910,7 @@ export default function StudyScreen() {
                   isActive={item.id === activeSentenceId}
                   hasRecording={!!recordedSentences[item.id]}
                   isCurrentRecording={item.id === currentRecordingSentenceId}
+                  showTranslation={translationVisible}
                   onRecord={handleRecord}
                   onSeek={handleSeek}
                   index={index}
@@ -925,22 +950,36 @@ export default function StudyScreen() {
                   <Ionicons name="reader-outline" size={20} color={C.text} />
                 </TouchableOpacity>
                 {mainTab !== "transformation" ? (
-                  <TouchableOpacity
-                    style={styles.iconBtn}
-                    onPress={() => setScriptVisible((v) => !v)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons
-                      name={
-                        scriptVisible
-                          ? "chatbox-ellipses"
-                          : "chatbox-ellipses-outline"
-                      }
-                      size={20}
-                      color={C.text}
-                    />
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      onPress={() => setScriptVisible((v) => !v)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={
+                          scriptVisible
+                            ? "chatbox-ellipses"
+                            : "chatbox-ellipses-outline"
+                        }
+                        size={20}
+                        color={C.text}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      onPress={() => setTranslationVisible((v) => !v)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={translationVisible ? "globe" : "globe-outline"}
+                        size={20}
+                        color={translationVisible ? "#b45000" : C.muted}
+                      />
+                    </TouchableOpacity>
+                  </>
                 ) : null}
               </View>
 

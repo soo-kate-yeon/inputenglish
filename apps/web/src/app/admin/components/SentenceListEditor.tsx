@@ -6,7 +6,6 @@ interface SentenceListEditorProps {
   loading: boolean;
   rawScript: string;
   onParseScript: () => void;
-  onAutoTranslate: () => void;
   onAnalyzeScenes: () => void;
   analyzingScenes: boolean;
   onUpdateTime: (
@@ -30,7 +29,6 @@ export function SentenceListEditor({
   loading,
   rawScript,
   onParseScript,
-  onAutoTranslate,
   onAnalyzeScenes,
   analyzingScenes,
   onUpdateTime,
@@ -86,32 +84,6 @@ export function SentenceListEditor({
           }}
         >
           Parse Script
-        </button>
-        <button
-          onClick={onAutoTranslate}
-          disabled={loading || sentences.length === 0}
-          className="text-xs uppercase tracking-wide transition-colors"
-          style={{
-            backgroundColor:
-              loading || sentences.length === 0 ? "#d4d4d4" : "#b45000",
-            color: "#ffffff",
-            padding: "2px 8px",
-            border: "none",
-            cursor:
-              loading || sentences.length === 0 ? "not-allowed" : "pointer",
-          }}
-          onMouseEnter={(e) => {
-            if (!loading && sentences.length > 0) {
-              e.currentTarget.style.backgroundColor = "#964100";
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!loading && sentences.length > 0) {
-              e.currentTarget.style.backgroundColor = "#b45000";
-            }
-          }}
-        >
-          Auto Translate
         </button>
         <button
           onClick={onAnalyzeScenes}

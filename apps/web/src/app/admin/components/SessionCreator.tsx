@@ -106,6 +106,7 @@ interface SessionCreatorProps {
   onSessionsChange: (sessions: LearningSession[]) => void;
   initialSessions?: LearningSession[];
   suggestedScenes?: SceneRecommendation[];
+  onTranslateSelected?: (sentenceIds: string[]) => Promise<void>;
 }
 
 export function SessionCreator({
@@ -114,6 +115,7 @@ export function SessionCreator({
   onSessionsChange,
   initialSessions = [],
   suggestedScenes = [],
+  onTranslateSelected,
 }: SessionCreatorProps) {
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -136,6 +138,7 @@ export function SessionCreator({
   const [isAutofilling, setIsAutofilling] = useState(false);
   const [isGeneratingContext, setIsGeneratingContext] = useState(false);
   const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // List State
   const [createdSessions, setCreatedSessions] =
@@ -613,6 +616,29 @@ export function SessionCreator({
             <span className="text-[10px]" style={{ color: "#737373" }}>
               {selectedIds.size} selected
             </span>
+            {onTranslateSelected && selectedIds.size > 0 && (
+              <button
+                onClick={async () => {
+                  setIsTranslating(true);
+                  try {
+                    await onTranslateSelected(Array.from(selectedIds));
+                  } finally {
+                    setIsTranslating(false);
+                  }
+                }}
+                disabled={isTranslating}
+                className="text-[10px] uppercase tracking-wide"
+                style={{
+                  backgroundColor: isTranslating ? "#d4d4d4" : "#b45000",
+                  color: "#fff",
+                  padding: "1px 6px",
+                  border: "none",
+                  cursor: isTranslating ? "not-allowed" : "pointer",
+                }}
+              >
+                {isTranslating ? "Translating..." : "Translate"}
+              </button>
+            )}
             <span
               className="text-[10px] font-mono font-medium"
               style={{ color: "#b45000" }}

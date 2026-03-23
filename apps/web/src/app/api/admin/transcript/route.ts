@@ -86,6 +86,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const videoId = searchParams.get("videoId");
   const lang = searchParams.get("lang") ?? "en";
+  const startTime = searchParams.get("startTime");
+  const endTime = searchParams.get("endTime");
 
   if (!videoId) {
     return NextResponse.json(
@@ -95,13 +97,26 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const transcript = await fetchTranscriptViaYtDlp(videoId, lang);
+    let transcript = await fetchTranscriptViaYtDlp(videoId, lang);
 
     if (!transcript.length) {
       return NextResponse.json(
         { error: "No transcript available for this video" },
         { status: 404 },
       );
+    }
+
+    // Filter by time range if specified
+    const startSec = startTime ? parseFloat(startTime) : null;
+    const endSec = endTime ? parseFloat(endTime) : null;
+
+    if (startSec !== null || endSec !== null) {
+      transcript = transcript.filter((item) => {
+        const itemEnd = item.start + item.duration;
+        if (startSec !== null && itemEnd < startSec) return false;
+        if (endSec !== null && item.start > endSec) return false;
+        return true;
+      });
     }
 
     return NextResponse.json({ transcript });

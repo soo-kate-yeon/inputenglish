@@ -6,6 +6,10 @@ interface RawScriptEditorProps {
   onFetchTranscript: () => void;
   onRefineScript: () => void;
   scriptRef: React.RefObject<HTMLTextAreaElement>;
+  startTime?: string;
+  endTime?: string;
+  onStartTimeChange?: (value: string) => void;
+  onEndTimeChange?: (value: string) => void;
 }
 
 export function RawScriptEditor({
@@ -16,6 +20,10 @@ export function RawScriptEditor({
   onFetchTranscript,
   onRefineScript,
   scriptRef,
+  startTime = "",
+  endTime = "",
+  onStartTimeChange,
+  onEndTimeChange,
 }: RawScriptEditorProps) {
   return (
     <div
@@ -88,6 +96,48 @@ export function RawScriptEditor({
         >
           Refine Script
         </button>
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <input
+            type="text"
+            value={startTime}
+            onChange={(e) => onStartTimeChange?.(e.target.value)}
+            placeholder="from 0:00"
+            className="text-xs"
+            style={{
+              width: 64,
+              padding: "2px 4px",
+              border: "1px solid #e5e5e5",
+              color: "#0a0a0a",
+              backgroundColor: "#fff",
+            }}
+            title="Start time (mm:ss or hh:mm:ss)"
+          />
+          <span className="text-xs" style={{ color: "#737373" }}>
+            ~
+          </span>
+          <input
+            type="text"
+            value={endTime}
+            onChange={(e) => onEndTimeChange?.(e.target.value)}
+            placeholder="to end"
+            className="text-xs"
+            style={{
+              width: 64,
+              padding: "2px 4px",
+              border: "1px solid #e5e5e5",
+              color: "#0a0a0a",
+              backgroundColor: "#fff",
+            }}
+            title="End time (mm:ss or hh:mm:ss)"
+          />
+        </div>
       </div>
       {/* Textarea fills remaining space */}
       <textarea

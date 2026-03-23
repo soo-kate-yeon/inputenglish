@@ -12,6 +12,7 @@ interface ScriptLineProps {
   isLooping: boolean;
   isSaved: boolean;
   scriptHidden: boolean;
+  showTranslation?: boolean;
   onTap: (sentence: Sentence) => void;
   onLoopToggle: (sentence: Sentence) => void;
   onSaveToggle: (sentence: Sentence) => void;
@@ -26,6 +27,7 @@ function ScriptLine({
   isLooping,
   isSaved,
   scriptHidden,
+  showTranslation = false,
   onTap,
   onLoopToggle,
   onSaveToggle,
@@ -46,7 +48,7 @@ function ScriptLine({
         >
           {scriptHidden ? "• • •" : sentence.text}
         </Text>
-        {sentence.translation ? (
+        {showTranslation && sentence.translation ? (
           <Text style={styles.translation}>{sentence.translation}</Text>
         ) : null}
       </View>
