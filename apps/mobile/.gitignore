@@ -15,5 +15,8 @@ vendor/
 .bundle/
 Gemfile.lock
 
+# Expo
+.expo/
+
 # EAS
 .eas/
