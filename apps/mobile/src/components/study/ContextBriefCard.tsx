@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import type { SessionContext, KeyVocabularyEntry } from "@inputenglish/shared";
+import { colors, radius, font } from "../../theme";
 
 function normalizeVocabEntry(
   item: string | KeyVocabularyEntry,
@@ -143,8 +144,8 @@ const styles = StyleSheet.create({
   },
   kicker: {
     fontSize: 11,
-    fontWeight: "700",
-    color: "#111111",
+    fontWeight: font.weight.bold,
+    color: colors.text,
     letterSpacing: 1,
   },
   content: {
@@ -155,43 +156,43 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 11,
-    fontWeight: "700",
-    color: "#888888",
+    fontWeight: font.weight.bold,
+    color: colors.textMuted,
   },
   bodyText: {
     fontSize: 13,
     lineHeight: 19,
-    color: "#111111",
+    color: colors.text,
   },
   listText: {
     fontSize: 13,
     lineHeight: 19,
-    color: "#111111",
+    color: colors.text,
   },
   vocabItem: {
     marginBottom: 6,
   },
   vocabExpression: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: font.weight.semibold,
     lineHeight: 19,
-    color: "#111111",
+    color: colors.text,
   },
   vocabExample: {
     fontSize: 12,
     lineHeight: 17,
-    color: "#888888",
+    color: colors.textMuted,
     marginTop: 1,
   },
   vocabTranslation: {
     fontSize: 12,
     lineHeight: 17,
-    color: "#AAAAAA",
+    color: colors.textMuted,
     marginTop: 1,
   },
   emptyText: {
     fontSize: 13,
-    color: "#888888",
+    color: colors.textMuted,
   },
 
   contentLocked: {
@@ -207,27 +208,28 @@ const styles = StyleSheet.create({
     height: 60,
   },
   lockCta: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.bg,
     alignItems: "center",
     gap: 10,
     paddingVertical: 8,
   },
   lockText: {
     fontSize: 12,
-    color: "#888888",
+    color: colors.textMuted,
     textAlign: "center",
   },
   unlockButton: {
     borderWidth: 1,
-    borderColor: "#111111",
-    backgroundColor: "#111111",
+    borderColor: colors.text,
+    backgroundColor: colors.text,
+    borderRadius: radius.pill,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   unlockButtonText: {
     fontSize: 11,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    fontWeight: font.weight.bold,
+    color: colors.textInverse,
     letterSpacing: 1,
   },
 });

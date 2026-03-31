@@ -1,6 +1,7 @@
 // @MX:SPEC: SPEC-MOBILE-003 - AC-002 (script show/hide)
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { colors, font } from "../../theme";
 
 interface ScriptToggleProps {
   hidden: boolean;
@@ -21,14 +22,14 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#f8f8f8",
+    backgroundColor: colors.bgSubtle,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: colors.border,
     alignItems: "center",
   },
   text: {
-    fontSize: 13,
-    color: "#007AFF",
-    fontWeight: "500",
+    fontSize: font.size.sm,
+    color: colors.primary,
+    fontWeight: font.weight.medium,
   },
 });

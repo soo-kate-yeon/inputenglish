@@ -50,7 +50,7 @@ export function RawScriptEditor({
           disabled={loading || !youtubeUrl}
           className="text-xs uppercase tracking-wide transition-colors"
           style={{
-            backgroundColor: loading || !youtubeUrl ? "#d4d4d4" : "#b45000",
+            backgroundColor: loading || !youtubeUrl ? "#d4d4d4" : "#171717",
             color: "#ffffff",
             padding: "2px 8px",
             border: "none",
@@ -59,12 +59,12 @@ export function RawScriptEditor({
           title="Fetch transcript from YouTube"
           onMouseEnter={(e) => {
             if (!loading && youtubeUrl) {
-              e.currentTarget.style.backgroundColor = "#964100";
+              e.currentTarget.style.backgroundColor = "#404040";
             }
           }}
           onMouseLeave={(e) => {
             if (!loading && youtubeUrl) {
-              e.currentTarget.style.backgroundColor = "#b45000";
+              e.currentTarget.style.backgroundColor = "#171717";
             }
           }}
         >
@@ -76,7 +76,7 @@ export function RawScriptEditor({
           className="text-xs uppercase tracking-wide transition-colors"
           style={{
             backgroundColor: "#ffffff",
-            color: "#b45000",
+            color: "#171717",
             padding: "2px 8px",
             border: "1px solid #e5e5e5",
             cursor: !rawScript.trim() ? "not-allowed" : "pointer",

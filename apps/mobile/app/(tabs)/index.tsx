@@ -20,22 +20,14 @@ import {
   SOURCE_TYPE_LABELS,
   SPEAKING_FUNCTION_LABELS,
 } from "../../src/lib/professional-labels";
+import { colors, radius, font, spacing, shadow } from "../../src/theme";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-const COLOR = {
-  bg: "#FFFFFF",
-  border: "#111111",
-  borderLight: "#E0E0E0",
-  text: "#111111",
-  textMuted: "#888888",
-  textInverse: "#FFFFFF",
-};
-
 const DIFFICULTY_BG: Record<string, string> = {
-  beginner: "#111111",
-  intermediate: "#555555",
-  advanced: "#111111",
+  beginner: colors.primary,
+  intermediate: colors.textSecondary,
+  advanced: colors.primary,
 };
 
 function formatDuration(seconds: number): string {
@@ -85,7 +77,7 @@ function FilterDropdown({
         <Ionicons
           name="chevron-down"
           size={14}
-          color={isFiltered ? COLOR.textInverse : COLOR.textMuted}
+          color={isFiltered ? colors.textInverse : colors.textSecondary}
         />
       </TouchableOpacity>
 
@@ -115,7 +107,7 @@ function FilterDropdown({
                 <Ionicons
                   name="checkmark"
                   size={18}
-                  color={COLOR.textInverse}
+                  color={colors.textInverse}
                 />
               )}
             </TouchableOpacity>
@@ -195,7 +187,7 @@ function SessionCard({ item }: { item: SessionListItem }) {
                 <Ionicons
                   name="cash-outline"
                   size={10}
-                  color={COLOR.textInverse}
+                  color={colors.textInverse}
                 />
                 <Text style={styles.premiumText}>프리미엄</Text>
               </View>
@@ -301,8 +293,8 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.stateContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
-        <ActivityIndicator size="small" color={COLOR.text} />
+        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+        <ActivityIndicator size="small" color={colors.text} />
       </SafeAreaView>
     );
   }
@@ -310,7 +302,7 @@ export default function HomeScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.stateContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
+        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
         <Text style={styles.stateText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={load}>
           <Text style={styles.retryText}>다시 시도</Text>
@@ -322,7 +314,7 @@ export default function HomeScreen() {
   if (sessions.length === 0) {
     return (
       <SafeAreaView style={styles.stateContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
+        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
         <Text style={styles.stateText}>아직 등록된 세션이 없어요</Text>
       </SafeAreaView>
     );
@@ -330,7 +322,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLOR.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       <View style={styles.header}>
         <Text style={styles.headerWordmark}>인풋영어</Text>
@@ -397,30 +389,31 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLOR.bg,
+    backgroundColor: colors.bg,
   },
   stateContainer: {
     flex: 1,
-    backgroundColor: COLOR.bg,
+    backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
     gap: 16,
   },
   stateText: {
     fontSize: 13,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     fontWeight: "500",
     textAlign: "center",
   },
   retryButton: {
     borderWidth: 1,
-    borderColor: COLOR.border,
+    borderColor: colors.borderStrong,
     paddingHorizontal: 20,
     paddingVertical: 8,
+    borderRadius: radius.pill,
   },
   retryText: {
     fontSize: 11,
-    color: COLOR.text,
+    color: colors.text,
     fontWeight: "600",
   },
   header: {
@@ -428,20 +421,20 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.border,
+    borderBottomColor: colors.border,
     flexDirection: "row",
     alignItems: "baseline",
     gap: 12,
   },
   headerWordmark: {
     fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 4,
-    color: COLOR.text,
+    fontWeight: font.weight.semibold,
+    letterSpacing: 2,
+    color: colors.text,
   },
   headerLabel: {
     fontSize: 12,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     fontWeight: "500",
   },
 
@@ -453,7 +446,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.borderLight,
+    borderBottomColor: colors.border,
   },
 
   // ── Dropdown trigger ──
@@ -461,23 +454,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLOR.borderLight,
+    borderColor: colors.border,
     paddingHorizontal: 10,
     paddingVertical: 7,
     gap: 4,
+    borderRadius: radius.pill,
   },
   dropdownTriggerActive: {
-    borderColor: COLOR.border,
-    backgroundColor: COLOR.border,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   dropdownTriggerText: {
     fontSize: 11,
-    fontWeight: "700",
-    color: COLOR.textMuted,
+    fontWeight: font.weight.semibold,
+    color: colors.textSecondary,
     letterSpacing: 0.5,
   },
   dropdownTriggerTextActive: {
-    color: COLOR.textInverse,
+    color: colors.textInverse,
   },
 
   // ── Bottom sheet content ──
@@ -485,7 +479,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 2,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     textTransform: "uppercase",
     paddingHorizontal: 20,
     paddingBottom: 12,
@@ -498,15 +492,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   sheetItemActive: {
-    backgroundColor: COLOR.text,
+    backgroundColor: colors.primary,
   },
   sheetItemText: {
     fontSize: 15,
     fontWeight: "600",
-    color: COLOR.text,
+    color: colors.text,
   },
   sheetItemTextActive: {
-    color: COLOR.textInverse,
+    color: colors.textInverse,
   },
 
   // ── Reset ──
@@ -517,7 +511,7 @@ const styles = StyleSheet.create({
   resetText: {
     fontSize: 11,
     fontWeight: "600",
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     textDecorationLine: "underline",
   },
 
@@ -527,17 +521,17 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: COLOR.borderLight,
+    backgroundColor: colors.border,
   },
 
   // ── Card ──
   card: {
-    backgroundColor: COLOR.bg,
+    backgroundColor: colors.bg,
   },
   thumbnail: {
     width: SCREEN_WIDTH,
     height: SCREEN_WIDTH * (9 / 16),
-    backgroundColor: "#F0F0F0",
+    backgroundColor: colors.bgMuted,
   },
   thumbnailPlaceholder: {
     alignItems: "center",
@@ -545,7 +539,7 @@ const styles = StyleSheet.create({
   },
   thumbnailPlaceholderIcon: {
     fontSize: 36,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
   },
   info: {
     paddingHorizontal: 16,
@@ -562,28 +556,29 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     paddingHorizontal: 8,
     paddingVertical: 3,
+    borderRadius: radius.pill,
   },
   levelText: {
     fontSize: 10,
     fontWeight: "700",
-    color: COLOR.textInverse,
+    color: colors.textInverse,
   },
   duration: {
     fontSize: 11,
     letterSpacing: 1,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     fontWeight: "500",
   },
   title: {
     fontSize: 17,
-    fontWeight: "700",
-    color: COLOR.text,
+    fontWeight: font.weight.semibold,
+    color: colors.text,
     lineHeight: 24,
     letterSpacing: -0.2,
   },
   description: {
     fontSize: 13,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   taxonomyRow: {
@@ -594,14 +589,15 @@ const styles = StyleSheet.create({
   },
   taxonomyBadge: {
     borderWidth: 1,
-    borderColor: COLOR.borderLight,
+    borderColor: colors.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: "#F7F7F7",
+    backgroundColor: colors.bgSubtle,
+    borderRadius: radius.pill,
   },
   taxonomyText: {
     fontSize: 10,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     fontWeight: "600",
   },
   premiumBadge: {
@@ -609,19 +605,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     borderWidth: 1,
-    borderColor: COLOR.border,
+    borderColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: COLOR.text,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
   },
   premiumText: {
     fontSize: 10,
-    color: COLOR.textInverse,
+    color: colors.textInverse,
     fontWeight: "700",
   },
   channel: {
     fontSize: 12,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
@@ -633,13 +630,13 @@ const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontSize: 14,
-    color: COLOR.text,
+    color: colors.text,
     fontWeight: "700",
   },
   emptyStateText: {
     fontSize: 12,
     lineHeight: 18,
-    color: COLOR.textMuted,
+    color: colors.textSecondary,
     textAlign: "center",
   },
 });

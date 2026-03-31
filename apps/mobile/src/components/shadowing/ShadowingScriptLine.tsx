@@ -1,9 +1,10 @@
-// @MX:NOTE: [AUTO] Shadowing script line — bold active, wrap, square minimalism.
+// @MX:NOTE: [AUTO] Shadowing script line — bold active, wrap, editorial-tech theme.
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-E-001, REQ-C-001, REQ-C-002, AC-002
 import React, { memo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Sentence } from "@inputenglish/shared";
+import { colors, radius, font } from "../../theme";
 
 interface ShadowingScriptLineProps {
   sentence: Sentence;
@@ -54,7 +55,7 @@ function ShadowingScriptLine({
       <View style={styles.actions}>
         {hasRecording && (
           <View testID="recording-complete-indicator">
-            <Ionicons name="checkmark" size={16} color="#111111" />
+            <Ionicons name="checkmark" size={16} color={colors.text} />
           </View>
         )}
         <TouchableOpacity
@@ -69,7 +70,7 @@ function ShadowingScriptLine({
           <Ionicons
             name={isCurrentRecording ? "stop" : "mic"}
             size={16}
-            color={isCurrentRecording ? "#fff" : "#111111"}
+            color={isCurrentRecording ? colors.textInverse : colors.text}
           />
         </TouchableOpacity>
       </View>
@@ -85,7 +86,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg,
   },
   content: {
     flex: 1,
@@ -93,19 +94,19 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 15,
-    color: "#BBBBBB",
+    color: colors.textMuted,
     lineHeight: 24,
-    fontWeight: "400",
+    fontWeight: font.weight.regular,
   },
   textActive: {
-    color: "#111111",
-    fontWeight: "700",
+    color: colors.text,
+    fontWeight: font.weight.bold,
     fontSize: 16,
     lineHeight: 26,
   },
   translation: {
     fontSize: 12,
-    color: "#BBBBBB",
+    color: colors.textMuted,
     marginTop: 4,
     lineHeight: 18,
   },
@@ -118,13 +119,13 @@ const styles = StyleSheet.create({
   recordingDot: {
     width: 6,
     height: 6,
-    backgroundColor: "#111111",
+    backgroundColor: colors.text,
   },
   recordingLabel: {
     fontSize: 9,
     letterSpacing: 1.5,
-    fontWeight: "700",
-    color: "#111111",
+    fontWeight: font.weight.bold,
+    color: colors.text,
   },
   actions: {
     flexDirection: "row",
@@ -136,12 +137,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderWidth: 1,
-    borderColor: "#111111",
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   recordBtnActive: {
-    backgroundColor: "#111111",
-    borderColor: "#111111",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
 });

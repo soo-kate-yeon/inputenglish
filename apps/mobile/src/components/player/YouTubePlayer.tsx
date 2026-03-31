@@ -3,6 +3,7 @@
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import YoutubeIframe, { YoutubeIframeRef } from "react-native-youtube-iframe";
+import { palette } from "../../theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PLAYER_HEIGHT = Math.floor(SCREEN_WIDTH * (9 / 16));
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
   container: {
     width: SCREEN_WIDTH,
     height: PLAYER_HEIGHT,
-    backgroundColor: "#000",
+    backgroundColor: palette.black,
   },
   webview: {
     opacity: 0.99,

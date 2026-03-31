@@ -2,6 +2,7 @@
 import React from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../../theme";
 
 interface LoopToggleProps {
   active: boolean;
@@ -19,7 +20,7 @@ export default function LoopToggle({ active, onPress }: LoopToggleProps) {
       <Ionicons
         name="repeat"
         size={14}
-        color={active ? "#FFFFFF" : "#888888"}
+        color={active ? colors.textInverse : colors.textSecondary}
       />
     </TouchableOpacity>
   );
@@ -32,11 +33,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    backgroundColor: "#FFFFFF",
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
   },
   buttonActive: {
-    backgroundColor: "#111111",
-    borderColor: "#111111",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
 });

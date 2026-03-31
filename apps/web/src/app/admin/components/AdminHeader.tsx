@@ -120,7 +120,7 @@ export function AdminHeader({
           className="font-bold text-sm transition-colors"
           style={{
             backgroundColor:
-              loading || sentencesCount === 0 ? "#d4d4d4" : "#b45000",
+              loading || sentencesCount === 0 ? "#d4d4d4" : "#171717",
             color: "#ffffff",
             padding: "6px 20px",
             cursor: loading || sentencesCount === 0 ? "not-allowed" : "pointer",
@@ -128,12 +128,12 @@ export function AdminHeader({
           }}
           onMouseEnter={(e) => {
             if (!loading && sentencesCount > 0) {
-              e.currentTarget.style.backgroundColor = "#964100";
+              e.currentTarget.style.backgroundColor = "#404040";
             }
           }}
           onMouseLeave={(e) => {
             if (!loading && sentencesCount > 0) {
-              e.currentTarget.style.backgroundColor = "#b45000";
+              e.currentTarget.style.backgroundColor = "#171717";
             }
           }}
         >

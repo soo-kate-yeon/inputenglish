@@ -2,6 +2,7 @@
 // @MX:SPEC: SPEC-MOBILE-005 - REQ-E-004, REQ-N-001, REQ-C-002
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { colors } from "../../theme";
 
 interface UndoToastProps {
   visible: boolean;
@@ -32,7 +33,7 @@ const styles = StyleSheet.create({
     bottom: 24,
     left: 16,
     right: 16,
-    backgroundColor: "#333",
+    backgroundColor: colors.bgInverse,
     borderRadius: 12,
     padding: 14,
     flexDirection: "row",
@@ -46,7 +47,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   message: {
-    color: "#fff",
+    color: colors.textInverse,
     fontSize: 14,
     flex: 1,
   },
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   undoText: {
-    color: "#fff",
+    color: colors.textInverse,
     fontSize: 13,
     fontWeight: "600",
   },

@@ -146,7 +146,7 @@ export function VideoListModal({
                   </div>
                   <span
                     className="text-[10px] font-medium"
-                    style={{ color: "#b45000" }}
+                    style={{ color: "#171717" }}
                   >
                     EDIT VIDEO
                   </span>

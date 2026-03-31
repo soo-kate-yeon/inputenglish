@@ -9,6 +9,7 @@ import {
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors, font } from "../../theme";
 
 const ICONS: Record<string, { active: string; inactive: string }> = {
   index: { active: "home", inactive: "home-outline" },
@@ -67,7 +68,7 @@ export default function FloatingTabBar({
               <Ionicons
                 name={(isFocused ? iconSet.active : iconSet.inactive) as any}
                 size={22}
-                color={isFocused ? "#111111" : "#AAAAAA"}
+                color={isFocused ? colors.text : colors.textMuted}
               />
               <Text style={[styles.label, isFocused && styles.labelActive]}>
                 {LABELS[route.name]}
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     flexDirection: "row",
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.bg,
     // shadow
     ...Platform.select({
       ios: {
@@ -121,10 +122,10 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 8,
     letterSpacing: 1.2,
-    fontWeight: "700",
-    color: "#AAAAAA",
+    fontWeight: font.weight.semibold,
+    color: colors.textMuted,
   },
   labelActive: {
-    color: "#111111",
+    color: colors.text,
   },
 });

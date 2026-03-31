@@ -12,15 +12,7 @@ import {
   PLAYBOOK_MASTERY_LABELS,
   SPEAKING_FUNCTION_LABELS,
 } from "../../lib/professional-labels";
-
-const COLOR = {
-  bg: "#FFFFFF",
-  border: "#111111",
-  borderLight: "#E0E0E0",
-  text: "#111111",
-  textMuted: "#888888",
-  textInverse: "#FFFFFF",
-};
+import { colors, radius, font } from "../../theme";
 
 const MASTERY_OPTIONS: { key: PlaybookMasteryStatus; label: string }[] = [
   { key: "new", label: PLAYBOOK_MASTERY_LABELS.new },
@@ -101,7 +93,7 @@ export default function PlaybookCard({
           <Text style={styles.masteryTriggerText}>
             {PLAYBOOK_MASTERY_LABELS[entry.mastery_status]}
           </Text>
-          <Ionicons name="chevron-down" size={14} color={COLOR.text} />
+          <Ionicons name="chevron-down" size={14} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -132,7 +124,7 @@ export default function PlaybookCard({
                 <Ionicons
                   name="checkmark"
                   size={18}
-                  color={COLOR.textInverse}
+                  color={colors.textInverse}
                 />
               )}
             </TouchableOpacity>
@@ -145,7 +137,7 @@ export default function PlaybookCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLOR.bg,
+    backgroundColor: colors.bg,
     padding: 16,
     gap: 10,
   },
@@ -159,14 +151,14 @@ const styles = StyleSheet.create({
   },
   sessionRefText: {
     fontSize: 10,
-    color: COLOR.textMuted,
-    fontWeight: "500",
+    color: colors.textMuted,
+    fontWeight: font.weight.medium,
     letterSpacing: 0.3,
     flex: 1,
   },
   sessionRefArrow: {
     fontSize: 10,
-    color: COLOR.textMuted,
+    color: colors.textMuted,
   },
 
   // Content
@@ -175,19 +167,19 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    color: COLOR.textMuted,
-    fontWeight: "700",
+    color: colors.textMuted,
+    fontWeight: font.weight.bold,
   },
   sourceText: {
     fontSize: 13,
     lineHeight: 20,
-    color: "#666666",
+    color: colors.textSecondary,
   },
   rewriteText: {
     fontSize: 15,
     lineHeight: 22,
-    color: COLOR.text,
-    fontWeight: "600",
+    color: colors.text,
+    fontWeight: font.weight.semibold,
   },
 
   // Footer
@@ -205,19 +197,20 @@ const styles = StyleSheet.create({
   },
   tag: {
     borderWidth: 1,
-    borderColor: COLOR.borderLight,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: "#F7F7F7",
+    backgroundColor: colors.bgMuted,
   },
   tagText: {
     fontSize: 10,
-    color: COLOR.textMuted,
-    fontWeight: "600",
+    color: colors.textMuted,
+    fontWeight: font.weight.semibold,
   },
   timestamp: {
     fontSize: 11,
-    color: COLOR.textMuted,
+    color: colors.textMuted,
   },
 
   // Mastery dropdown trigger
@@ -225,23 +218,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLOR.border,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
     gap: 4,
   },
   masteryTriggerText: {
     fontSize: 10,
-    color: COLOR.text,
-    fontWeight: "700",
+    color: colors.text,
+    fontWeight: font.weight.bold,
   },
 
   // Bottom sheet content
   sheetTitle: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: font.weight.bold,
     letterSpacing: 2,
-    color: COLOR.textMuted,
+    color: colors.textMuted,
     textTransform: "uppercase",
     paddingHorizontal: 20,
     paddingBottom: 12,
@@ -254,14 +248,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   sheetItemActive: {
-    backgroundColor: COLOR.text,
+    backgroundColor: colors.text,
   },
   sheetItemText: {
     fontSize: 15,
-    fontWeight: "600",
-    color: COLOR.text,
+    fontWeight: font.weight.semibold,
+    color: colors.text,
   },
   sheetItemTextActive: {
-    color: COLOR.textInverse,
+    color: colors.textInverse,
   },
 });

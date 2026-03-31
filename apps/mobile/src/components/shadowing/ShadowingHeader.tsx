@@ -1,7 +1,8 @@
-// @MX:NOTE: [AUTO] Shadowing screen header with mode toggle — square minimalism.
+// @MX:NOTE: [AUTO] Shadowing screen header with mode toggle — editorial-tech pill tabs.
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-E-005, AC-005
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { colors, radius, font } from "../../theme";
 
 export type ShadowingMode = "sentence" | "paragraph" | "total";
 
@@ -45,25 +46,27 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 4,
   },
   modeBtn: {
     flex: 1,
-    paddingVertical: 11,
+    paddingVertical: 7,
     alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    borderRadius: radius.pill,
   },
   modeBtnActive: {
-    borderBottomColor: "#111111",
+    backgroundColor: colors.primary,
   },
   modeText: {
     fontSize: 10,
     letterSpacing: 2,
-    fontWeight: "700",
-    color: "#AAAAAA",
+    fontWeight: font.weight.semibold,
+    color: colors.textMuted,
   },
   modeTextActive: {
-    color: "#111111",
+    color: colors.textInverse,
   },
 });

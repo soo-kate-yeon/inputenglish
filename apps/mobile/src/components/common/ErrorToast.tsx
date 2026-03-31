@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../../theme";
 
 interface ErrorToastProps {
   message: string;
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
     bottom: 80,
     left: 16,
     right: 16,
-    backgroundColor: "#333",
+    backgroundColor: colors.bgInverse,
     borderRadius: 12,
     padding: 14,
     flexDirection: "row",
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   message: {
-    color: "#fff",
+    color: colors.textInverse,
     fontSize: 14,
     flex: 1,
     marginRight: 8,
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryText: {
-    color: "#fff",
+    color: colors.textInverse,
     fontSize: 13,
     fontWeight: "600",
   },
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   dismissText: {
-    color: "#aaa",
+    color: colors.textMuted,
     fontSize: 13,
   },
 });

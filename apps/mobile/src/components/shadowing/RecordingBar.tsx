@@ -1,4 +1,4 @@
-// @MX:NOTE: [AUTO] Fixed bottom recording bar — square minimalism, black point color.
+// @MX:NOTE: [AUTO] Fixed bottom recording bar — editorial-tech theme, pill buttons.
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-S-001, REQ-S-002, REQ-S-003, REQ-E-002, REQ-E-003, REQ-E-004
 import React from "react";
 import {
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors, radius, font } from "../../theme";
 
 interface RecordingBarProps {
   recordingState: "idle" | "recording" | "playback";
@@ -53,7 +54,7 @@ export default function RecordingBar({
             onPress={onStop}
             activeOpacity={0.7}
           >
-            <Ionicons name="stop" size={20} color="#fff" />
+            <Ionicons name="stop" size={20} color={colors.textInverse} />
           </TouchableOpacity>
         </View>
       </View>
@@ -89,7 +90,7 @@ export default function RecordingBar({
           <Ionicons
             name={isPlaying ? "pause" : "play"}
             size={22}
-            color="#fff"
+            color={colors.textInverse}
           />
         </TouchableOpacity>
 
@@ -109,8 +110,8 @@ export default function RecordingBar({
 const styles = StyleSheet.create({
   container: {
     borderTopWidth: 1,
-    borderTopColor: "#111111",
-    backgroundColor: "#FFFFFF",
+    borderTopColor: colors.borderStrong,
+    backgroundColor: colors.bg,
     paddingTop: 12,
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === "ios" ? 34 : 20,
@@ -125,12 +126,13 @@ const styles = StyleSheet.create({
   recDot: {
     width: 8,
     height: 8,
-    backgroundColor: "#111111",
+    borderRadius: radius.pill,
+    backgroundColor: colors.text,
   },
   timer: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#111111",
+    fontWeight: font.weight.bold,
+    color: colors.text,
     letterSpacing: 1,
     minWidth: 56,
     textAlign: "center",
@@ -138,47 +140,51 @@ const styles = StyleSheet.create({
   stopBtn: {
     width: 44,
     height: 44,
-    backgroundColor: "#111111",
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   progressTrack: {
     height: 2,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: colors.border,
     marginBottom: 12,
   },
   progressFill: {
     height: 2,
-    backgroundColor: "#111111",
+    backgroundColor: colors.primary,
   },
   playBtn: {
     width: 48,
     height: 48,
-    backgroundColor: "#111111",
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryBtn: {
     borderWidth: 1,
-    borderColor: "#111111",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   secondaryText: {
     fontSize: 10,
     letterSpacing: 1.5,
-    fontWeight: "700",
-    color: "#111111",
+    fontWeight: font.weight.semibold,
+    color: colors.text,
   },
   confirmBtn: {
-    backgroundColor: "#111111",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   confirmText: {
     fontSize: 10,
     letterSpacing: 1.5,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    fontWeight: font.weight.semibold,
+    color: colors.textInverse,
   },
 });

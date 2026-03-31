@@ -1,10 +1,8 @@
 {
   "mcpServers": {
     "framingui": {
-      "command": "node",
-      "args": [
-        "/Users/sooyeon/Developer/worktrees/framingui-rn-direct-write/packages/mcp-server/dist/index.js"
-      ],
+      "command": "npx",
+      "args": ["-y", "@framingui/mcp-server@latest"],
       "env": {
         "FRAMINGUI_API_KEY": "tk_live_e949d1573845844064e45f8b0dcffdf5d8e234053a3b9c0ad881083d51dc3585"
       }

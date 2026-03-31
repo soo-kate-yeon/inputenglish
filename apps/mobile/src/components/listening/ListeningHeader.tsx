@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
+import { colors, radius, font } from "../../theme";
 
 const SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 type SpeedPreset = (typeof SPEED_PRESETS)[number];
@@ -81,9 +82,9 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: 12,
     paddingBottom: 4,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: colors.border,
   },
   topRow: {
     flexDirection: "row",
@@ -96,14 +97,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   backText: {
-    color: "#007AFF",
-    fontSize: 14,
+    color: colors.primary,
+    fontSize: font.size.md,
   },
   title: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
+    fontSize: font.size.md,
+    fontWeight: font.weight.semibold,
+    color: colors.text,
   },
   speedRow: {
     flexDirection: "row",
@@ -111,31 +112,31 @@ const styles = StyleSheet.create({
   speedButton: {
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     marginRight: 6,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: colors.bgMuted,
   },
   speedButtonActive: {
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.primary,
   },
   speedText: {
-    fontSize: 13,
-    color: "#555",
+    fontSize: font.size.sm,
+    color: colors.textSecondary,
   },
   speedTextActive: {
-    color: "#fff",
-    fontWeight: "600",
+    color: colors.textInverse,
+    fontWeight: font.weight.semibold,
   },
   shadowingButton: {
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: "#34C759",
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
     marginLeft: 8,
   },
   shadowingText: {
-    fontSize: 13,
-    color: "#fff",
-    fontWeight: "600",
+    fontSize: font.size.sm,
+    color: colors.textInverse,
+    fontWeight: font.weight.semibold,
   },
 });

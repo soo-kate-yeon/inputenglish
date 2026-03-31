@@ -4,32 +4,33 @@
 
 @theme {
   /* ========================================
-   * Design Tokens from inputenglish.tokens.json
+   * Editorial Tech — Pure Grayscale Mono
+   * Airy Canvas · Typography-First · Pill Accents
    * ======================================== */
 
-  /* Primary Colors */
-  --color-primary-50: #fff2ec;
-  --color-primary-100: #ffe1d2;
-  --color-primary-200: #ffc6a9;
-  --color-primary-300: #fd9b66;
-  --color-primary-400: #e5742f;
-  --color-primary-500: #b45000;
-  --color-primary-600: #964100;
-  --color-primary-700: #743100;
-  --color-primary-800: #552200;
-  --color-primary-900: #371300;
+  /* Primary Colors — Pure Grayscale (zero chroma) */
+  --color-primary-50: #fafafa;
+  --color-primary-100: #f5f5f5;
+  --color-primary-200: #e5e5e5;
+  --color-primary-300: #d4d4d4;
+  --color-primary-400: #a3a3a3;
+  --color-primary-500: #737373;
+  --color-primary-600: #525252;
+  --color-primary-700: #404040;
+  --color-primary-800: #262626;
+  --color-primary-900: #171717;
 
-  /* Neutral Colors */
-  --color-neutral-50: #faf9f5;
-  --color-neutral-100: #f0efeb;
-  --color-neutral-200: #dfdedb;
-  --color-neutral-300: #b8b7b4;
-  --color-neutral-400: #908f8c;
-  --color-neutral-500: #72716e;
-  --color-neutral-600: #565552;
-  --color-neutral-700: #3b3a38;
-  --color-neutral-800: #22221f;
-  --color-neutral-900: #0c0b09;
+  /* Neutral Colors — Pure Grayscale */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
 
   /* Green Colors */
   --color-green-50: #e0ffe4;
@@ -79,37 +80,37 @@
   --color-blue-800: #002d73;
   --color-blue-900: #001b4c;
 
-  /* Semantic Background Colors */
-  --color-bg-default: var(--color-neutral-50);
-  --color-bg-subtle: var(--color-neutral-100);
-  --color-bg-muted: var(--color-neutral-200);
+  /* Semantic Background Colors — Editorial Tech: white canvas */
+  --color-bg-default: #ffffff;
+  --color-bg-subtle: var(--color-neutral-50);
+  --color-bg-muted: var(--color-neutral-100);
   --color-bg-inverse: var(--color-neutral-900);
-  --color-bg-brand: var(--color-primary-500);
-  --color-bg-brand-subtle: var(--color-primary-50);
+  --color-bg-brand: var(--color-neutral-900);
+  --color-bg-brand-subtle: var(--color-neutral-50);
 
   /* Semantic Text Colors */
   --color-text-default: var(--color-neutral-900);
-  --color-text-muted: var(--color-neutral-600);
+  --color-text-muted: var(--color-neutral-500);
   --color-text-subtle: var(--color-neutral-400);
-  --color-text-inverse: var(--color-neutral-50);
-  --color-text-brand: var(--color-primary-600);
-  --color-text-on-brand: var(--color-neutral-50);
+  --color-text-inverse: #ffffff;
+  --color-text-brand: var(--color-neutral-900);
+  --color-text-on-brand: #ffffff;
 
-  /* Semantic Border Colors — Bold-Line overrides */
-  --color-border-default: var(--color-neutral-800);
-  --color-border-muted: var(--color-neutral-300);
-  --color-border-strong: var(--color-neutral-900);
-  --color-border-focus: var(--color-primary-500);
+  /* Semantic Border Colors — Editorial Tech: subtle borders */
+  --color-border-default: var(--color-neutral-200);
+  --color-border-muted: var(--color-neutral-200);
+  --color-border-strong: var(--color-neutral-300);
+  --color-border-focus: var(--color-neutral-900);
 
-  /* Bold-Line Border Widths */
-  --border-width-default: 2px;
-  --border-width-strong: 3px;
-  --border-width-card: 2px;
+  /* Editorial Tech Border Widths — standard 1px */
+  --border-width-default: 1px;
+  --border-width-strong: 1px;
+  --border-width-card: 1px;
 
-  /* Semantic Interactive Colors */
-  --color-interactive-default: var(--color-primary-500);
-  --color-interactive-hover: var(--color-primary-600);
-  --color-interactive-active: var(--color-primary-700);
+  /* Semantic Interactive Colors — Editorial Tech: dark grayscale */
+  --color-interactive-default: var(--color-neutral-900);
+  --color-interactive-hover: var(--color-neutral-800);
+  --color-interactive-active: var(--color-neutral-700);
   --color-interactive-disabled: var(--color-neutral-300);
 
   /* Semantic Status Colors */
@@ -162,70 +163,70 @@
   --spacing-3xl: var(--spacing-16);
   --spacing-4xl: var(--spacing-24);
 
-  /* Radius — Bold-Line: tighter corners */
+  /* Radius — Editorial Tech: pill accents, rectilinear containers */
   --radius-none: 0px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 9999px;
+  --radius-2xl: 1.5rem;
   --radius-full: 9999px;
 
-  /* Typography - Display */
+  /* Typography - Display — Editorial Tech: semibold */
   --text-display-2xl: 48px;
   --text-display-2xl--line-height: 1.15;
-  --text-display-2xl--font-weight: 700;
+  --text-display-2xl--font-weight: 600;
   --text-display-2xl--letter-spacing: -0.02em;
 
   --text-display-xl: 40px;
   --text-display-xl--line-height: 1.27;
-  --text-display-xl--font-weight: 700;
+  --text-display-xl--font-weight: 600;
   --text-display-xl--letter-spacing: -0.02em;
 
   --text-display-lg: 33px;
   --text-display-lg--line-height: 1.38;
-  --text-display-lg--font-weight: 700;
+  --text-display-lg--font-weight: 600;
   --text-display-lg--letter-spacing: -0.01em;
 
   --text-display-md: 32px;
   --text-display-md--line-height: 1.39;
-  --text-display-md--font-weight: 700;
+  --text-display-md--font-weight: 600;
   --text-display-md--letter-spacing: -0.01em;
 
   --text-display-sm: 32px;
   --text-display-sm--line-height: 1.39;
-  --text-display-sm--font-weight: 700;
+  --text-display-sm--font-weight: 600;
   --text-display-sm--letter-spacing: -0.01em;
 
-  /* Typography - Heading (Bold-Line: 700–800) */
+  /* Typography - Heading — Editorial Tech: semibold */
   --text-heading-h1: 40px;
   --text-heading-h1--line-height: 1.27;
-  --text-heading-h1--font-weight: 800;
+  --text-heading-h1--font-weight: 600;
   --text-heading-h1--letter-spacing: -0.02em;
 
   --text-heading-h2: 33px;
   --text-heading-h2--line-height: 1.38;
-  --text-heading-h2--font-weight: 800;
+  --text-heading-h2--font-weight: 600;
   --text-heading-h2--letter-spacing: -0.01em;
 
   --text-heading-h3: 27.5px;
   --text-heading-h3--line-height: 1.46;
-  --text-heading-h3--font-weight: 700;
+  --text-heading-h3--font-weight: 600;
   --text-heading-h3--letter-spacing: 0em;
 
   --text-heading-h4: 23px;
   --text-heading-h4--line-height: 1.53;
-  --text-heading-h4--font-weight: 700;
+  --text-heading-h4--font-weight: 600;
   --text-heading-h4--letter-spacing: 0em;
 
   --text-heading-h5: 20px;
   --text-heading-h5--line-height: 1.58;
-  --text-heading-h5--font-weight: 700;
+  --text-heading-h5--font-weight: 600;
   --text-heading-h5--letter-spacing: 0em;
 
   --text-heading-h6: 20px;
   --text-heading-h6--line-height: 1.58;
-  --text-heading-h6--font-weight: 700;
+  --text-heading-h6--font-weight: 600;
   --text-heading-h6--letter-spacing: 0em;
 
   /* Typography - Title */
@@ -298,12 +299,14 @@
   --text-code-inline--font-weight: 400;
   --text-code-inline--letter-spacing: 0.01em;
 
-  /* Elevation/Shadow — Bold-Line: flat design, no shadows */
+  /* Elevation/Shadow — Editorial Tech: subtle real shadows */
   --shadow-none: 0 0 0 0 transparent;
-  --shadow-sm: 0 0 0 0 transparent;
-  --shadow-md: 0 0 0 0 transparent;
-  --shadow-lg: 0 0 0 0 transparent;
-  --shadow-xl: 0 0 0 0 transparent;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 /* Base Styles */
@@ -314,16 +317,14 @@
     font-family: var(--font-sans);
   }
 
-  /* Bold-Line: heavier headings */
+  /* Editorial Tech: clean semibold headings */
   h1,
   h2,
-  h3 {
-    font-weight: 800;
-  }
+  h3,
   h4,
   h5,
   h6 {
-    font-weight: 700;
+    font-weight: 600;
   }
 }
 

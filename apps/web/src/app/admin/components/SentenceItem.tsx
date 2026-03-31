@@ -82,7 +82,7 @@ export function SentenceItem({
           <span className="text-xs font-mono" style={{ color: "#a3a3a3" }}>
             #{index + 1}
           </span>
-          <span className="text-[10px] font-mono" style={{ color: "#b45000" }}>
+          <span className="text-[10px] font-mono" style={{ color: "#171717" }}>
             {sentence.startTime.toFixed(1)}s
           </span>
         </div>

@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import type { Sentence } from "@inputenglish/shared";
+import { colors, radius, font } from "../../theme";
 
 interface HighlightBottomSheetProps {
   visible: boolean;
@@ -95,9 +96,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     padding: 20,
     paddingBottom: 36,
     gap: 12,
@@ -105,46 +106,46 @@ const styles = StyleSheet.create({
   handle: {
     width: 40,
     height: 4,
-    borderRadius: 2,
-    backgroundColor: "#ddd",
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
     alignSelf: "center",
     marginBottom: 8,
   },
   label: {
     fontSize: 12,
-    color: "#888",
-    fontWeight: "600",
+    color: colors.textMuted,
+    fontWeight: font.weight.semibold,
   },
   sentenceText: {
     fontSize: 15,
-    color: "#222",
+    color: colors.text,
     lineHeight: 22,
-    backgroundColor: "#FFF9C4",
+    backgroundColor: colors.warningBg,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
     fontSize: 15,
-    color: "#333",
+    color: colors.text,
     minHeight: 80,
     textAlignVertical: "top",
   },
   saveButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.text,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: radius.pill,
     alignItems: "center",
   },
   saveButtonDisabled: {
-    backgroundColor: "#99C9FF",
+    backgroundColor: colors.disabled,
   },
   saveButtonText: {
-    color: "#fff",
+    color: colors.textInverse,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: font.weight.semibold,
   },
 });

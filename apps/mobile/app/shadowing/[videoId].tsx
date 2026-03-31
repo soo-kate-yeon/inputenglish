@@ -33,14 +33,7 @@ import RecordingBar from "../../src/components/shadowing/RecordingBar";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import { uploadRecording } from "../../src/lib/ai-api";
 import { useAuth } from "../../src/contexts/AuthContext";
-
-const C = {
-  bg: "#FFFFFF",
-  border: "#111111",
-  borderLight: "#E0E0E0",
-  text: "#111111",
-  muted: "#AAAAAA",
-};
+import { colors, radius, font } from "../../src/theme";
 
 export default function ShadowingScreen() {
   const { videoId } = useLocalSearchParams<{ videoId: string }>();
@@ -233,7 +226,7 @@ export default function ShadowingScreen() {
     return (
       <SafeAreaView style={styles.state}>
         <StatusBar barStyle="dark-content" />
-        <ActivityIndicator size="small" color={C.text} />
+        <ActivityIndicator size="small" color={colors.text} />
       </SafeAreaView>
     );
   }
@@ -325,7 +318,7 @@ export default function ShadowingScreen() {
             <Ionicons
               name={scriptVisible ? "document-text" : "document-text-outline"}
               size={18}
-              color={C.text}
+              color={colors.text}
             />
             <Text style={styles.scriptToggleText}>
               {scriptVisible ? "HIDE SCRIPT" : "SHOW SCRIPT"}
@@ -338,14 +331,14 @@ export default function ShadowingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: colors.bg },
   state: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
   },
-  stateText: { fontSize: 13, letterSpacing: 1, color: C.muted },
+  stateText: { fontSize: 13, letterSpacing: 1, color: colors.textMuted },
 
   list: { flex: 1 },
   listContent: { paddingBottom: 16 },
@@ -353,34 +346,37 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 11,
     letterSpacing: 3,
-    color: C.muted,
-    fontWeight: "600",
+    color: colors.textMuted,
+    fontWeight: font.weight.semibold,
   },
 
   aiPanel: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: colors.bgSubtle,
     borderTopWidth: 1,
-    borderTopColor: C.borderLight,
+    borderTopColor: colors.border,
     paddingVertical: 8,
   },
 
   bottomBar: {
     borderTopWidth: 1,
-    borderTopColor: C.border,
+    borderTopColor: colors.borderStrong,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: C.bg,
+    backgroundColor: colors.bg,
     alignItems: "center",
   },
   scriptToggle: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: radius.pill,
   },
   scriptToggleText: {
     fontSize: 10,
     letterSpacing: 2,
-    fontWeight: "700",
-    color: C.text,
+    fontWeight: font.weight.semibold,
+    color: colors.text,
   },
 });

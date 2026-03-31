@@ -8,18 +8,9 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../../theme";
 
 const SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
-const C = {
-  bg: "#FFFFFF",
-  border: "#111111",
-  borderLight: "#E0E0E0",
-  text: "#111111",
-  muted: "#AAAAAA",
-  track: "#E0E0E0",
-  fill: "#111111",
-};
 
 export interface AudioPlayerBarProps {
   playing: boolean;
@@ -102,7 +93,7 @@ export default function AudioPlayerBar({
             <Ionicons
               name="refresh-outline"
               size={22}
-              color={C.text}
+              color={colors.text}
               style={styles.seekIconFlip}
             />
             <Text style={styles.seekNum}>15</Text>
@@ -115,7 +106,11 @@ export default function AudioPlayerBar({
           onPress={onPlayPause}
           activeOpacity={0.7}
         >
-          <Ionicons name={playing ? "pause" : "play"} size={26} color={C.bg} />
+          <Ionicons
+            name={playing ? "pause" : "play"}
+            size={26}
+            color={colors.bg}
+          />
         </TouchableOpacity>
 
         {/* +15s */}
@@ -126,7 +121,7 @@ export default function AudioPlayerBar({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <View style={styles.seekIconWrap}>
-            <Ionicons name="refresh-outline" size={22} color={C.text} />
+            <Ionicons name="refresh-outline" size={22} color={colors.text} />
             <Text style={styles.seekNum}>15</Text>
           </View>
         </TouchableOpacity>
@@ -141,7 +136,7 @@ export default function AudioPlayerBar({
           <Ionicons
             name={scriptVisible ? "document-text" : "document-text-outline"}
             size={22}
-            color={scriptVisible ? C.text : C.muted}
+            color={scriptVisible ? colors.text : colors.textMuted}
           />
         </TouchableOpacity>
       </View>
@@ -151,9 +146,9 @@ export default function AudioPlayerBar({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: C.bg,
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: C.border,
+    borderTopColor: colors.text,
     paddingTop: 14,
     paddingHorizontal: 24,
     paddingBottom: Platform.OS === "ios" ? 34 : 20,
@@ -161,12 +156,12 @@ const styles = StyleSheet.create({
 
   progressTrack: {
     height: 2,
-    backgroundColor: C.track,
+    backgroundColor: colors.border,
     marginBottom: 8,
   },
   progressFill: {
     height: 2,
-    backgroundColor: C.fill,
+    backgroundColor: colors.text,
   },
 
   timeRow: {
@@ -176,7 +171,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 11,
-    color: C.muted,
+    color: colors.textMuted,
     letterSpacing: 0.5,
   },
 
@@ -194,7 +189,7 @@ const styles = StyleSheet.create({
   speedText: {
     fontSize: 15,
     fontWeight: "700",
-    color: C.text,
+    color: colors.text,
   },
 
   seekIconWrap: {
@@ -207,14 +202,14 @@ const styles = StyleSheet.create({
   seekNum: {
     fontSize: 8,
     fontWeight: "700",
-    color: C.text,
+    color: colors.text,
     position: "absolute",
   },
 
   playBtn: {
     width: 58,
     height: 58,
-    backgroundColor: C.text,
+    backgroundColor: colors.text,
     alignItems: "center",
     justifyContent: "center",
   },

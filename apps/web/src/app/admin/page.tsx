@@ -607,7 +607,7 @@ function AdminPageContent() {
               Current:{" "}
               <span
                 className="font-mono font-bold"
-                style={{ color: "#b45000" }}
+                style={{ color: "#171717" }}
               >
                 {currentTime.toFixed(2)}s
               </span>
@@ -667,10 +667,10 @@ function AdminPageContent() {
                     <kbd
                       className="font-bold text-xs"
                       style={{
-                        backgroundColor: "#fff2ec",
-                        color: "#743100",
+                        backgroundColor: "#fafafa",
+                        color: "#404040",
                         padding: "1px 5px",
-                        border: "1px solid #ffc6a9",
+                        border: "1px solid #e5e5e5",
                       }}
                     >
                       ]

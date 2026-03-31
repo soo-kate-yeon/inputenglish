@@ -7,6 +7,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { colors } from "../../theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const OVERLAY_DURATION = 100;
@@ -101,16 +102,16 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.3)",
   },
   sheet: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: "#111111",
+    borderTopColor: colors.text,
     paddingBottom: 34,
     paddingTop: 8,
   },
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: colors.border,
     alignSelf: "center",
     marginBottom: 16,
   },

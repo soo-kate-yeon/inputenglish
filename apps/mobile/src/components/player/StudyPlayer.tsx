@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
+import { palette } from "../../theme";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const PLAYER_HEIGHT = Math.floor(SCREEN_WIDTH * (9 / 16));
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
   container: {
     width: SCREEN_WIDTH,
     height: PLAYER_HEIGHT,
-    backgroundColor: "#000",
+    backgroundColor: palette.black,
   },
   webview: { flex: 1, opacity: 0.99 },
 });

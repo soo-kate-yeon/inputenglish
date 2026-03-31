@@ -550,7 +550,7 @@ export function SessionCreator({
                   style={{
                     padding: "6px 12px",
                     gap: 8,
-                    backgroundColor: isSelected ? "#fff7ed" : "transparent",
+                    backgroundColor: isSelected ? "#fafafa" : "transparent",
                     borderBottom: "1px solid #f5f5f5",
                   }}
                   onMouseEnter={(e) => {
@@ -572,7 +572,7 @@ export function SessionCreator({
                         width: 14,
                         height: 14,
                         border: isSelected ? "none" : "1px solid #d4d4d4",
-                        backgroundColor: isSelected ? "#b45000" : "transparent",
+                        backgroundColor: isSelected ? "#171717" : "transparent",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -629,7 +629,7 @@ export function SessionCreator({
                 disabled={isTranslating}
                 className="text-[10px] uppercase tracking-wide"
                 style={{
-                  backgroundColor: isTranslating ? "#d4d4d4" : "#b45000",
+                  backgroundColor: isTranslating ? "#d4d4d4" : "#171717",
                   color: "#fff",
                   padding: "1px 6px",
                   border: "none",
@@ -641,7 +641,7 @@ export function SessionCreator({
             )}
             <span
               className="text-[10px] font-mono font-medium"
-              style={{ color: "#b45000" }}
+              style={{ color: "#171717" }}
             >
               {Math.floor(selectionDuration / 60)}:
               {String(Math.floor(selectionDuration % 60)).padStart(2, "0")}
@@ -1131,7 +1131,7 @@ export function SessionCreator({
                       onClick={() => handleLoadSession(session)}
                       style={{ padding: 2, color: "#a3a3a3" }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "#b45000";
+                        e.currentTarget.style.color = "#171717";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.color = "#a3a3a3";

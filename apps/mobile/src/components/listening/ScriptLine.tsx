@@ -5,6 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { Sentence } from "@inputenglish/shared";
 import LoopToggle from "./LoopToggle";
 import SaveToggle from "./SaveToggle";
+import { colors, font } from "../../theme";
 
 interface ScriptLineProps {
   sentence: Sentence;
@@ -68,32 +69,32 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg,
   },
   content: {
     flex: 1,
     marginRight: 8,
   },
   text: {
-    fontSize: 15,
-    color: "#BBBBBB",
+    fontSize: font.size.base - 1,
+    color: colors.textMuted,
     lineHeight: 24,
-    fontWeight: "400",
+    fontWeight: font.weight.regular,
     flexWrap: "wrap",
   },
   textActive: {
-    color: "#111111",
-    fontWeight: "700",
-    fontSize: 16,
+    color: colors.text,
+    fontWeight: font.weight.bold,
+    fontSize: font.size.base,
     lineHeight: 26,
   },
   textHidden: {
-    color: "#DDDDDD",
+    color: colors.border,
     letterSpacing: 4,
   },
   translation: {
-    fontSize: 12,
-    color: "#BBBBBB",
+    fontSize: font.size.sm,
+    color: colors.textMuted,
     marginTop: 4,
     lineHeight: 18,
   },

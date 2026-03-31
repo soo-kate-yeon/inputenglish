@@ -55,14 +55,7 @@ import {
 } from "../../src/lib/professional-practice";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { useSubscription } from "../../src/hooks/useSubscription";
-
-const C = {
-  bg: "#FFFFFF",
-  border: "#111111",
-  borderLight: "#E0E0E0",
-  text: "#111111",
-  muted: "#AAAAAA",
-};
+import { colors, radius, font } from "../../src/theme";
 
 type MainTab = "listening" | "shadowing" | "transformation";
 type ShadowingMode = "sentence" | "paragraph" | "total";
@@ -684,7 +677,7 @@ export default function StudyScreen() {
     return (
       <SafeAreaView style={styles.state}>
         <StatusBar barStyle="dark-content" />
-        <ActivityIndicator size="small" color={C.text} />
+        <ActivityIndicator size="small" color={colors.text} />
       </SafeAreaView>
     );
   }
@@ -704,7 +697,7 @@ export default function StudyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Video player */}
       <YouTubePlayer
@@ -947,7 +940,11 @@ export default function StudyScreen() {
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="reader-outline" size={20} color={C.text} />
+                  <Ionicons
+                    name="reader-outline"
+                    size={20}
+                    color={colors.text}
+                  />
                 </TouchableOpacity>
                 {mainTab !== "transformation" ? (
                   <>
@@ -964,7 +961,7 @@ export default function StudyScreen() {
                             : "chatbox-ellipses-outline"
                         }
                         size={20}
-                        color={C.text}
+                        color={colors.text}
                       />
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -976,7 +973,9 @@ export default function StudyScreen() {
                       <Ionicons
                         name={translationVisible ? "globe" : "globe-outline"}
                         size={20}
-                        color={translationVisible ? "#b45000" : C.muted}
+                        color={
+                          translationVisible ? colors.text : colors.textMuted
+                        }
                       />
                     </TouchableOpacity>
                   </>
@@ -999,14 +998,14 @@ export default function StudyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: colors.bg },
   state: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
   },
-  stateText: { fontSize: 13, letterSpacing: 1, color: C.muted },
+  stateText: { fontSize: 13, letterSpacing: 1, color: colors.textMuted },
 
   // Brief scroll + fixed CTA
   briefScroll: {
@@ -1017,21 +1016,22 @@ const styles = StyleSheet.create({
   },
   briefCta: {
     borderTopWidth: 1,
-    borderTopColor: C.border,
+    borderTopColor: colors.borderStrong,
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: Platform.OS === "ios" ? 28 : 12,
-    backgroundColor: C.bg,
+    backgroundColor: colors.bg,
   },
   briefCtaButton: {
-    backgroundColor: C.border,
+    backgroundColor: colors.borderStrong,
     paddingVertical: 14,
+    borderRadius: radius.pill,
     alignItems: "center",
   },
   briefCtaText: {
     fontSize: 12,
-    fontWeight: "700",
-    color: C.bg,
+    fontWeight: font.weight.semibold,
+    color: colors.bg,
     letterSpacing: 1.5,
   },
 
@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
   mainTabs: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+    borderBottomColor: colors.border,
   },
   mainTab: {
     flex: 1,
@@ -1048,30 +1048,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  mainTabActive: { borderBottomColor: C.border },
+  mainTabActive: { borderBottomColor: colors.borderStrong },
   mainTabText: {
     fontSize: 10,
     letterSpacing: 2,
-    fontWeight: "700",
-    color: C.muted,
+    fontWeight: font.weight.bold,
+    color: colors.textMuted,
   },
-  mainTabTextActive: { color: C.text },
+  mainTabTextActive: { color: colors.text },
 
   // Sub tabs (shadowing modes)
   subTabs: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+    borderBottomColor: colors.border,
   },
   subTab: { flex: 1, paddingVertical: 8, alignItems: "center" },
-  subTabActive: { backgroundColor: C.text },
+  subTabActive: { backgroundColor: colors.text },
   subTabText: {
     fontSize: 9,
     letterSpacing: 1.5,
-    fontWeight: "700",
-    color: C.muted,
+    fontWeight: font.weight.bold,
+    color: colors.textMuted,
   },
-  subTabTextActive: { color: C.bg },
+  subTabTextActive: { color: colors.bg },
 
   // Script
   list: { flex: 1 },
@@ -1080,8 +1080,8 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 11,
     letterSpacing: 3,
-    color: C.muted,
-    fontWeight: "600",
+    color: colors.textMuted,
+    fontWeight: font.weight.semibold,
   },
 
   // Bottom bar
@@ -1090,11 +1090,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderTopWidth: 1,
-    borderTopColor: C.border,
+    borderTopColor: colors.borderStrong,
     paddingVertical: 12,
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === "ios" ? 28 : 12,
-    backgroundColor: C.bg,
+    backgroundColor: colors.bg,
   },
   bottomLeft: {
     flexDirection: "row",
@@ -1107,18 +1107,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: C.borderLight,
+    borderColor: colors.border,
   },
   endBtn: {
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
   endBtnText: {
     fontSize: 10,
     letterSpacing: 2,
-    fontWeight: "700",
-    color: C.text,
+    fontWeight: font.weight.bold,
+    color: colors.text,
   },
 });

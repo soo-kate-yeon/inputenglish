@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { colors } from "../../src/theme";
 import * as Crypto from "expo-crypto";
 import type {
   Sentence,
@@ -193,7 +194,7 @@ export default function ListeningScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.text} />
       </SafeAreaView>
     );
   }
@@ -271,7 +272,7 @@ export default function ListeningScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg,
   },
   center: {
     flex: 1,
@@ -280,11 +281,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: "#e00",
+    color: colors.error,
   },
   emptyText: {
     fontSize: 15,
-    color: "#888",
+    color: colors.textSecondary,
   },
   list: {
     flex: 1,
