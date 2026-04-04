@@ -66,7 +66,7 @@ export default function RecordingBar({
 
   return (
     <View style={styles.container}>
-      <View style={styles.progressTrack}>
+      <View testID="progress-bar" style={styles.progressTrack}>
         <View
           style={[styles.progressFill, { width: progressPercent as any }]}
         />

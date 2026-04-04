@@ -1,8 +1,7 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { SessionContext, KeyVocabularyEntry } from "@inputenglish/shared";
-import { colors, radius, font } from "../../theme";
+import { colors, font, radius } from "../../theme";
 
 function normalizeVocabEntry(
   item: string | KeyVocabularyEntry,
@@ -18,53 +17,53 @@ function normalizeVocabEntry(
 
 interface ContextBriefCardProps {
   context: SessionContext | null;
-  locked: boolean;
-  onUnlock: () => void;
 }
 
-export default function ContextBriefCard({
-  context,
-  locked,
-  onUnlock,
-}: ContextBriefCardProps) {
+export default function ContextBriefCard({ context }: ContextBriefCardProps) {
   const hasContent = Boolean(
     context?.strategic_intent ||
     context?.expected_takeaway ||
-    context?.key_vocabulary?.length ||
-    context?.reusable_scenarios?.length,
+    context?.key_vocabulary?.length,
   );
+
+  if (!hasContent) {
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>
+          이 세션에는 브리프가 아직 없습니다.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.kicker}>학습 전 브리프</Text>
-      </View>
+      {context?.strategic_intent ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>이 세션이 길러주는 말하기</Text>
+          <Text style={styles.bodyText}>{context.strategic_intent}</Text>
+        </View>
+      ) : null}
 
-      {/* Brief content — clipped when locked */}
-      <View
-        style={[styles.content, locked && hasContent && styles.contentLocked]}
-      >
-        {context?.strategic_intent ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>이 세션이 길러주는 말하기</Text>
-            <Text style={styles.bodyText}>{context.strategic_intent}</Text>
-          </View>
-        ) : null}
+      {context?.expected_takeaway ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
+          <Text style={styles.bodyText}>{context.expected_takeaway}</Text>
+        </View>
+      ) : null}
 
-        {context?.expected_takeaway ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
-            <Text style={styles.bodyText}>{context.expected_takeaway}</Text>
-          </View>
-        ) : null}
-
-        {context?.key_vocabulary?.length ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>핵심 표현</Text>
+      {context?.key_vocabulary?.length ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>핵심 표현</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.vocabScroll}
+          >
             {context.key_vocabulary.map((item, idx) => {
               const entry = normalizeVocabEntry(item);
               return (
-                <View key={idx} style={styles.vocabItem}>
+                <View key={idx} style={styles.vocabCard}>
                   <Text style={styles.vocabExpression}>{entry.expression}</Text>
                   {entry.example ? (
                     <Text style={styles.vocabExample}>{entry.example}</Text>
@@ -77,54 +76,7 @@ export default function ContextBriefCard({
                 </View>
               );
             })}
-          </View>
-        ) : null}
-
-        {context?.reusable_scenarios?.length ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>다시 써먹을 수 있는 상황</Text>
-            {context.reusable_scenarios.map((scenario) => (
-              <Text key={scenario} style={styles.listText}>
-                • {scenario}
-              </Text>
-            ))}
-          </View>
-        ) : null}
-
-        {!hasContent ? (
-          <Text style={styles.emptyText}>
-            이 세션에는 브리프가 아직 없습니다.
-          </Text>
-        ) : null}
-      </View>
-
-      {/* Gradient dimming for free users */}
-      {locked && hasContent ? (
-        <View style={styles.gradientWrapper}>
-          <LinearGradient
-            colors={[
-              "rgba(255,255,255,0)",
-              "rgba(255,255,255,0.15)",
-              "rgba(255,255,255,0.4)",
-              "rgba(255,255,255,0.7)",
-              "rgba(255,255,255,0.9)",
-              "#FFFFFF",
-            ]}
-            locations={[0, 0.15, 0.35, 0.55, 0.75, 1]}
-            style={styles.gradient}
-          />
-          <View style={styles.lockCta}>
-            <Text style={styles.lockText}>
-              전체 브리프는 프리미엄에서 확인할 수 있어요
-            </Text>
-            <TouchableOpacity
-              style={styles.unlockButton}
-              onPress={onUnlock}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.unlockButtonText}>프리미엄 시작</Text>
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       ) : null}
     </View>
@@ -133,103 +85,74 @@ export default function ContextBriefCard({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    gap: 12,
+    paddingTop: 28,
+    paddingBottom: 8,
+    gap: 32,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  kicker: {
-    fontSize: 11,
-    fontWeight: font.weight.bold,
-    color: colors.text,
-    letterSpacing: 1,
-  },
-  content: {
-    gap: 12,
-  },
+
   section: {
-    gap: 4,
+    gap: 12,
   },
   sectionLabel: {
     fontSize: 11,
     fontWeight: font.weight.bold,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
     color: colors.textMuted,
+    paddingHorizontal: 20,
   },
   bodyText: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 17,
+    lineHeight: 28,
     color: colors.text,
+    paddingHorizontal: 20,
+    fontWeight: font.weight.regular,
   },
-  listText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.text,
+
+  // Vocab horizontal scroll
+  vocabScroll: {
+    paddingHorizontal: 20,
+    gap: 12,
   },
-  vocabItem: {
-    marginBottom: 6,
+  vocabCard: {
+    width: 270,
+    padding: 18,
+    gap: 8,
+    backgroundColor: colors.bg,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   vocabExpression: {
-    fontSize: 13,
-    fontWeight: font.weight.semibold,
-    lineHeight: 19,
+    fontSize: 18,
+    fontWeight: font.weight.bold,
+    lineHeight: 24,
     color: colors.text,
   },
   vocabExample: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.textMuted,
-    marginTop: 1,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSecondary,
   },
   vocabTranslation: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.textMuted,
-    marginTop: 1,
+  },
+
+  // Empty state
+  empty: {
+    paddingHorizontal: 20,
+    paddingTop: 32,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 15,
     color: colors.textMuted,
-  },
-
-  contentLocked: {
-    maxHeight: 110,
-    overflow: "hidden",
-  },
-
-  // Gradient lock overlay
-  gradientWrapper: {
-    marginTop: -60,
-  },
-  gradient: {
-    height: 60,
-  },
-  lockCta: {
-    backgroundColor: colors.bg,
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
-  },
-  lockText: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: "center",
-  },
-  unlockButton: {
-    borderWidth: 1,
-    borderColor: colors.text,
-    backgroundColor: colors.text,
-    borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  unlockButtonText: {
-    fontSize: 11,
-    fontWeight: font.weight.bold,
-    color: colors.textInverse,
-    letterSpacing: 1,
+    lineHeight: 22,
   },
 });

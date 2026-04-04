@@ -1,182 +1,96 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet, ImageBackground } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      setError("이메일과 비밀번호를 입력해주세요.");
-      return;
-    }
-    try {
-      setError(null);
-      setIsSubmitting(true);
-      await signIn(email, password);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>인풋영어</Text>
-      <Text style={styles.subtitle}>영어 쉐도잉 학습을 시작하세요</Text>
+    <ImageBackground
+      source={require("../../assets/images/login-bg.png")}
+      style={styles.root}
+      resizeMode="cover"
+    >
+      {/* Gradient Dimming Layer */}
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.4)", "rgba(0,0,0,0.88)"]}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-      <OAuthButtons />
-
-      <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>또는</Text>
-        <View style={styles.dividerLine} />
+      {/* Slogan - centered */}
+      <View style={styles.sloganContainer}>
+        <Text style={styles.slogan}>리더들의 영어를,{"\n"}당신의 영어로</Text>
+        <Text style={styles.body}>
+          엄선된 테크 리더, 정재계 인사, 업계 전문가의{"\n"}표현을 따라 말하며
+          체화해보세요.{"\n"}좋은 인풋이 통하는 영어 실력을 만듭니다.
+        </Text>
       </View>
 
-      {error && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      <TextInput
-        style={styles.input}
-        placeholder="이메일"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoCorrect={false}
-        textContentType="emailAddress"
-        editable={!isSubmitting}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="비밀번호"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        textContentType="password"
-        editable={!isSubmitting}
-      />
-
-      <TouchableOpacity
-        style={[styles.signInButton, isSubmitting && styles.buttonDisabled]}
-        onPress={handleSignIn}
-        disabled={isSubmitting}
+      {/* Auth CTAs - bottom */}
+      <View
+        style={[styles.ctaContainer, { paddingBottom: insets.bottom + 24 }]}
       >
-        {isSubmitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.signInButtonText}>로그인</Text>
-        )}
-      </TouchableOpacity>
+        <OAuthButtons />
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>계정이 없으신가요? </Text>
-        <Link href="/(auth)/signup">
-          <Text style={styles.footerLink}>회원가입</Text>
-        </Link>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>계정이 없으신가요? </Text>
+          <Link href="/(auth)/signup">
+            <Text style={styles.footerLink}>회원가입</Text>
+          </Link>
+        </View>
       </View>
-    </ScrollView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 24,
-    justifyContent: "center",
-    gap: 12,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 28,
-    textAlign: "center",
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 8,
-  },
-  dividerLine: {
+  root: {
     flex: 1,
-    height: 1,
-    backgroundColor: "#E0E0E0",
   },
-  dividerText: {
-    marginHorizontal: 12,
-    color: "#999",
-    fontSize: 13,
-  },
-  errorBox: {
-    backgroundColor: "#FFF0F0",
-    borderWidth: 1,
-    borderColor: "#FF3B30",
-    borderRadius: 8,
-    padding: 12,
-  },
-  errorText: {
-    color: "#FF3B30",
-    fontSize: 14,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: "#FAFAFA",
-  },
-  signInButton: {
-    backgroundColor: "#111",
-    borderRadius: 8,
-    paddingVertical: 14,
+  sloganContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 4,
+    paddingHorizontal: 24,
+    paddingBottom: 48,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  signInButtonText: {
+  slogan: {
+    fontSize: 40,
+    fontWeight: "800",
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 52,
+    letterSpacing: -1.2,
+  },
+  body: {
+    marginTop: 16,
+    fontSize: 15,
+    fontWeight: "400",
+    color: "rgba(255,255,255,0.65)",
+    textAlign: "center",
+    lineHeight: 24,
+    letterSpacing: 0.1,
+  },
+  ctaContainer: {
+    paddingHorizontal: 24,
+    gap: 12,
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 12,
+    marginTop: 8,
   },
   footerText: {
-    color: "#666",
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
   },
   footerLink: {
-    color: "#007AFF",
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
     fontWeight: "600",
   },
 });

@@ -65,30 +65,56 @@ platform :ios do
   # Screenshots (Automated via Simulator)
   # ─────────────────────────────────────────────
 
-  desc "Capture screenshots from running simulators (Expo-compatible)"
+  desc "Capture screenshots via Maestro automation (4 screens × 4 devices)"
   lane :screenshots do
+    maestro_bin = "#{Dir.home}/.maestro/bin/maestro"
+    unless File.exist?(maestro_bin)
+      UI.user_error!("Maestro not found. Install: curl -Ls 'https://get.maestro.mobile.dev' | bash")
+    end
+
     devices = [
-      "iPhone 17 Pro Max",
-      "iPhone 17 Pro",
-      "iPhone 16e",
-      "iPad Pro 13-inch (M5)"
+      { name: "iPhone 17 Pro Max",     prefix: "iPhone_17_Pro_Max" },
+      { name: "iPhone 17 Pro",         prefix: "iPhone_17_Pro" },
+      { name: "iPhone 16e",            prefix: "iPhone_16e" },
+      { name: "iPad Pro 13-inch (M5)", prefix: "iPad_Pro_13_inch_M5" }
     ]
-    output_dir = "./fastlane/screenshots"
-    FileUtils.mkdir_p(output_dir)
+
+    flows     = ["01_home", "02_brief", "03_listening", "04_archive"]
+    flows_dir = File.expand_path("fastlane/screenshots/flows")
+    out_dir   = File.expand_path("fastlane/screenshots/ko")
+    FileUtils.mkdir_p(out_dir)
 
     devices.each do |device|
-      UI.message("📸 Capturing: #{device}")
-      safe_name = device.gsub(/[^a-zA-Z0-9]/, "_")
-      filename = "#{output_dir}/#{safe_name}.png"
-      # Find booted simulator matching device name
-      udid = sh("xcrun simctl list devices booted | grep '#{device}' | head -1 | grep -oE '[0-9A-F\\-]{36}' || true").strip
+      UI.message("📱 #{device[:name]}")
+
+      udid = sh(
+        "xcrun simctl list devices | grep '#{device[:name]}' | grep -v 'unavailable' | head -1 | grep -oE '[0-9A-F-]{36}' || true"
+      ).strip
+
       if udid.empty?
-        UI.important("⚠️  #{device} is not booted, skipping. Boot it first: xcrun simctl boot '#{device}'")
+        UI.important("  ⚠️  Simulator not found: #{device[:name]} — skipping")
         next
       end
-      sh("xcrun simctl io #{udid} screenshot '#{filename}'")
-      UI.success("✅ Saved: #{filename}")
+
+      booted = sh("xcrun simctl list devices booted | grep '#{udid}' || true").strip
+      if booted.empty?
+        UI.message("  🔄 Booting...")
+        sh("xcrun simctl boot #{udid}")
+        sleep(6)
+      end
+
+      flows.each do |flow|
+        UI.message("  📸 #{flow}")
+        sh(
+          "#{maestro_bin} --device #{udid} test #{flows_dir}/#{flow}.yaml" \
+          " --env OUTPUT_DIR=#{out_dir} --env DEVICE_PREFIX=#{device[:prefix]} || true"
+        )
+      end
+
+      UI.success("  ✅ Done")
     end
+
+    UI.success("🎉 Screenshots saved → fastlane/screenshots/ko/")
   end
 
   # ─────────────────────────────────────────────

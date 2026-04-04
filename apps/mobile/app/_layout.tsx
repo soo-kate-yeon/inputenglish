@@ -90,11 +90,13 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen
           name="study/[videoId]"
-          options={{ headerShown: true, title: "Study" }}
-        />
-        <Stack.Screen
-          name="listening/[videoId]"
-          options={{ headerShown: true, title: "Listening" }}
+          options={{
+            headerShown: false,
+            presentation: "card",
+            animation: "slide_from_bottom",
+            gestureEnabled: true,
+            gestureDirection: "vertical",
+          }}
         />
         <Stack.Screen
           name="shadowing/[videoId]"

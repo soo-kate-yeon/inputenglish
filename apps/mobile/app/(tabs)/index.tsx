@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -12,23 +15,15 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import BottomSheet from "../../src/components/common/BottomSheet";
 import { fetchLearningSessions, SessionListItem } from "../../src/lib/api";
-import {
-  DIFFICULTY_LABELS,
-  SOURCE_TYPE_LABELS,
-  SPEAKING_FUNCTION_LABELS,
-} from "../../src/lib/professional-labels";
-import { colors, radius, font, spacing, shadow } from "../../src/theme";
+import { colors, radius, font, spacing } from "../../src/theme";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-
-const DIFFICULTY_BG: Record<string, string> = {
-  beginner: colors.primary,
-  intermediate: colors.textSecondary,
-  advanced: colors.primary,
-};
+const CARD_SIZE = (SCREEN_WIDTH - spacing.md * 2 - 12) / 2.4;
+const HERO_HEIGHT = Math.round(SCREEN_WIDTH * 0.68);
+const HERO_MAX = 5;
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -36,184 +31,211 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// ── FilterDropdown ──
+// -- Feed Categories --
 
-interface FilterDropdownProps {
-  label: string;
-  value: string;
-  options: { key: string; label: string }[];
-  onSelect: (key: string) => void;
+interface FeedCategory {
+  key: string;
+  title: string;
+  filter: (s: SessionListItem) => boolean;
 }
 
-function FilterDropdown({
-  label,
-  value,
-  options,
-  onSelect,
-}: FilterDropdownProps) {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((o) => o.key === value);
-  const isFiltered = value !== "all";
+const FEED_CATEGORIES: FeedCategory[] = [
+  {
+    key: "podcast",
+    title: "팟캐스트",
+    filter: (s) => s.source_type === "podcast",
+  },
+  {
+    key: "interview",
+    title: "인터뷰",
+    filter: (s) => s.source_type === "interview",
+  },
+  {
+    key: "persuade",
+    title: "설득하는 말하기",
+    filter: (s) => s.speaking_function === "persuade",
+  },
+];
 
-  return (
-    <>
-      <TouchableOpacity
-        style={[
-          styles.dropdownTrigger,
-          isFiltered && styles.dropdownTriggerActive,
-        ]}
-        onPress={() => setOpen(true)}
-        activeOpacity={0.8}
-      >
-        <Text
-          style={[
-            styles.dropdownTriggerText,
-            isFiltered && styles.dropdownTriggerTextActive,
-          ]}
-          numberOfLines={1}
-        >
-          {isFiltered ? selected?.label : label}
-        </Text>
-        <Ionicons
-          name="chevron-down"
-          size={14}
-          color={isFiltered ? colors.textInverse : colors.textSecondary}
-        />
-      </TouchableOpacity>
+// -- Hero Banner Slide --
 
-      <BottomSheet visible={open} onClose={() => setOpen(false)}>
-        <Text style={styles.sheetTitle}>{label}</Text>
-        {options.map((opt) => {
-          const active = opt.key === value;
-          return (
-            <TouchableOpacity
-              key={opt.key}
-              style={[styles.sheetItem, active && styles.sheetItemActive]}
-              onPress={() => {
-                onSelect(opt.key);
-                setOpen(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.sheetItemText,
-                  active && styles.sheetItemTextActive,
-                ]}
-              >
-                {opt.label}
-              </Text>
-              {active && (
-                <Ionicons
-                  name="checkmark"
-                  size={18}
-                  color={colors.textInverse}
-                />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </BottomSheet>
-    </>
-  );
-}
-
-// ── SessionCard ──
-
-function SessionCard({ item }: { item: SessionListItem }) {
-  const diffLabel = item.difficulty ? DIFFICULTY_LABELS[item.difficulty] : null;
-  const diffBg = item.difficulty ? DIFFICULTY_BG[item.difficulty] : "#111111";
-  const sourceLabel = item.source_type
-    ? SOURCE_TYPE_LABELS[item.source_type]
-    : null;
-  const speakingLabel = item.speaking_function
-    ? SPEAKING_FUNCTION_LABELS[item.speaking_function]
-    : null;
-
+function HeroBannerSlide({
+  item,
+  onPress,
+}: {
+  item: SessionListItem;
+  onPress: () => void;
+}) {
   return (
     <TouchableOpacity
-      style={styles.card}
-      onPress={() =>
-        router.push(`/study/${item.source_video_id}?sessionId=${item.id}`)
-      }
-      activeOpacity={0.9}
+      style={styles.heroSlide}
+      onPress={onPress}
+      activeOpacity={0.95}
     >
       {item.thumbnail_url ? (
         <Image
           source={{ uri: item.thumbnail_url }}
-          style={styles.thumbnail}
+          style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
       ) : (
-        <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-          <Text style={styles.thumbnailPlaceholderIcon}>▶</Text>
-        </View>
+        <View style={[StyleSheet.absoluteFill, styles.heroPlaceholder]} />
       )}
 
-      <View style={styles.info}>
-        <View style={styles.metaRow}>
-          {diffLabel ? (
-            <View style={[styles.levelBadge, { backgroundColor: diffBg }]}>
-              <Text style={styles.levelText}>{diffLabel}</Text>
-            </View>
-          ) : null}
-          <Text style={styles.duration}>{formatDuration(item.duration)}</Text>
-        </View>
+      <LinearGradient
+        colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.78)"]}
+        style={StyleSheet.absoluteFill}
+      />
 
-        <Text style={styles.title} numberOfLines={2}>
+      <View style={styles.heroContent}>
+        <Text style={styles.heroDuration}>{formatDuration(item.duration)}</Text>
+        <Text style={styles.heroTitle} numberOfLines={2}>
           {item.title}
         </Text>
-
-        {item.description ? (
-          <Text style={styles.description} numberOfLines={1}>
-            {item.description}
+        {item.expected_takeaway && (
+          <Text style={styles.heroTakeaway} numberOfLines={2}>
+            {item.expected_takeaway}
           </Text>
-        ) : null}
+        )}
+        {item.channel_name && (
+          <Text style={styles.heroChannel}>{item.channel_name}</Text>
+        )}
+      </View>
 
-        {sourceLabel || speakingLabel || item.premium_required ? (
-          <View style={styles.taxonomyRow}>
-            {sourceLabel ? (
-              <View style={styles.taxonomyBadge}>
-                <Text style={styles.taxonomyText}>{sourceLabel}</Text>
-              </View>
-            ) : null}
-            {speakingLabel ? (
-              <View style={styles.taxonomyBadge}>
-                <Text style={styles.taxonomyText}>{speakingLabel}</Text>
-              </View>
-            ) : null}
-            {item.premium_required ? (
-              <View style={styles.premiumBadge}>
-                <Ionicons
-                  name="cash-outline"
-                  size={10}
-                  color={colors.textInverse}
-                />
-                <Text style={styles.premiumText}>프리미엄</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {item.channel_name ? (
-          <Text style={styles.channel} numberOfLines={1}>
-            {item.channel_name}
-          </Text>
-        ) : null}
+      <View style={styles.heroPlayButton}>
+        <Ionicons name="play" size={18} color={colors.text} />
       </View>
     </TouchableOpacity>
   );
 }
 
-// ── HomeScreen ──
+// -- Hero Carousel --
+
+function HeroCarousel({
+  items,
+  onPress,
+}: {
+  items: SessionListItem[];
+  onPress: (item: SessionListItem) => void;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setActiveIndex(idx);
+  }, []);
+
+  return (
+    <View style={styles.heroCarousel}>
+      <FlatList
+        data={items}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <HeroBannerSlide item={item} onPress={() => onPress(item)} />
+        )}
+      />
+
+      {/* Title + dots overlay — non-interactive */}
+      <View style={styles.heroOverlay} pointerEvents="none">
+        <Text style={styles.heroHeaderTitle}>홈</Text>
+        {items.length > 1 && (
+          <View style={styles.heroDots}>
+            {items.map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.heroDot,
+                  i === activeIndex && styles.heroDotActive,
+                ]}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// -- Square Card --
+
+function SquareCard({
+  item,
+  onPress,
+}: {
+  item: SessionListItem;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.squareCard}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {item.thumbnail_url ? (
+        <Image
+          source={{ uri: item.thumbnail_url }}
+          style={styles.squareThumb}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[styles.squareThumb, styles.squareThumbPlaceholder]}>
+          <Ionicons name="musical-notes" size={24} color={colors.textMuted} />
+        </View>
+      )}
+      <Text style={styles.squareTitle} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <Text style={styles.squareMeta}>{formatDuration(item.duration)}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// -- Category Section --
+
+function CategorySection({
+  title,
+  sessions,
+  onSessionPress,
+}: {
+  title: string;
+  sessions: SessionListItem[];
+  onSessionPress: (s: SessionListItem) => void;
+}) {
+  if (sessions.length === 0) return null;
+
+  return (
+    <View style={styles.categorySection}>
+      <Text style={styles.categoryTitle}>{title}</Text>
+      <FlatList
+        horizontal
+        data={sessions}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <SquareCard item={item} onPress={() => onSessionPress(item)} />
+        )}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryList}
+        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+      />
+    </View>
+  );
+}
+
+// -- HomeScreen --
+
+function navigateToStudy(session: SessionListItem) {
+  router.push(`/study/${session.source_video_id}?sessionId=${session.id}`);
+}
 
 export default function HomeScreen() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
-  const [selectedFunction, setSelectedFunction] = useState<string>("all");
-  const [selectedSourceType, setSelectedSourceType] = useState<string>("all");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -228,73 +250,22 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
-  const difficultyOptions: { key: string; label: string }[] = [
-    { key: "all", label: "전체" },
-    ...Array.from(
-      new Set(
-        sessions
-          .map((s) => s.difficulty)
-          .filter((v): v is NonNullable<SessionListItem["difficulty"]> =>
-            Boolean(v),
-          ),
-      ),
-    ).map((v) => ({ key: v, label: DIFFICULTY_LABELS[v] })),
-  ];
+  const heroItems = useMemo(() => sessions.slice(0, HERO_MAX), [sessions]);
 
-  const speakingFunctionOpts: { key: string; label: string }[] = [
-    { key: "all", label: "전체" },
-    ...Array.from(
-      new Set(
-        sessions
-          .map((s) => s.speaking_function)
-          .filter((v): v is NonNullable<SessionListItem["speaking_function"]> =>
-            Boolean(v),
-          ),
-      ),
-    ).map((v) => ({ key: v, label: SPEAKING_FUNCTION_LABELS[v] })),
-  ];
-
-  const sourceTypeOpts: { key: string; label: string }[] = [
-    { key: "all", label: "전체" },
-    ...Array.from(
-      new Set(
-        sessions
-          .map((s) => s.source_type)
-          .filter((v): v is NonNullable<SessionListItem["source_type"]> =>
-            Boolean(v),
-          ),
-      ),
-    ).map((v) => ({ key: v, label: SOURCE_TYPE_LABELS[v] })),
-  ];
-
-  const filteredSessions = sessions.filter((session) => {
-    const matchesDifficulty =
-      selectedDifficulty === "all" || session.difficulty === selectedDifficulty;
-    const matchesFunction =
-      selectedFunction === "all" ||
-      session.speaking_function === selectedFunction;
-    const matchesSourceType =
-      selectedSourceType === "all" ||
-      session.source_type === selectedSourceType;
-    return matchesDifficulty && matchesFunction && matchesSourceType;
-  });
-
-  const activeFilterCount = [
-    selectedDifficulty,
-    selectedFunction,
-    selectedSourceType,
-  ].filter((v) => v !== "all").length;
-
-  const renderItem = useCallback(
-    ({ item }: { item: SessionListItem }) => <SessionCard item={item} />,
-    [],
+  const categoryData = useMemo(
+    () =>
+      FEED_CATEGORIES.map((cat) => ({
+        ...cat,
+        sessions: sessions.filter(cat.filter),
+      })),
+    [sessions],
   );
 
   if (loading) {
     return (
       <SafeAreaView style={styles.stateContainer}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-        <ActivityIndicator size="small" color={colors.text} />
+        <ActivityIndicator size="small" color={colors.textSecondary} />
       </SafeAreaView>
     );
   }
@@ -322,66 +293,23 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="light-content" />
 
-      <View style={styles.header}>
-        <Text style={styles.headerWordmark}>인풋영어</Text>
-        <Text style={styles.headerLabel}>업무 영어 세션</Text>
-      </View>
-
-      {/* ── Filter dropdowns ── */}
-      <View style={styles.filterBar}>
-        <FilterDropdown
-          label="난이도"
-          value={selectedDifficulty}
-          options={difficultyOptions}
-          onSelect={setSelectedDifficulty}
-        />
-        <FilterDropdown
-          label="말하기 목적"
-          value={selectedFunction}
-          options={speakingFunctionOpts}
-          onSelect={setSelectedFunction}
-        />
-        <FilterDropdown
-          label="콘텐츠 형식"
-          value={selectedSourceType}
-          options={sourceTypeOpts}
-          onSelect={setSelectedSourceType}
-        />
-        {activeFilterCount > 0 && (
-          <TouchableOpacity
-            style={styles.resetButton}
-            onPress={() => {
-              setSelectedDifficulty("all");
-              setSelectedFunction("all");
-              setSelectedSourceType("all");
-            }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.resetText}>초기화</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <FlatList
-        data={filteredSessions}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>
-              조건에 맞는 세션이 없어요
-            </Text>
-            <Text style={styles.emptyStateText}>
-              필터를 변경하거나 초기화해보세요.
-            </Text>
-          </View>
-        }
-      />
+        contentContainerStyle={styles.scrollContent}
+      >
+        <HeroCarousel items={heroItems} onPress={navigateToStudy} />
+
+        {categoryData.map((cat) => (
+          <CategorySection
+            key={cat.key}
+            title={cat.title}
+            sessions={cat.sessions}
+            onSessionPress={navigateToStudy}
+          />
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -391,6 +319,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  scrollContent: {
+    paddingBottom: 120,
+  },
   stateContainer: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -399,7 +330,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   stateText: {
-    fontSize: 13,
+    fontSize: 15,
     color: colors.textSecondary,
     fontWeight: "500",
     textAlign: "center",
@@ -412,231 +343,132 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   retryText: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.text,
     fontWeight: "600",
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 12,
+
+  // -- Hero Carousel --
+  heroCarousel: {
+    height: HERO_HEIGHT,
   },
-  headerWordmark: {
-    fontSize: 18,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 2,
-    color: colors.text,
+  heroSlide: {
+    width: SCREEN_WIDTH,
+    height: HERO_HEIGHT,
+    backgroundColor: colors.bgInverse,
   },
-  headerLabel: {
+  heroPlaceholder: {
+    backgroundColor: colors.bgInverse,
+  },
+  heroContent: {
+    position: "absolute",
+    bottom: 36,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  heroDuration: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: "rgba(255,255,255,0.65)",
     fontWeight: "500",
   },
-
-  // ── Filter bar ──
-  filterBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  heroTitle: {
+    fontSize: font.size["2xl"],
+    fontWeight: font.weight.bold,
+    color: "#fff",
+    lineHeight: 34,
   },
-
-  // ── Dropdown trigger ──
-  dropdownTrigger: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    gap: 4,
-    borderRadius: radius.pill,
+  heroTakeaway: {
+    fontSize: font.size.sm,
+    color: "rgba(255,255,255,0.75)",
+    lineHeight: 18,
+    fontWeight: "400",
   },
-  dropdownTriggerActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
+  heroChannel: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.6)",
+    fontWeight: "500",
   },
-  dropdownTriggerText: {
-    fontSize: 11,
-    fontWeight: font.weight.semibold,
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  dropdownTriggerTextActive: {
-    color: colors.textInverse,
-  },
-
-  // ── Bottom sheet content ──
-  sheetTitle: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 2,
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  sheetItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  sheetItemActive: {
-    backgroundColor: colors.primary,
-  },
-  sheetItemText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  sheetItemTextActive: {
-    color: colors.textInverse,
-  },
-
-  // ── Reset ──
-  resetButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-  },
-  resetText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textDecorationLine: "underline",
-  },
-
-  // ── List ──
-  listContent: {
-    paddingBottom: 120,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-  },
-
-  // ── Card ──
-  card: {
-    backgroundColor: colors.bg,
-  },
-  thumbnail: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * (9 / 16),
-    backgroundColor: colors.bgMuted,
-  },
-  thumbnailPlaceholder: {
+  heroPlayButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.9)",
     alignItems: "center",
     justifyContent: "center",
   },
-  thumbnailPlaceholderIcon: {
-    fontSize: 36,
-    color: colors.textSecondary,
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "space-between",
+    paddingTop: 16,
+    paddingBottom: 12,
   },
-  info: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
+  heroHeaderTitle: {
+    color: "#fff",
+    fontSize: font.size.xl,
+    fontWeight: font.weight.bold,
+    paddingHorizontal: spacing.md,
+  },
+  heroDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: 6,
   },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  heroDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.4)",
+  },
+  heroDotActive: {
+    width: 18,
+    backgroundColor: "#fff",
+  },
+
+  // -- Category Section --
+  categorySection: {
+    marginTop: spacing.xl,
+    gap: 12,
+  },
+  categoryTitle: {
+    fontSize: font.size.xl,
+    fontWeight: font.weight.bold,
+    color: colors.text,
+    paddingHorizontal: spacing.md,
+  },
+  categoryList: {
+    paddingHorizontal: spacing.md,
+  },
+
+  // -- Square Card --
+  squareCard: {
+    width: CARD_SIZE,
     gap: 8,
   },
-  levelBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
+  squareThumb: {
+    width: CARD_SIZE,
+    height: CARD_SIZE,
+    borderRadius: radius.lg,
+    backgroundColor: colors.bgMuted,
   },
-  levelText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.textInverse,
+  squareThumbPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
   },
-  duration: {
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.textSecondary,
-    fontWeight: "500",
-  },
-  title: {
-    fontSize: 17,
+  squareTitle: {
+    fontSize: 15,
     fontWeight: font.weight.semibold,
     color: colors.text,
-    lineHeight: 24,
-    letterSpacing: -0.2,
+    lineHeight: 20,
   },
-  description: {
+  squareMeta: {
     fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  taxonomyRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 2,
-  },
-  taxonomyBadge: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.pill,
-  },
-  taxonomyText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: "600",
-  },
-  premiumBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-  },
-  premiumText: {
-    fontSize: 10,
-    color: colors.textInverse,
-    fontWeight: "700",
-  },
-  channel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  emptyState: {
-    paddingHorizontal: 24,
-    paddingTop: 48,
-    alignItems: "center",
-    gap: 8,
-  },
-  emptyStateTitle: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: "700",
-  },
-  emptyStateText: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.textSecondary,
-    textAlign: "center",
+    fontWeight: "500",
   },
 });

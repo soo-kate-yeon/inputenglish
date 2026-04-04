@@ -1,0 +1,7 @@
+appId: com.morak.inputenglish
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 10000
+- takeScreenshot: "${OUTPUT_DIR}/${DEVICE_PREFIX}_01_home"

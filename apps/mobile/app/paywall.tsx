@@ -1,11 +1,12 @@
-// @MX:NOTE: [AUTO] 페이월 시트. square-minimalism 테마. FREE vs PREMIUM 비교,
-// PREMIUM 카드 내부에 구독 플랜 선택, 하단 고정 CTA.
+// @MX:NOTE: [AUTO] 페이월 시트. podcast-ambient dark modal 테마. 프리미엄 혜택 단독 강조,
+// 구독 플랜 선택기 (절약 뱃지 포함), 하단 고정 CTA.
 // @MX:SPEC: SPEC-MOBILE-006
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,35 +24,42 @@ import {
 } from "../src/lib/revenue-cat";
 import { useSubscription } from "../src/hooks/useSubscription";
 import PurchaseButton from "../src/components/paywall/PurchaseButton";
+import { colors, font, palette, radius, spacing } from "../src/theme";
 
-// --- Design tokens (square minimalism) ---
+// --- Design tokens (podcast-ambient · dark modal context) ---
+// Opaque colors reference palette/colors; glass surfaces use rgba overrides.
 const C = {
-  bg: "#F2F2F2",
-  surface: "#FFFFFF",
-  border: "#111111",
-  borderLight: "#E0E0E0",
-  text: "#111111",
-  textMuted: "#888888",
-  textInverse: "#FFFFFF",
-  accent: "#111111",
+  bg: palette.neutral900,
+  surface: "rgba(255, 255, 255, 0.07)",
+  surfaceSelected: "rgba(255, 255, 255, 0.13)",
+  border: "rgba(255, 255, 255, 0.10)",
+  borderSelected: "rgba(212, 168, 67, 0.55)",
+  text: palette.white,
+  textSecondary: "rgba(255, 255, 255, 0.65)",
+  textMuted: "rgba(255, 255, 255, 0.38)",
+  accent: colors.warning, // #D4A843 — warm amber
+  accentBg: "rgba(212, 168, 67, 0.16)",
+  accentBorder: "rgba(212, 168, 67, 0.32)",
+  ctaBtn: palette.white,
+  ctaBtnText: palette.neutral900,
+  divider: "rgba(255, 255, 255, 0.08)",
 };
 
-const FREE_FEATURES = [
-  "기본 쉐도잉 기능",
-  "유튜브 영상 스크립트 보기",
-  "녹음 및 재생",
-];
+// Horizontal gutter — sits between spacing.md (16) and spacing.lg (24)
+const PH = 20;
+
 const PREMIUM_FEATURES = [
-  "AI 학습 팁 생성",
-  "AI 발음 분석 및 점수",
-  "문장 저장 무제한",
-  "모든 Free 기능 포함",
+  "모든 영상 무제한 청취",
+  "문장 저장 및 복습 무제한",
+  "광고 없는 집중 학습 환경",
 ];
 
 interface SubOption {
   label: string;
   description: string;
   fallbackPrice: string;
+  perMonth: string;
+  badge?: string;
   pkg: PurchasesPackage | null;
 }
 
@@ -62,19 +70,24 @@ export default function PaywallScreen() {
     {
       label: "월간",
       description: "매월 자동 갱신",
-      fallbackPrice: "₩9,900/월",
+      fallbackPrice: "₩9,900 / 월",
+      perMonth: "₩9,900 / 월",
       pkg: null,
     },
     {
       label: "3개월",
       description: "3개월마다 갱신",
-      fallbackPrice: "₩24,900/3개월",
+      fallbackPrice: "₩24,900 / 3개월",
+      perMonth: "₩8,300 / 월",
+      badge: "16% 절약",
       pkg: null,
     },
     {
       label: "연간",
-      description: "매년 갱신 · 가장 저렴",
-      fallbackPrice: "₩89,000/년",
+      description: "매년 자동 갱신",
+      fallbackPrice: "₩89,000 / 년",
+      perMonth: "₩7,417 / 월",
+      badge: "25% 절약",
       pkg: null,
     },
   ]);
@@ -153,9 +166,13 @@ export default function PaywallScreen() {
   const isPremium = currentPlan === "PREMIUM";
 
   return (
-    <View style={styles.root}>
+    <ImageBackground
+      source={require("../assets/images/paywall-bg.png")}
+      style={styles.root}
+      resizeMode="cover"
+    >
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -171,106 +188,110 @@ export default function PaywallScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
-        <Text style={styles.title}>인풋영어{"\n"}PREMIUM</Text>
-        <Text style={styles.subtitle}>
-          AI 기능으로 영어 쉐도잉을 더 효과적으로
-        </Text>
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>
+            {"가장 좋은 영어 인풋을\n무제한으로, 매일 받아보세요"}
+          </Text>
+          {isPremium && (
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>현재 구독 중</Text>
+            </View>
+          )}
+        </View>
 
-        {/* ── Free card ── */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>FREE</Text>
-            {!isPremium && (
-              <View style={styles.currentBadge}>
-                <Text style={styles.currentBadgeText}>현재 플랜</Text>
-              </View>
-            )}
-          </View>
-          {FREE_FEATURES.map((f, i) => (
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Premium features */}
+        <View style={styles.featuresSection}>
+          {PREMIUM_FEATURES.map((f, i) => (
             <View key={i} style={styles.featureRow}>
-              <Text style={styles.featureDash}>—</Text>
+              <Text style={styles.checkIcon}>✓</Text>
               <Text style={styles.featureText}>{f}</Text>
             </View>
           ))}
         </View>
 
-        {/* ── Premium card (with plan selector inside) ── */}
-        <View style={[styles.card, styles.premiumCard]}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabelPremium}>PREMIUM</Text>
-            {isPremium && (
-              <View style={[styles.currentBadge, styles.currentBadgePremium]}>
-                <Text
-                  style={[
-                    styles.currentBadgeText,
-                    styles.currentBadgeTextPremium,
-                  ]}
-                >
-                  현재 플랜
-                </Text>
-              </View>
-            )}
-          </View>
+        {/* Plan selector */}
+        {!isPremium && (
+          <View style={styles.planSection}>
+            <Text style={styles.planSectionLabel}>구독 플랜 선택</Text>
 
-          {PREMIUM_FEATURES.map((f, i) => (
-            <View key={i} style={styles.featureRow}>
-              <Text style={styles.checkIcon}>✓</Text>
-              <Text style={styles.featureTextPremium}>{f}</Text>
-            </View>
-          ))}
+            {loading ? (
+              <ActivityIndicator
+                style={{ marginVertical: spacing.lg }}
+                color={C.accent}
+              />
+            ) : (
+              options.map((opt, i) => {
+                const selected = selectedIndex === i;
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      styles.optionCard,
+                      selected && styles.optionCardSelected,
+                    ]}
+                    onPress={() => setSelectedIndex(i)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                  >
+                    <View style={styles.optionInner}>
+                      {/* Radio */}
+                      <View
+                        style={[styles.radio, selected && styles.radioSelected]}
+                      >
+                        {selected && <View style={styles.radioDot} />}
+                      </View>
 
-          {/* Plan selector (only for free users) */}
-          {!isPremium && (
-            <View style={styles.planSelector}>
-              <View style={styles.planDivider} />
-              <Text style={styles.planSelectorLabel}>구독 플랜 선택</Text>
+                      {/* Label + badge + description */}
+                      <View style={styles.optionMeta}>
+                        <View style={styles.optionLabelRow}>
+                          <Text
+                            style={[
+                              styles.optionLabel,
+                              selected && styles.optionLabelSelected,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                          {opt.badge && (
+                            <View style={styles.savingsBadge}>
+                              <Text style={styles.savingsBadgeText}>
+                                {opt.badge}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.optionDesc}>{opt.description}</Text>
+                      </View>
 
-              {loading ? (
-                <ActivityIndicator
-                  style={{ marginVertical: 16 }}
-                  color={C.text}
-                />
-              ) : (
-                options.map((opt, i) => {
-                  const selected = selectedIndex === i;
-                  return (
-                    <TouchableOpacity
-                      key={i}
-                      style={[
-                        styles.optionRow,
-                        selected && styles.optionRowSelected,
-                      ]}
-                      onPress={() => setSelectedIndex(i)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: selected }}
-                    >
-                      <View style={styles.optionLeft}>
-                        <View
+                      {/* Price */}
+                      <View style={styles.optionPriceBlock}>
+                        <Text
                           style={[
-                            styles.radio,
-                            selected && styles.radioSelected,
+                            styles.optionPrice,
+                            selected && styles.optionPriceSelected,
                           ]}
                         >
-                          {selected && <View style={styles.radioDot} />}
-                        </View>
-                        <View>
-                          <Text style={styles.optionLabel}>{opt.label}</Text>
-                          <Text style={styles.optionDesc}>
-                            {opt.description}
+                          {opt.pkg
+                            ? opt.pkg.product.priceString
+                            : opt.fallbackPrice}
+                        </Text>
+                        {i > 0 && (
+                          <Text style={styles.optionPerMonth}>
+                            {opt.perMonth}
                           </Text>
-                        </View>
+                        )}
                       </View>
-                      <Text style={styles.optionPrice}>
-                        {opt.fallbackPrice}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          )}
-        </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        )}
 
         {/* Restore */}
         <TouchableOpacity
@@ -286,244 +307,247 @@ export default function PaywallScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ── Fixed bottom CTA ── */}
+      {/* Fixed bottom CTA */}
       {!isPremium && (
         <View
           style={[
             styles.ctaContainer,
-            { paddingBottom: Math.max(insets.bottom, 16) },
+            { paddingBottom: Math.max(insets.bottom, spacing.md) },
           ]}
         >
           <PurchaseButton
             pkg={options[selectedIndex]?.pkg ?? null}
             onSuccess={handlePurchaseSuccess}
+            style={styles.ctaButton}
+            textStyle={styles.ctaButtonText}
           />
           <Text style={styles.ctaHint}>언제든지 해지 가능</Text>
         </View>
       )}
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
+  root: { flex: 1 },
 
-  // Header
+  // ── Header ──────────────────────────────────────────
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingHorizontal: PH,
+    paddingBottom: spacing.sm,
   },
   closeText: {
-    fontSize: 18,
+    fontSize: font.size.md,
     color: C.textMuted,
-    fontWeight: "400",
+    fontWeight: font.weight.regular,
   },
 
-  // Scroll
+  // ── Scroll ──────────────────────────────────────────
   scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingHorizontal: PH,
+    paddingBottom: spacing.xl,
   },
 
-  // Title
-  title: {
-    fontSize: 28,
-    fontWeight: "900",
+  // ── Hero ────────────────────────────────────────────
+  hero: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl - spacing.sm, // 24
+    gap: spacing.md,
+  },
+  heroTitle: {
+    fontSize: font.size["2xl"], // 28
+    fontWeight: font.weight.bold,
     color: C.text,
-    letterSpacing: 1,
-    lineHeight: 34,
-    marginBottom: 8,
+    lineHeight: font.size["2xl"] + spacing.sm, // 36
+    letterSpacing: -0.3,
   },
-  subtitle: {
-    fontSize: 14,
-    color: C.textMuted,
-    letterSpacing: 0.2,
-    marginBottom: 24,
-  },
-
-  // Cards shared
-  card: {
+  activeBadge: {
+    alignSelf: "flex-start",
     backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.borderLight,
-    padding: 20,
-    marginBottom: 12,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  cardLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 2,
-    color: C.textMuted,
-  },
-
-  // Premium card
-  premiumCard: {
     borderColor: C.border,
-    borderWidth: 2,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm + spacing.xs, // 12
+    paddingVertical: spacing.xs,
   },
-  cardLabelPremium: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 2,
-    color: C.text,
-  },
-
-  // Current plan badge
-  currentBadge: {
-    borderWidth: 1,
-    borderColor: C.borderLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  currentBadgePremium: {
-    borderColor: C.border,
-    backgroundColor: C.text,
-  },
-  currentBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 1,
-    color: C.textMuted,
-  },
-  currentBadgeTextPremium: {
-    color: C.textInverse,
+  activeBadgeText: {
+    fontSize: font.size.xs,
+    fontWeight: font.weight.semibold,
+    color: C.textSecondary,
+    letterSpacing: 0.3,
   },
 
-  // Features
+  // ── Divider ─────────────────────────────────────────
+  divider: {
+    height: 1,
+    backgroundColor: C.divider,
+    marginBottom: spacing.lg,
+  },
+
+  // ── Features ────────────────────────────────────────
+  featuresSection: {
+    gap: spacing.md - 2, // 14
+    marginBottom: spacing.xl,
+  },
   featureRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
-  },
-  featureDash: {
-    fontSize: 14,
-    color: C.borderLight,
-    width: 16,
-  },
-  featureText: {
-    fontSize: 14,
-    color: C.textMuted,
-    flex: 1,
+    gap: spacing.sm + spacing.xs, // 12
   },
   checkIcon: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.text,
-    width: 16,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.bold,
+    color: C.accent,
+    width: spacing.md,
+    textAlign: "center",
   },
-  featureTextPremium: {
-    fontSize: 14,
-    color: C.text,
+  featureText: {
+    fontSize: font.size.md,
+    color: C.textSecondary,
     flex: 1,
+    lineHeight: font.size.md * 1.4, // 21
   },
 
-  // Plan selector inside premium card
-  planSelector: {
-    marginTop: 8,
+  // ── Plan section ────────────────────────────────────
+  planSection: {
+    gap: spacing.sm + spacing.xs, // 12
   },
-  planDivider: {
-    height: 1,
-    backgroundColor: C.borderLight,
-    marginBottom: 16,
-  },
-  planSelectorLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 2,
+  planSectionLabel: {
+    fontSize: font.size.xs,
+    fontWeight: font.weight.bold,
+    letterSpacing: 1.6,
     color: C.textMuted,
-    marginBottom: 12,
+    marginBottom: spacing.xs,
   },
-  optionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    marginBottom: 6,
+
+  // Option card
+  optionCard: {
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.borderLight,
-  },
-  optionRowSelected: {
     borderColor: C.border,
-    backgroundColor: C.bg,
+    borderRadius: radius.xl, // 16
+    padding: spacing.md,
   },
-  optionLeft: {
+  optionCardSelected: {
+    backgroundColor: C.surfaceSelected,
+    borderColor: C.borderSelected,
+  },
+  optionInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing.sm + spacing.xs, // 12
   },
+
+  // Radio
   radio: {
     width: 18,
     height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: C.borderLight,
+    borderRadius: 9, // half of fixed 18px touch target
+    borderWidth: 1.5,
+    borderColor: C.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  radioSelected: {
-    borderColor: C.text,
-  },
+  radioSelected: { borderColor: C.accent },
   radioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: C.text,
-  },
-  optionLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.text,
-    letterSpacing: 0.1,
-  },
-  optionDesc: {
-    fontSize: 11,
-    color: C.textMuted,
-    marginTop: 1,
-  },
-  optionPrice: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: C.text,
-    letterSpacing: 0.2,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: radius.sm, // 4
+    backgroundColor: C.accent,
   },
 
-  // Restore
+  // Option meta
+  optionMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  optionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs + 2, // 6
+  },
+  optionLabel: {
+    fontSize: font.size.md,
+    fontWeight: font.weight.semibold,
+    color: C.textSecondary,
+    letterSpacing: 0.1,
+  },
+  optionLabelSelected: { color: C.text },
+  optionDesc: {
+    fontSize: font.size.xs,
+    color: C.textMuted,
+  },
+
+  // Savings badge
+  savingsBadge: {
+    backgroundColor: C.accentBg,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    borderRadius: radius.pill,
+    paddingHorizontal: 7, // between xs(4) and sm(8)
+    paddingVertical: 2,
+  },
+  savingsBadgeText: {
+    fontSize: 10, // below font.size.xs (11) intentionally
+    fontWeight: font.weight.bold,
+    color: C.accent,
+    letterSpacing: 0.3,
+  },
+
+  // Price block
+  optionPriceBlock: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  optionPrice: {
+    fontSize: font.size.sm,
+    fontWeight: font.weight.bold,
+    color: C.textSecondary,
+    letterSpacing: 0.1,
+  },
+  optionPriceSelected: { color: C.text },
+  optionPerMonth: {
+    fontSize: 10, // below font.size.xs (11) intentionally
+    color: C.textMuted,
+  },
+
+  // ── Restore ─────────────────────────────────────────
   restoreButton: {
     alignSelf: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginTop: 8,
+    paddingVertical: spacing.md - 2, // 14
+    paddingHorizontal: PH,
+    marginTop: spacing.md,
   },
   restoreText: {
     color: C.textMuted,
-    fontSize: 12,
-    letterSpacing: 0.5,
+    fontSize: font.size.xs + 1, // 12 — between xs(11) and sm(13)
+    letterSpacing: 0.4,
     textDecorationLine: "underline",
   },
 
-  // Fixed CTA
+  // ── Fixed CTA ───────────────────────────────────────
   ctaContainer: {
     borderTopWidth: 1,
-    borderTopColor: C.borderLight,
-    backgroundColor: C.surface,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 6,
+    borderTopColor: C.divider,
+    backgroundColor: "transparent",
+    paddingHorizontal: PH,
+    paddingTop: spacing.md - 2, // 14
+    gap: spacing.sm,
+  },
+  ctaButton: {
+    backgroundColor: C.ctaBtn,
+    borderRadius: radius.xl - 2, // 14 — slightly tighter than xl(16)
+    paddingVertical: spacing.md + 1, // 17
+  },
+  ctaButtonText: {
+    color: C.ctaBtnText,
+    fontSize: font.size.md,
+    fontWeight: font.weight.bold,
+    letterSpacing: 0.3,
   },
   ctaHint: {
-    fontSize: 11,
+    fontSize: font.size.xs,
     color: C.textMuted,
     textAlign: "center",
     letterSpacing: 0.3,

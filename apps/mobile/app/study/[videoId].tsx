@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import type {
@@ -60,9 +61,9 @@ import { colors, radius, font } from "../../src/theme";
 type MainTab = "listening" | "shadowing" | "transformation";
 type ShadowingMode = "sentence" | "paragraph" | "total";
 const SHADOWING_MODES: Array<{ key: ShadowingMode; label: string }> = [
-  { key: "sentence", label: "문장" },
-  { key: "paragraph", label: "문단" },
-  { key: "total", label: "전체" },
+  { key: "sentence", label: "문장 보기" },
+  { key: "paragraph", label: "문단 보기" },
+  { key: "total", label: "전체 보기" },
 ];
 
 function resolveStudySentences(
@@ -141,7 +142,8 @@ export default function StudyScreen() {
   const loopIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const seekDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewStartRef = useRef<number | null>(null);
+  const seekLockRef = useRef(false);
+  const isPollingRef = useRef(false);
 
   // Stores
   const savedSentences = appStore((s) => s.savedSentences);
@@ -283,18 +285,10 @@ export default function StudyScreen() {
   }, []);
 
   // ── 100ms poll: sentence sync ──
-  const isPremiumLocked =
-    Boolean(sessionDetail?.premium_required) && plan === "FREE";
-  const PREVIEW_DURATION = 10; // seconds
-
   useEffect(() => {
     if (!playing || !video) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
-    }
-    // Track when preview playback starts
-    if (isPremiumLocked && previewStartRef.current === null) {
-      previewStartRef.current = Date.now();
     }
 
     const allSentences = studySentences;
@@ -303,66 +297,71 @@ export default function StudyScreen() {
       mainTab === "shadowing" ? shadowingSentences : allSentences;
 
     pollRef.current = setInterval(async () => {
-      const t = await playerRef.current?.getCurrentTime();
-      if (t === undefined) return;
-      const rel = Math.max(0, t - offset);
+      if (seekLockRef.current || isPollingRef.current) return;
+      isPollingRef.current = true;
+      try {
+        const t = await playerRef.current?.getCurrentTime();
+        if (t === undefined) return;
+        const rel = Math.max(0, t - offset);
 
-      // Premium preview: stop after 10 seconds and show paywall
-      if (isPremiumLocked && previewStartRef.current !== null) {
-        const elapsed = (Date.now() - previewStartRef.current) / 1000;
-        if (elapsed >= PREVIEW_DURATION) {
+        if (sessionEndTime > 0 && rel >= sessionEndTime) {
+          seekLockRef.current = true;
           setPlaying(false);
-          previewStartRef.current = null;
-          router.push("/paywall");
+          playerRef.current?.seekTo(playerStartSeconds);
+          setTimeout(() => {
+            seekLockRef.current = false;
+          }, 300);
           return;
         }
-      }
 
-      if (sessionEndTime > 0 && rel >= sessionEndTime) {
-        setPlaying(false);
-        playerRef.current?.seekTo(playerStartSeconds);
-        return;
-      }
-
-      // Loop (listening only)
-      if (mainTab === "listening") {
-        const lid = loopIdRef.current;
-        if (lid) {
-          const ls = allSentences.find((s) => s.id === lid);
-          if (ls && rel >= ls.endTime - 0.08) {
-            playerRef.current?.seekTo(ls.startTime + offset);
-            return;
+        // Loop (listening only)
+        if (mainTab === "listening") {
+          const lid = loopIdRef.current;
+          if (lid) {
+            const ls = allSentences.find((s) => s.id === lid);
+            if (ls && rel >= ls.endTime - 0.08) {
+              seekLockRef.current = true;
+              activeIdRef.current = ls.id;
+              setActiveSentenceId(ls.id);
+              playerRef.current?.seekTo(ls.startTime + offset);
+              setTimeout(() => {
+                seekLockRef.current = false;
+              }, 300);
+              return;
+            }
           }
         }
-      }
 
-      // Active sentence — match against the DISPLAYED list (handles grouped sentences)
-      let active: Sentence | undefined;
-      for (let i = activeSentences.length - 1; i >= 0; i--) {
-        if (
-          activeSentences[i].startTime <= rel &&
-          rel < activeSentences[i].endTime
-        ) {
-          active = activeSentences[i];
-          break;
+        // Active sentence — match against the DISPLAYED list (handles grouped sentences)
+        let active: Sentence | undefined;
+        for (let i = activeSentences.length - 1; i >= 0; i--) {
+          if (
+            activeSentences[i].startTime <= rel &&
+            rel < activeSentences[i].endTime
+          ) {
+            active = activeSentences[i];
+            break;
+          }
         }
-      }
-      // Fallback: if past the last sentence's endTime, highlight the last one
-      if (!active && activeSentences.length > 0) {
-        const last = activeSentences[activeSentences.length - 1];
-        if (rel >= last.startTime) active = last;
-      }
-      if (active && active.id !== activeIdRef.current) {
-        activeIdRef.current = active.id;
-        setActiveSentenceId(active.id);
-        const idx = activeSentences.indexOf(active);
-        if (idx >= 0) {
-          listRef.current?.scrollToIndex({
-            index: idx,
-            animated: true,
-            viewOffset: 60,
-          });
+        // Fallback: if past the last sentence's endTime, highlight the last one
+        if (!active && activeSentences.length > 0) {
+          const last = activeSentences[activeSentences.length - 1];
+          if (rel >= last.startTime) active = last;
         }
+        if (active && active.id !== activeIdRef.current) {
+          activeIdRef.current = active.id;
+          setActiveSentenceId(active.id);
+          const idx = activeSentences.indexOf(active);
+          if (idx >= 0) {
+            listRef.current?.scrollToIndex({
+              index: idx,
+              animated: true,
+              viewOffset: 60,
+            });
+          }
+        }
+      } finally {
+        isPollingRef.current = false;
       }
     }, 100);
 
@@ -378,7 +377,6 @@ export default function StudyScreen() {
     shadowingSentences,
     studySentences,
     video,
-    isPremiumLocked,
   ]);
 
   // ── Listening handlers ──
@@ -386,11 +384,18 @@ export default function StudyScreen() {
   const handleSentenceTap = useCallback(
     (sentence: Sentence) => {
       if (seekDebounce.current) clearTimeout(seekDebounce.current);
+      // Immediate visual feedback + lock to prevent polling interference
+      seekLockRef.current = true;
+      activeIdRef.current = sentence.id;
+      setActiveSentenceId(sentence.id);
+
       seekDebounce.current = setTimeout(() => {
         const offset = playerBaseOffset;
         playerRef.current?.seekTo(sentence.startTime + offset);
-        activeIdRef.current = sentence.id;
-        setActiveSentenceId(sentence.id);
+        // Hold lock for 500ms after seek for bridge settle time
+        setTimeout(() => {
+          seekLockRef.current = false;
+        }, 500);
       }, 300);
     },
     [playerBaseOffset],
@@ -696,62 +701,15 @@ export default function StudyScreen() {
   const isRecording = recordingState !== "idle";
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" />
 
-      {/* Video player */}
-      <YouTubePlayer
-        ref={playerRef}
-        videoId={video.video_id}
-        playing={playing}
-        onChangeState={handleStateChange}
-        startSeconds={playerStartSeconds}
-      />
+        {/* Sheet handle */}
+        <View style={styles.sheetHandle} />
 
-      {briefExpanded ? (
-        <>
-          <ScrollView
-            style={styles.briefScroll}
-            contentContainerStyle={styles.briefScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <ContextBriefCard
-              context={sessionDetail?.context ?? null}
-              locked={Boolean(
-                sessionDetail?.premium_required && plan === "FREE",
-              )}
-              onUnlock={() => router.push("/paywall")}
-            />
-          </ScrollView>
-
-          {/* Fixed bottom CTA */}
-          <View style={styles.briefCta}>
-            <TouchableOpacity
-              style={styles.briefCtaButton}
-              onPress={() => {
-                if (!hasStarted && sessionDetail) {
-                  trackEvent("session_start", {
-                    sessionId: sessionDetail.id,
-                    sourceType: sessionDetail.source_type,
-                    speakingFunction: sessionDetail.speaking_function,
-                  });
-                  setHasStarted(true);
-                }
-                setBriefExpanded(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.briefCtaText}>
-                {hasStarted ? "학습 계속하기" : "학습 시작"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      ) : null}
-
-      {briefExpanded ? null : (
-        <>
-          {/* Main tabs: LISTENING / SHADOWING */}
+        {/* Main tabs: top of sheet */}
+        {!briefExpanded ? (
           <View style={styles.mainTabs}>
             <TouchableOpacity
               style={[
@@ -802,203 +760,293 @@ export default function StudyScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+        ) : null}
 
-          {/* Sub tabs for shadowing mode */}
-          {mainTab === "shadowing" && (
-            <View style={styles.subTabs}>
-              {SHADOWING_MODES.map(({ key, label }) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.subTab,
-                    shadowingMode === key && styles.subTabActive,
-                  ]}
-                  onPress={() => handleShadowingModeChange(key)}
-                >
-                  <Text
-                    style={[
-                      styles.subTabText,
-                      shadowingMode === key && styles.subTabTextActive,
-                    ]}
-                  >
-                    {label}
+        {/* Video player */}
+        <YouTubePlayer
+          ref={playerRef}
+          videoId={video.video_id}
+          playing={playing}
+          onChangeState={handleStateChange}
+          startSeconds={playerStartSeconds}
+        />
+
+        {briefExpanded ? (
+          <>
+            <ScrollView
+              style={styles.briefScroll}
+              contentContainerStyle={styles.briefScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Session info header */}
+              {sessionDetail && (
+                <View style={styles.briefHeader}>
+                  <Text style={styles.briefSessionTitle} numberOfLines={3}>
+                    {sessionDetail.title}
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Script area */}
-          {mainTab === "transformation" ? (
-            <TransformationPracticePanel
-              prompts={practicePrompts}
-              sentences={studySentences}
-              selectedMode={practiceMode}
-              selectedSentenceId={selectedPracticeSentenceId}
-              draftText={practiceDraft}
-              speakingFunction={sessionDetail?.speaking_function}
-              coachingSummary={coachingSummary}
-              coachingLoading={coachingLoading || practiceLoading}
-              voiceCoachingLoading={voiceCoachingLoading}
-              saveMessage={playbookMessage}
-              canRunVoiceCoaching={Boolean(
-                selectedPracticeSentenceId &&
-                uploadedRecordingUrls[selectedPracticeSentenceId],
+                  {sessionDetail.channel_name ? (
+                    <Text style={styles.briefChannelName}>
+                      {sessionDetail.channel_name}
+                    </Text>
+                  ) : null}
+                  {sessionDetail.speaking_function ? (
+                    <View style={styles.briefBadge}>
+                      <Text style={styles.briefBadgeText}>
+                        {sessionDetail.speaking_function}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               )}
-              onModeChange={handlePracticeModeChange}
-              onSentenceChange={handlePracticeSentenceChange}
-              onDraftChange={setPracticeDraft}
-              onCoach={handlePracticeCoach}
-              onVoiceCoach={handleVoiceCoaching}
-              onSave={handleSavePlaybook}
-            />
-          ) : !scriptVisible ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>스크립트가 숨겨져 있어요</Text>
-            </View>
-          ) : mainTab === "listening" ? (
-            /* ── Listening list ── */
-            listeningData.length === 0 ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
-              </View>
-            ) : (
-              <FlatList
-                ref={listRef}
-                data={listeningData}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <ScriptLine
-                    sentence={item}
-                    isActive={item.id === activeSentenceId}
-                    isLooping={item.id === loopingSentenceId}
-                    isSaved={savedSentences.some(
-                      (s) => s.sentenceId === item.id && s.videoId === videoId,
-                    )}
-                    scriptHidden={false}
-                    showTranslation={translationVisible}
-                    onTap={handleSentenceTap}
-                    onLoopToggle={handleLoopToggle}
-                    onSaveToggle={handleSaveToggle}
-                  />
-                )}
-                onScrollToIndexFailed={() => {}}
-                style={styles.list}
-                contentContainerStyle={styles.listContent}
-              />
-            )
-          ) : /* ── Shadowing list ── */
-          shadowingSentences.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
-            </View>
-          ) : (
-            <FlatList
-              ref={listRef}
-              data={shadowingSentences}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item, index }) => (
-                <ShadowingScriptLine
-                  sentence={item}
-                  isActive={item.id === activeSentenceId}
-                  hasRecording={!!recordedSentences[item.id]}
-                  isCurrentRecording={item.id === currentRecordingSentenceId}
-                  showTranslation={translationVisible}
-                  onRecord={handleRecord}
-                  onSeek={handleSeek}
-                  index={index}
-                />
-              )}
-              onScrollToIndexFailed={() => {}}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-            />
-          )}
 
-          {/* Recording bar (shadowing, when recording) */}
-          {mainTab === "shadowing" && isRecording ? (
-            <RecordingBar
-              recordingState={recordingState}
-              duration={recDuration}
-              isPlaying={isPlayingRec}
-              playbackProgress={playbackProgress}
-              onStop={handleStop}
-              onPlay={playRecording}
-              onPause={pauseRecording}
-              onReRecord={handleReRecord}
-              onConfirm={handleConfirm}
-            />
-          ) : null}
+              <ContextBriefCard context={sessionDetail?.context ?? null} />
+            </ScrollView>
 
-          {/* Bottom bar: brief + script icons (left) + end CTA (right) */}
-          {!isRecording ? (
-            <View style={styles.bottomBar}>
-              <View style={styles.bottomLeft}>
-                <TouchableOpacity
-                  style={styles.iconBtn}
-                  onPress={() => setBriefExpanded(true)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons
-                    name="reader-outline"
-                    size={20}
-                    color={colors.text}
-                  />
-                </TouchableOpacity>
-                {mainTab !== "transformation" ? (
-                  <>
-                    <TouchableOpacity
-                      style={styles.iconBtn}
-                      onPress={() => setScriptVisible((v) => !v)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name={
-                          scriptVisible
-                            ? "chatbox-ellipses"
-                            : "chatbox-ellipses-outline"
-                        }
-                        size={20}
-                        color={colors.text}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.iconBtn}
-                      onPress={() => setTranslationVisible((v) => !v)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name={translationVisible ? "globe" : "globe-outline"}
-                        size={20}
-                        color={
-                          translationVisible ? colors.text : colors.textMuted
-                        }
-                      />
-                    </TouchableOpacity>
-                  </>
-                ) : null}
-              </View>
-
+            {/* Fixed bottom CTA */}
+            <View style={styles.briefCta}>
               <TouchableOpacity
-                style={styles.endBtn}
-                onPress={() => router.back()}
-                activeOpacity={0.7}
+                style={styles.briefCtaButton}
+                onPress={() => {
+                  if (!hasStarted && sessionDetail) {
+                    trackEvent("session_start", {
+                      sessionId: sessionDetail.id,
+                      sourceType: sessionDetail.source_type,
+                      speakingFunction: sessionDetail.speaking_function,
+                    });
+                    setHasStarted(true);
+                  }
+                  setBriefExpanded(false);
+                }}
+                activeOpacity={0.85}
               >
-                <Text style={styles.endBtnText}>END</Text>
+                <Text style={styles.briefCtaText}>
+                  {hasStarted ? "학습 계속하기" : "학습 시작"}
+                </Text>
               </TouchableOpacity>
             </View>
-          ) : null}
-        </>
-      )}
-    </SafeAreaView>
+          </>
+        ) : null}
+
+        {briefExpanded ? null : (
+          <>
+            {/* Sub tabs for shadowing mode */}
+            {mainTab === "shadowing" && (
+              <View style={styles.subTabs}>
+                {SHADOWING_MODES.map(({ key, label }) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.subTab,
+                      shadowingMode === key && styles.subTabActive,
+                    ]}
+                    onPress={() => handleShadowingModeChange(key)}
+                  >
+                    <Text
+                      style={[
+                        styles.subTabText,
+                        shadowingMode === key && styles.subTabTextActive,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Script area */}
+            <View style={styles.scriptContainer}>
+              {mainTab === "transformation" ? (
+                <TransformationPracticePanel
+                  prompts={practicePrompts}
+                  sentences={studySentences}
+                  selectedMode={practiceMode}
+                  selectedSentenceId={selectedPracticeSentenceId}
+                  draftText={practiceDraft}
+                  speakingFunction={sessionDetail?.speaking_function}
+                  coachingSummary={coachingSummary}
+                  coachingLoading={coachingLoading || practiceLoading}
+                  voiceCoachingLoading={voiceCoachingLoading}
+                  saveMessage={playbookMessage}
+                  canRunVoiceCoaching={Boolean(
+                    selectedPracticeSentenceId &&
+                    uploadedRecordingUrls[selectedPracticeSentenceId],
+                  )}
+                  onModeChange={handlePracticeModeChange}
+                  onSentenceChange={handlePracticeSentenceChange}
+                  onDraftChange={setPracticeDraft}
+                  onCoach={handlePracticeCoach}
+                  onVoiceCoach={handleVoiceCoaching}
+                  onSave={handleSavePlaybook}
+                />
+              ) : !scriptVisible ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyText}>스크립트가 숨겨져 있어요</Text>
+                </View>
+              ) : mainTab === "listening" ? (
+                /* ── Listening list ── */
+                listeningData.length === 0 ? (
+                  <View style={styles.empty}>
+                    <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    ref={listRef}
+                    data={listeningData}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <ScriptLine
+                        sentence={item}
+                        isActive={item.id === activeSentenceId}
+                        isLooping={item.id === loopingSentenceId}
+                        isSaved={savedSentences.some(
+                          (s) =>
+                            s.sentenceId === item.id && s.videoId === videoId,
+                        )}
+                        scriptHidden={false}
+                        showTranslation={translationVisible}
+                        onTap={handleSentenceTap}
+                        onLoopToggle={handleLoopToggle}
+                        onSaveToggle={handleSaveToggle}
+                      />
+                    )}
+                    onScrollToIndexFailed={() => {}}
+                    style={styles.list}
+                    contentContainerStyle={styles.listContent}
+                  />
+                )
+              ) : /* ── Shadowing list ── */
+              shadowingSentences.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
+                </View>
+              ) : (
+                <FlatList
+                  ref={listRef}
+                  data={shadowingSentences}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item, index }) => (
+                    <ShadowingScriptLine
+                      sentence={item}
+                      isActive={item.id === activeSentenceId}
+                      hasRecording={!!recordedSentences[item.id]}
+                      isCurrentRecording={
+                        item.id === currentRecordingSentenceId
+                      }
+                      showTranslation={translationVisible}
+                      onRecord={handleRecord}
+                      onSeek={handleSeek}
+                      index={index}
+                    />
+                  )}
+                  onScrollToIndexFailed={() => {}}
+                  style={styles.list}
+                  contentContainerStyle={styles.listContent}
+                />
+              )}
+
+              <LinearGradient
+                colors={["rgba(255,255,255,0)", colors.bg]}
+                style={styles.scriptGradient}
+                pointerEvents="none"
+              />
+            </View>
+
+            {/* Recording bar (shadowing, when recording) */}
+            {mainTab === "shadowing" && isRecording ? (
+              <RecordingBar
+                recordingState={recordingState}
+                duration={recDuration}
+                isPlaying={isPlayingRec}
+                playbackProgress={playbackProgress}
+                onStop={handleStop}
+                onPlay={playRecording}
+                onPause={pauseRecording}
+                onReRecord={handleReRecord}
+                onConfirm={handleConfirm}
+              />
+            ) : null}
+
+            {/* Bottom bar: brief + script icons (left) + end CTA (right) */}
+            {!isRecording ? (
+              <View style={styles.bottomBar}>
+                <View style={styles.bottomLeft}>
+                  <TouchableOpacity
+                    style={styles.iconBtn}
+                    onPress={() => setBriefExpanded(true)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name="reader-outline"
+                      size={20}
+                      color={colors.text}
+                    />
+                  </TouchableOpacity>
+                  {mainTab !== "transformation" ? (
+                    <>
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => setScriptVisible((v) => !v)}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name={
+                            scriptVisible
+                              ? "chatbox-ellipses"
+                              : "chatbox-ellipses-outline"
+                          }
+                          size={20}
+                          color={colors.text}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => setTranslationVisible((v) => !v)}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name={translationVisible ? "globe" : "globe-outline"}
+                          size={20}
+                          color={
+                            translationVisible ? colors.text : colors.textMuted
+                          }
+                        />
+                      </TouchableOpacity>
+                    </>
+                  ) : null}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.endBtn}
+                  onPress={() => router.back()}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.endBtnText}>학습 끝내기</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  safeArea: { flex: 1 },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 4,
+  },
   state: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -1008,54 +1056,94 @@ const styles = StyleSheet.create({
   stateText: { fontSize: 13, letterSpacing: 1, color: colors.textMuted },
 
   // Brief scroll + fixed CTA
-  briefScroll: {
-    flex: 1,
-  },
-  briefScrollContent: {
-    paddingBottom: 16,
-  },
-  briefCta: {
-    borderTopWidth: 1,
-    borderTopColor: colors.borderStrong,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === "ios" ? 28 : 12,
-    backgroundColor: colors.bg,
-  },
-  briefCtaButton: {
-    backgroundColor: colors.borderStrong,
-    paddingVertical: 14,
-    borderRadius: radius.pill,
-    alignItems: "center",
-  },
-  briefCtaText: {
-    fontSize: 12,
-    fontWeight: font.weight.semibold,
-    color: colors.bg,
-    letterSpacing: 1.5,
-  },
+  briefScroll: { flex: 1 },
+  briefScrollContent: { paddingBottom: 24 },
 
-  // Main tabs
-  mainTabs: {
-    flexDirection: "row",
+  briefHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+    gap: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  briefSessionTitle: {
+    fontSize: font.size["2xl"],
+    fontWeight: font.weight.bold,
+    color: colors.text,
+    lineHeight: 36,
+    letterSpacing: -0.3,
+  },
+  briefChannelName: {
+    fontSize: font.size.md,
+    color: colors.textSecondary,
+    fontWeight: font.weight.medium,
+  },
+  briefBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.bgMuted,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  briefBadgeText: {
+    fontSize: 11,
+    fontWeight: font.weight.semibold,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+
+  briefCta: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === "ios" ? 32 : 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  briefCtaButton: {
+    backgroundColor: colors.bgInverse,
+    paddingVertical: 16,
+    borderRadius: radius.lg,
+    alignItems: "center",
+  },
+  briefCtaText: {
+    fontSize: 15,
+    fontWeight: font.weight.semibold,
+    color: colors.textInverse,
+    letterSpacing: 0.3,
+  },
+
+  // Main tabs — segmented control (podcast-native)
+  mainTabs: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginVertical: 10,
+    backgroundColor: colors.bgMuted,
+    borderRadius: radius.lg,
+    padding: 3,
+  },
   mainTab: {
     flex: 1,
-    paddingVertical: 11,
+    paddingVertical: 9,
     alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    borderRadius: radius.md,
   },
-  mainTabActive: { borderBottomColor: colors.borderStrong },
+  mainTabActive: {
+    backgroundColor: colors.bg,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
   mainTabText: {
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: font.weight.bold,
+    fontSize: 13,
+    letterSpacing: 0.2,
+    fontWeight: font.weight.medium,
     color: colors.textMuted,
   },
-  mainTabTextActive: { color: colors.text },
+  mainTabTextActive: { color: colors.text, fontWeight: font.weight.semibold },
 
   // Sub tabs (shadowing modes)
   subTabs: {
@@ -1063,23 +1151,37 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  subTab: { flex: 1, paddingVertical: 8, alignItems: "center" },
-  subTabActive: { backgroundColor: colors.text },
+  subTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  subTabActive: { borderBottomColor: colors.text },
   subTabText: {
-    fontSize: 9,
-    letterSpacing: 1.5,
-    fontWeight: font.weight.bold,
+    fontSize: 14,
+    letterSpacing: 0.2,
+    fontWeight: font.weight.medium,
     color: colors.textMuted,
   },
-  subTabTextActive: { color: colors.bg },
+  subTabTextActive: { color: colors.text, fontWeight: font.weight.semibold },
 
   // Script
+  scriptContainer: { flex: 1 },
+  scriptGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 72,
+  },
   list: { flex: 1 },
-  listContent: { paddingBottom: 16 },
+  listContent: { paddingTop: 8, paddingBottom: 16 },
   empty: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyText: {
-    fontSize: 11,
-    letterSpacing: 3,
+    fontSize: 13,
+    letterSpacing: 2,
     color: colors.textMuted,
     fontWeight: font.weight.semibold,
   },
@@ -1089,8 +1191,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: colors.borderStrong,
     paddingVertical: 12,
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === "ios" ? 28 : 12,
@@ -1099,11 +1199,12 @@ const styles = StyleSheet.create({
   bottomLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
   },
   iconBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -1113,13 +1214,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderStrong,
     borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
   },
   endBtnText: {
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: font.weight.bold,
+    fontSize: 12,
+    letterSpacing: 0.5,
+    fontWeight: font.weight.semibold,
     color: colors.text,
   },
 });

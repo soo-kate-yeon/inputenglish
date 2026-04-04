@@ -7,12 +7,21 @@ import { colors } from "../../theme";
 interface LoopToggleProps {
   active: boolean;
   onPress: () => void;
+  tinted?: boolean;
 }
 
-export default function LoopToggle({ active, onPress }: LoopToggleProps) {
+export default function LoopToggle({
+  active,
+  onPress,
+  tinted = false,
+}: LoopToggleProps) {
   return (
     <TouchableOpacity
-      style={[styles.button, active && styles.buttonActive]}
+      style={[
+        styles.button,
+        tinted ? styles.buttonTinted : styles.buttonDefault,
+        active && (tinted ? styles.buttonTintedActive : styles.buttonActive),
+      ]}
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       activeOpacity={0.7}
@@ -20,7 +29,15 @@ export default function LoopToggle({ active, onPress }: LoopToggleProps) {
       <Ionicons
         name="repeat"
         size={14}
-        color={active ? colors.textInverse : colors.textSecondary}
+        color={
+          active
+            ? tinted
+              ? colors.bgInverse
+              : colors.textInverse
+            : tinted
+              ? "rgba(255,255,255,0.5)"
+              : colors.textSecondary
+        }
       />
     </TouchableOpacity>
   );
@@ -30,14 +47,25 @@ const styles = StyleSheet.create({
   button: {
     width: 32,
     height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+  },
+  buttonDefault: {
     borderColor: colors.border,
     backgroundColor: colors.bg,
   },
   buttonActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  buttonTinted: {
+    borderColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  buttonTintedActive: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderColor: "rgba(255,255,255,0.9)",
   },
 });

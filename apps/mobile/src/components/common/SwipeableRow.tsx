@@ -97,6 +97,7 @@ export default function SwipeableRow({
 const styles = StyleSheet.create({
   container: {
     overflow: "hidden",
+    backgroundColor: "#FFFFFF",
   },
   deleteContainer: {
     position: "absolute",

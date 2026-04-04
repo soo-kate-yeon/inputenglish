@@ -3,6 +3,8 @@
 // @MX:SPEC: SPEC-MOBILE-003 - direct Supabase queries bypassing web API server
 import { supabase } from "./supabase";
 import type {
+  CardComment,
+  CardCommentTargetType,
   CuratedVideo,
   PlaybookEntry,
   PlaybookMasteryStatus,
@@ -55,6 +57,7 @@ export interface SessionListItem {
   speaking_function?: SessionSpeakingFunction;
   role_relevance?: SessionRoleRelevance[];
   premium_required?: boolean;
+  expected_takeaway?: string;
   context?: SessionContext | null;
 }
 
@@ -63,7 +66,7 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   const { data: sessions, error: sessionsError } = await supabase
     .from("learning_sessions")
     .select(
-      "id, source_video_id, title, description, duration, difficulty, thumbnail_url, order_index, source_type, speaking_function, role_relevance, premium_required",
+      "id, source_video_id, title, description, duration, difficulty, thumbnail_url, order_index, source_type, speaking_function, role_relevance, premium_required, session_contexts(expected_takeaway)",
     )
     .order("created_at", { ascending: false });
 
@@ -100,6 +103,11 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
         `https://img.youtube.com/vi/${s.source_video_id}/hqdefault.jpg`,
       order_index: s.order_index,
       channel_name: video?.channel_name || undefined,
+      expected_takeaway:
+        (Array.isArray(s.session_contexts)
+          ? s.session_contexts[0]?.expected_takeaway
+          : (s.session_contexts as { expected_takeaway?: string } | null)
+              ?.expected_takeaway) || undefined,
     };
   });
 }
@@ -374,6 +382,108 @@ export async function updatePlaybookEntryMastery(
     .eq("id", entryId);
 
   if (error) throw error;
+}
+
+// --- Card Comments ---
+
+export async function fetchCardComments(
+  userId: string,
+): Promise<CardComment[]> {
+  const { data, error } = await supabase
+    .from("card_comments")
+    .select("id, target_type, target_id, body, created_at, updated_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map(mapCardCommentRow);
+}
+
+export async function createCardComment(
+  userId: string,
+  payload: {
+    targetType: CardCommentTargetType;
+    targetId: string;
+    body: string;
+  },
+): Promise<CardComment> {
+  const { data, error } = await supabase
+    .from("card_comments")
+    .insert({
+      user_id: userId,
+      target_type: payload.targetType,
+      target_id: payload.targetId,
+      body: payload.body,
+    })
+    .select("id, target_type, target_id, body, created_at, updated_at")
+    .single();
+
+  if (error) throw error;
+  return mapCardCommentRow(data);
+}
+
+export async function updateCardComment(
+  userId: string,
+  commentId: string,
+  body: string,
+): Promise<CardComment> {
+  const { data, error } = await supabase
+    .from("card_comments")
+    .update({
+      body,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("id", commentId)
+    .select("id, target_type, target_id, body, created_at, updated_at")
+    .single();
+
+  if (error) throw error;
+  return mapCardCommentRow(data);
+}
+
+export async function deleteCardComment(
+  userId: string,
+  commentId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("card_comments")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", commentId);
+
+  if (error) throw error;
+}
+
+export async function deleteCardCommentsByTarget(
+  userId: string,
+  targetId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("card_comments")
+    .delete()
+    .eq("user_id", userId)
+    .eq("target_id", targetId);
+
+  if (error) throw error;
+}
+
+function mapCardCommentRow(row: {
+  id: string;
+  target_type: string;
+  target_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}): CardComment {
+  return {
+    id: row.id,
+    targetType: row.target_type as CardCommentTargetType,
+    targetId: row.target_id,
+    body: row.body,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function mapPlaybookEntry(item: {

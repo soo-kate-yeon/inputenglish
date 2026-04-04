@@ -3,7 +3,15 @@
 // @MX:SPEC: SPEC-MOBILE-006
 
 import React, { useCallback, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  StyleProp,
+  Text,
+  TextStyle,
+  TouchableOpacity,
+  ViewStyle,
+} from "react-native";
 import type { PurchasesPackage, CustomerInfo } from "react-native-purchases";
 import { purchasePackage } from "@/lib/revenue-cat";
 
@@ -15,6 +23,8 @@ interface PurchaseButtonProps {
   onSuccess: (info: CustomerInfo) => void;
   onError?: (e: Error) => void;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 }
 
 export default function PurchaseButton({
@@ -22,6 +32,8 @@ export default function PurchaseButton({
   onSuccess,
   onError,
   disabled = false,
+  style,
+  textStyle,
 }: PurchaseButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -58,14 +70,16 @@ export default function PurchaseButton({
 
   return (
     <TouchableOpacity
-      style={[styles.button, isDisabled && styles.buttonDisabled]}
+      style={[styles.button, isDisabled && styles.buttonDisabled, style]}
       onPress={handlePress}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={isLoading ? "구매 처리 중" : label}
       accessibilityState={{ disabled: isDisabled }}
     >
-      <Text style={styles.buttonText}>{isLoading ? "처리 중..." : label}</Text>
+      <Text style={[styles.buttonText, textStyle]}>
+        {isLoading ? "처리 중..." : label}
+      </Text>
     </TouchableOpacity>
   );
 }

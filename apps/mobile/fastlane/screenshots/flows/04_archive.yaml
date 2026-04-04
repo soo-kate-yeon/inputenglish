@@ -1,0 +1,11 @@
+appId: com.morak.inputenglish
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn:
+    text: "보관함"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: "${OUTPUT_DIR}/${DEVICE_PREFIX}_04_archive"

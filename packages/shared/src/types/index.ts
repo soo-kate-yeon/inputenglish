@@ -271,6 +271,17 @@ export interface SavedSentence {
   createdAt: number;
 }
 
+export type CardCommentTargetType = "saved_sentence" | "highlight";
+
+export interface CardComment {
+  id: string;
+  targetType: CardCommentTargetType;
+  targetId: string;
+  body: string;
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+}
+
 export interface AINote {
   id: string;
   videoId: string;

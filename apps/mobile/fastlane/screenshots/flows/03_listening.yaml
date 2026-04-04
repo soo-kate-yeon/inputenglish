@@ -1,0 +1,22 @@
+appId: com.morak.inputenglish
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 10000
+# Ensure we're on the home tab
+- tapOn:
+    text: "홈"
+- waitForAnimationToEnd:
+    timeout: 3000
+# Tap the featured card
+- tapOn:
+    point: "50%, 32%"
+- waitForAnimationToEnd:
+    timeout: 10000
+# Dismiss brief card to reveal listening view
+- tapOn:
+    text: "학습 시작"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: "${OUTPUT_DIR}/${DEVICE_PREFIX}_03_listening"

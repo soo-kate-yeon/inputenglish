@@ -1,0 +1,17 @@
+appId: com.morak.inputenglish
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 10000
+# Ensure we're on the home tab
+- tapOn:
+    text: "홈"
+- waitForAnimationToEnd:
+    timeout: 3000
+# Tap the featured card (top-center area of home feed)
+- tapOn:
+    point: "50%, 32%"
+- waitForAnimationToEnd:
+    timeout: 10000
+- takeScreenshot: "${OUTPUT_DIR}/${DEVICE_PREFIX}_02_brief"

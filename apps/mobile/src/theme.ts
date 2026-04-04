@@ -1,44 +1,45 @@
 /**
- * Editorial Tech Theme — Pure Grayscale Mono
+ * Podcast Ambient Theme — Calm Neutral
  *
  * Design DNA:
- * - Airy Canvas: generous padding, wide margins
- * - Typography-First: big clean headings, high legibility
- * - Pill Accents: buttons and tabs use max radius, containers stay rectilinear
- * - Pure Grayscale: zero chroma, no color tint
+ * - Thumbnail-Driven: large imagery, ambient playback mood
+ * - Calm Tone: warm neutrals, soft contrasts
+ * - Crisp White: clean list views, clear hierarchy
+ * - Neutral Controls: understated interactive elements
  */
 
-// ── Color Palette ──
+// -- Color Palette --
 
 export const palette = {
   white: "#FFFFFF",
   black: "#000000",
 
-  neutral50: "#FAFAFA",
-  neutral100: "#F5F5F5",
-  neutral200: "#E5E5E5",
-  neutral300: "#D4D4D4",
-  neutral400: "#A3A3A3",
-  neutral500: "#737373",
-  neutral600: "#525252",
-  neutral700: "#404040",
-  neutral800: "#262626",
-  neutral900: "#171717",
-  neutral950: "#0A0A0A",
+  // Warm neutrals (slight warm undertone vs pure gray)
+  neutral50: "#FAFAF8",
+  neutral100: "#F5F5F2",
+  neutral200: "#E8E8E4",
+  neutral300: "#D6D6D0",
+  neutral400: "#A8A8A0",
+  neutral500: "#78786F",
+  neutral600: "#56564E",
+  neutral700: "#3E3E38",
+  neutral800: "#28281F",
+  neutral900: "#1A1A14",
+  neutral950: "#0E0E0A",
 } as const;
 
-// ── Semantic Colors ──
+// -- Semantic Colors --
 
 export const colors = {
   // Backgrounds
   bg: palette.white,
   bgSubtle: palette.neutral50,
   bgMuted: palette.neutral100,
-  bgInverse: palette.neutral950,
-  bgBrand: palette.neutral950,
+  bgInverse: palette.neutral900,
+  bgBrand: palette.neutral900,
 
   // Text
-  text: palette.neutral950,
+  text: palette.neutral900,
   textSecondary: palette.neutral500,
   textMuted: palette.neutral400,
   textInverse: palette.white,
@@ -46,25 +47,30 @@ export const colors = {
   // Borders
   border: palette.neutral200,
   borderStrong: palette.neutral300,
-  borderFocus: palette.neutral900,
+  borderFocus: palette.neutral700,
 
   // Interactive
-  primary: palette.neutral950,
-  primaryHover: palette.neutral800,
+  primary: palette.neutral900,
+  primaryHover: palette.neutral700,
   disabled: palette.neutral300,
 
-  // Status (keep functional colors)
-  success: "#22C55E",
-  successBg: "#F0FDF4",
-  error: "#EF4444",
-  errorBg: "#FEF2F2",
-  warning: "#EAB308",
-  warningBg: "#FEFCE8",
-  info: "#3B82F6",
-  infoBg: "#EFF6FF",
+  // Ambient accent (warm muted tone for featured/player)
+  accent: "#5C6B5E",
+  accentLight: "#E8EDE9",
+  accentMuted: "#8A9B8C",
+
+  // Status
+  success: "#4CAF6A",
+  successBg: "#F0FAF2",
+  error: "#D9534F",
+  errorBg: "#FDF2F2",
+  warning: "#D4A843",
+  warningBg: "#FBF8EF",
+  info: "#5B8DBF",
+  infoBg: "#F0F5FA",
 } as const;
 
-// ── Spacing (generous, airy) ──
+// -- Spacing --
 
 export const spacing = {
   xs: 4,
@@ -76,8 +82,7 @@ export const spacing = {
   "3xl": 64,
 } as const;
 
-// ── Radius ──
-// Pill for buttons/tabs/badges, rectilinear for containers
+// -- Radius --
 
 export const radius = {
   none: 0,
@@ -89,7 +94,7 @@ export const radius = {
   pill: 9999,
 } as const;
 
-// ── Typography ──
+// -- Typography --
 
 export const font = {
   weight: {
@@ -99,15 +104,15 @@ export const font = {
     bold: "700" as const,
   },
   size: {
-    xs: 10,
-    sm: 12,
-    md: 14,
-    base: 16,
-    lg: 18,
-    xl: 20,
-    "2xl": 24,
-    "3xl": 32,
-    "4xl": 40,
+    xs: 11,
+    sm: 13,
+    md: 15,
+    base: 17,
+    lg: 20,
+    xl: 22,
+    "2xl": 28,
+    "3xl": 36,
+    "4xl": 44,
   },
   lineHeight: {
     tight: 1.2,
@@ -116,33 +121,33 @@ export const font = {
   },
 } as const;
 
-// ── Shadows (subtle, real) ──
+// -- Shadows (soft, ambient) --
 
 export const shadow = {
   sm: {
-    shadowColor: palette.black,
+    shadowColor: palette.neutral950,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
     elevation: 1,
   },
   md: {
-    shadowColor: palette.black,
+    shadowColor: palette.neutral950,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
   },
   lg: {
-    shadowColor: palette.black,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
+    shadowColor: palette.neutral950,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 6,
   },
 } as const;
 
-// ── Convenience re-export ──
+// -- Convenience re-export --
 
 const theme = { palette, colors, spacing, radius, font, shadow } as const;
 export default theme;

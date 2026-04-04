@@ -11,7 +11,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, font } from "../../theme";
 
-const ICONS: Record<string, { active: string; inactive: string }> = {
+const ICONS: Record<
+  string,
+  {
+    active: keyof typeof Ionicons.glyphMap;
+    inactive: keyof typeof Ionicons.glyphMap;
+  }
+> = {
   index: { active: "home", inactive: "home-outline" },
   archive: { active: "folder", inactive: "folder-outline" },
   profile: { active: "person", inactive: "person-outline" },
@@ -31,101 +37,85 @@ export default function FloatingTabBar({
 
   return (
     <View
-      style={[styles.wrapper, { bottom: Math.max(insets.bottom, 16) + 8 }]}
-      pointerEvents="box-none"
+      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}
     >
-      <View style={styles.pill}>
-        <View style={styles.border} />
+      {state.routes.map((route, index) => {
+        const isFocused = state.index === index;
+        const iconSet = ICONS[route.name] ?? {
+          active: "ellipse" as const,
+          inactive: "ellipse-outline" as const,
+        };
 
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const iconSet = ICONS[route.name] ?? {
-            active: "ellipse",
-            inactive: "ellipse-outline",
-          };
+        const onPress = () => {
+          const event = navigation.emit({
+            type: "tabPress",
+            target: route.key,
+            canPreventDefault: true,
+          });
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          return (
-            <TouchableOpacity
-              key={route.key}
-              style={styles.tab}
-              onPress={onPress}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isFocused }}
-              accessibilityLabel={LABELS[route.name]}
-            >
-              <Ionicons
-                name={(isFocused ? iconSet.active : iconSet.inactive) as any}
-                size={22}
-                color={isFocused ? colors.text : colors.textMuted}
-              />
-              <Text style={[styles.label, isFocused && styles.labelActive]}>
-                {LABELS[route.name]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        return (
+          <TouchableOpacity
+            key={route.key}
+            style={styles.tab}
+            onPress={onPress}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isFocused }}
+            accessibilityLabel={LABELS[route.name]}
+          >
+            <Ionicons
+              name={isFocused ? iconSet.active : iconSet.inactive}
+              size={24}
+              color={isFocused ? colors.text : colors.textMuted}
+            />
+            <Text style={[styles.label, isFocused && styles.labelActive]}>
+              {LABELS[route.name]}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    position: "absolute",
-    left: 24,
-    right: 24,
-    alignItems: "stretch",
-  },
-  pill: {
-    height: 64,
-    borderRadius: 32,
+  container: {
     flexDirection: "row",
-    overflow: "hidden",
     backgroundColor: colors.bg,
-    // shadow
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 20,
+        shadowColor: colors.text,
+        shadowOffset: { width: 0, height: -1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 12,
+        elevation: 8,
       },
     }),
-  },
-  border: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
   },
   tab: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingTop: 10,
+    paddingBottom: 4,
     gap: 3,
   },
   label: {
-    fontSize: 8,
-    letterSpacing: 1.2,
-    fontWeight: font.weight.semibold,
+    fontSize: 10,
+    letterSpacing: 0.3,
+    fontWeight: font.weight.medium,
     color: colors.textMuted,
   },
   labelActive: {
     color: colors.text,
+    fontWeight: font.weight.semibold,
   },
 });

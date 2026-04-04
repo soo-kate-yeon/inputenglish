@@ -5,7 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { Sentence } from "@inputenglish/shared";
 import LoopToggle from "./LoopToggle";
 import SaveToggle from "./SaveToggle";
-import { colors, font } from "../../theme";
+import { colors, font, radius, shadow } from "../../theme";
 
 interface ScriptLineProps {
   sentence: Sentence;
@@ -19,7 +19,6 @@ interface ScriptLineProps {
   onSaveToggle: (sentence: Sentence) => void;
 }
 
-// No longer used for getItemLayout — height is dynamic (text wraps)
 export const SCRIPT_LINE_HEIGHT = 76;
 
 function ScriptLine({
@@ -35,9 +34,9 @@ function ScriptLine({
 }: ScriptLineProps) {
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, isActive && styles.containerActive]}
       onPress={() => onTap(sentence)}
-      activeOpacity={0.7}
+      activeOpacity={0.85}
     >
       <View style={styles.content}>
         <Text
@@ -50,7 +49,11 @@ function ScriptLine({
           {scriptHidden ? "• • •" : sentence.text}
         </Text>
         {showTranslation && sentence.translation ? (
-          <Text style={styles.translation}>{sentence.translation}</Text>
+          <Text
+            style={[styles.translation, isActive && styles.translationActive]}
+          >
+            {sentence.translation}
+          </Text>
         ) : null}
       </View>
       <View style={styles.actions}>
@@ -64,40 +67,48 @@ function ScriptLine({
 export default memo(ScriptLine);
 
 const styles = StyleSheet.create({
+  // Inactive: crisp white list surface
   container: {
     flexDirection: "row",
     alignItems: "flex-start",
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: colors.bg,
+    paddingVertical: 16,
   },
+
+  containerActive: {},
+
   content: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
+    gap: 6,
   },
+
   text: {
-    fontSize: font.size.base - 1,
+    fontSize: font.size.base,
     color: colors.textMuted,
-    lineHeight: 24,
+    lineHeight: 26,
     fontWeight: font.weight.regular,
-    flexWrap: "wrap",
   },
   textActive: {
     color: colors.text,
     fontWeight: font.weight.bold,
-    fontSize: font.size.base,
-    lineHeight: 26,
+    fontSize: font.size.lg,
+    lineHeight: 30,
   },
   textHidden: {
     color: colors.border,
     letterSpacing: 4,
   },
+
   translation: {
     fontSize: font.size.sm,
-    color: colors.textMuted,
-    marginTop: 4,
-    lineHeight: 18,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
+  translationActive: {
+    color: colors.textSecondary,
+  },
+
   actions: {
     flexDirection: "row",
     alignItems: "center",
