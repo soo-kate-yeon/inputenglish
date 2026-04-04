@@ -92,6 +92,10 @@ jest.mock("expo-router", () => ({
   })),
 }));
 
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "test-uuid"),
+}));
+
 jest.mock("../../src/lib/api", () => ({
   fetchCuratedVideo: jest.fn().mockResolvedValue(mockVideo),
   fetchLearningSessionDetail: jest.fn().mockResolvedValue(mockSessionDetail),

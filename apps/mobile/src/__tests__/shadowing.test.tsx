@@ -14,6 +14,9 @@ jest.mock("expo-av", () => ({
       prepareToRecordAsync: jest.fn().mockResolvedValue(undefined),
       startAsync: jest.fn().mockResolvedValue(undefined),
       stopAndUnloadAsync: jest.fn().mockResolvedValue(undefined),
+      getStatusAsync: jest
+        .fn()
+        .mockResolvedValue({ canRecord: true, isRecording: false }),
       getURI: jest.fn().mockReturnValue("file:///mock/recording.m4a"),
       setOnRecordingStatusUpdate: jest.fn(),
     })),
@@ -25,6 +28,7 @@ jest.mock("expo-av", () => ({
           stopAsync: jest.fn().mockResolvedValue(undefined),
           unloadAsync: jest.fn().mockResolvedValue(undefined),
           setOnPlaybackStatusUpdate: jest.fn(),
+          setPositionAsync: jest.fn().mockResolvedValue(undefined),
         },
       }),
     },
@@ -35,7 +39,14 @@ jest.mock("expo-av", () => ({
     AndroidAudioEncoder: { AAC: 3 },
     IOSAudioQuality: { HIGH: 0x7f },
     IOSOutputFormat: { MPEG4AAC: "aac" },
+    RecordingOptionsPresets: {
+      HIGH_QUALITY: {},
+    },
   },
+}));
+
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "test-uuid"),
 }));
 
 const mockVideo = {
@@ -55,11 +66,11 @@ const mockVideo = {
   snippet_start_time: 0,
 };
 
-jest.mock("../../lib/api", () => ({
+jest.mock("../lib/api", () => ({
   fetchCuratedVideo: jest.fn().mockResolvedValue(mockVideo),
 }));
 
-jest.mock("../../lib/stores", () => ({
+jest.mock("../lib/stores", () => ({
   studyStore: Object.assign(
     jest.fn(() => ({
       currentSession: null,
@@ -73,13 +84,23 @@ jest.mock("../../lib/stores", () => ({
   appStore: jest.fn(() => ({})),
 }));
 
+jest.mock("../contexts/AuthContext", () => ({
+  useAuth: jest.fn(() => ({
+    user: { id: "user-1" },
+  })),
+}));
+
+jest.mock("../lib/ai-api", () => ({
+  uploadRecording: jest.fn(),
+}));
+
 // Mock @inputenglish/shared
 jest.mock("@inputenglish/shared", () => ({
   groupSentencesByMode: jest.fn((sentences) => sentences),
 }));
 
 // Mock YouTubePlayer
-jest.mock("../../components/player/YouTubePlayer", () => {
+jest.mock("../components/player/YouTubePlayer", () => {
   const React = require("react");
   const { View } = require("react-native");
   const MockPlayer = React.forwardRef(
@@ -88,15 +109,15 @@ jest.mock("../../components/player/YouTubePlayer", () => {
     },
   );
   MockPlayer.displayName = "YouTubePlayer";
-  return { default: MockPlayer };
+  return { __esModule: true, default: MockPlayer };
 });
 
 // Lazy import to ensure mocks are set up
 let ShadowingScreen: React.ComponentType;
 
 describe("ShadowingScreen integration", () => {
-  beforeAll(async () => {
-    const mod = await import("../../app/shadowing/[videoId]");
+  beforeAll(() => {
+    const mod = require("../../app/shadowing/[videoId]");
     ShadowingScreen = mod.default;
   });
 

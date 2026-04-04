@@ -70,6 +70,10 @@ jest.mock("expo-router", () => ({
   })),
 }));
 
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "test-uuid"),
+}));
+
 jest.mock("../../src/lib/api", () => ({
   fetchCuratedVideo: jest.fn().mockResolvedValue(mockVideo),
   fetchLearningSessionDetail: jest.fn().mockResolvedValue(mockSessionDetail),
@@ -160,15 +164,17 @@ describe("StudyScreen professional context flow", () => {
     mockPlayerProps.startSeconds = undefined;
   });
 
-  it("shows only the selected session range and starts playback at the session offset", async () => {
+  it("shows context immediately and starts playback at the session offset", async () => {
     const { findByText, getByText, queryByText } = render(<StudyScreen />);
 
-    expect(await findByText("학습 전 브리프")).toBeTruthy();
-
+    expect(await findByText("이 세션이 길러주는 말하기")).toBeTruthy();
     expect(
-      await findByText("전체 브리프는 프리미엄에서 확인할 수 있어요"),
+      await findByText("수치 변화에 의미를 부여하는 문장 선택을 보여준다."),
     ).toBeTruthy();
-    expect(await findByText("프리미엄 시작")).toBeTruthy();
+    expect(
+      queryByText("전체 브리프는 프리미엄에서 확인할 수 있어요"),
+    ).toBeNull();
+    expect(queryByText("프리미엄 시작")).toBeNull();
     expect(queryByText("리스닝")).toBeNull();
 
     await waitFor(() => {
@@ -178,9 +184,6 @@ describe("StudyScreen professional context flow", () => {
         speakingFunction: "explain-metric",
       });
     });
-
-    fireEvent.press(getByText("프리미엄 시작"));
-    expect(mockRouterPush).toHaveBeenCalledWith("/paywall");
 
     fireEvent.press(getByText("학습 시작"));
 
@@ -199,5 +202,6 @@ describe("StudyScreen professional context flow", () => {
       sourceType: "demo",
       speakingFunction: "explain-metric",
     });
+    expect(mockRouterPush).not.toHaveBeenCalledWith("/paywall");
   });
 });

@@ -65,6 +65,11 @@ jest.mock("../../src/lib/api", () => ({
     { id: "session-1", title: "지표 설명 세션" },
     { id: "session-2", title: "핵심 요약 세션" },
   ]),
+  fetchCardComments: jest.fn().mockResolvedValue([]),
+  createCardComment: jest.fn(),
+  updateCardComment: jest.fn(),
+  deleteCardComment: jest.fn(),
+  deleteCardCommentsByTarget: jest.fn(),
   updatePlaybookEntryMastery: (...args: unknown[]) =>
     mockUpdatePlaybookEntryMastery(...args),
 }));

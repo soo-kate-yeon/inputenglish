@@ -1,12 +1,19 @@
 // RED phase: Specification tests for useAudioRecorder hook
 // Tests define expected behavior before implementation
-import { renderHook, act } from "@testing-library/react-hooks";
+import { renderHook, act } from "@testing-library/react-native";
 
 // Mock expo-av before importing the hook
 const mockRecording = {
   prepareToRecordAsync: jest.fn().mockResolvedValue(undefined),
   startAsync: jest.fn().mockResolvedValue(undefined),
   stopAndUnloadAsync: jest.fn().mockResolvedValue(undefined),
+  getStatusAsync: jest
+    .fn()
+    .mockResolvedValue({
+      canRecord: true,
+      isRecording: false,
+      durationMillis: 0,
+    }),
   getURI: jest.fn().mockReturnValue("file:///mock/recording.m4a"),
   setOnRecordingStatusUpdate: jest.fn(),
 };
@@ -18,6 +25,7 @@ const mockSound = {
   stopAsync: jest.fn().mockResolvedValue(undefined),
   unloadAsync: jest.fn().mockResolvedValue(undefined),
   setOnPlaybackStatusUpdate: jest.fn(),
+  setPositionAsync: jest.fn().mockResolvedValue(undefined),
   getStatusAsync: jest
     .fn()
     .mockResolvedValue({ isLoaded: true, durationMillis: 5000 }),
@@ -48,6 +56,9 @@ describe("useAudioRecorder", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    const { Audio } = require("expo-av");
+    Audio.getPermissionsAsync.mockResolvedValue({ granted: true });
+    Audio.requestPermissionsAsync.mockResolvedValue({ granted: true });
   });
 
   afterEach(() => {
@@ -133,8 +144,8 @@ describe("useAudioRecorder", () => {
         await result.current.startRecording();
         await result.current.stopRecording();
       });
-      act(() => {
-        result.current.resetRecording();
+      await act(async () => {
+        await result.current.resetRecording();
       });
       expect(result.current.recordingState).toBe("idle");
     });
@@ -145,8 +156,8 @@ describe("useAudioRecorder", () => {
         await result.current.startRecording();
         await result.current.stopRecording();
       });
-      act(() => {
-        result.current.resetRecording();
+      await act(async () => {
+        await result.current.resetRecording();
       });
       expect(result.current.audioUri).toBeNull();
     });
@@ -163,8 +174,8 @@ describe("useAudioRecorder", () => {
       await act(async () => {
         await result.current.stopRecording();
       });
-      act(() => {
-        result.current.resetRecording();
+      await act(async () => {
+        await result.current.resetRecording();
       });
       expect(result.current.duration).toBe(0);
     });

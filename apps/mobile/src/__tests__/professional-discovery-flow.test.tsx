@@ -1,6 +1,8 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
+const mockRouterPush = jest.fn();
+
 const mockSessions = [
   {
     id: "session-1",
@@ -35,7 +37,7 @@ const mockSessions = [
 ];
 
 jest.mock("expo-router", () => ({
-  router: { push: jest.fn() },
+  router: { push: (...args: unknown[]) => mockRouterPush(...args) },
 }));
 
 jest.mock("../../src/lib/api", () => ({
@@ -45,37 +47,31 @@ jest.mock("../../src/lib/api", () => ({
 describe("HomeScreen professional discovery flow", () => {
   const HomeScreen = require("../../app/(tabs)/index").default;
 
-  it("shows professional metadata and filters sessions by function and source type", async () => {
-    const { findAllByText, findByText, getAllByText, getByText, queryByText } =
-      render(<HomeScreen />);
+  beforeEach(() => {
+    mockRouterPush.mockClear();
+  });
+
+  it("shows featured + category cards and navigates to study with session id", async () => {
+    const { findAllByText, findByText, getByText } = render(<HomeScreen />);
 
     expect(await findByText("OpenAI 데모로 배우는 지표 설명")).toBeTruthy();
-    expect(await findByText("Quarterly Wrap-up Podcast")).toBeTruthy();
-    expect(getAllByText("지표 설명").length).toBeGreaterThan(0);
-    expect(getAllByText("데모").length).toBeGreaterThan(0);
-    expect(await findByText("프리미엄")).toBeTruthy();
+    expect(
+      (await findAllByText("Quarterly Wrap-up Podcast")).length,
+    ).toBeGreaterThan(0);
+    expect(await findByText("팟캐스트")).toBeTruthy();
 
-    fireEvent.press(getByText("말하기 목적"));
-    fireEvent.press((await findAllByText("지표 설명"))[0]);
-
-    await waitFor(() => {
-      expect(queryByText("OpenAI 데모로 배우는 지표 설명")).toBeTruthy();
-      expect(queryByText("Quarterly Wrap-up Podcast")).toBeNull();
-    });
-
-    fireEvent.press(getByText("콘텐츠 형식"));
-    fireEvent.press((await findAllByText("팟캐스트"))[0]);
+    fireEvent.press(getByText("OpenAI 데모로 배우는 지표 설명"));
+    fireEvent.press((await findAllByText("Quarterly Wrap-up Podcast"))[0]);
 
     await waitFor(() => {
-      expect(queryByText("조건에 맞는 세션이 없어요")).toBeTruthy();
-    });
-
-    fireEvent.press(getByText("지표 설명"));
-    fireEvent.press((await findAllByText("전체"))[0]);
-
-    await waitFor(() => {
-      expect(queryByText("OpenAI 데모로 배우는 지표 설명")).toBeNull();
-      expect(queryByText("Quarterly Wrap-up Podcast")).toBeTruthy();
+      expect(mockRouterPush).toHaveBeenNthCalledWith(
+        1,
+        "/study/video-1?sessionId=session-1",
+      );
+      expect(mockRouterPush).toHaveBeenNthCalledWith(
+        2,
+        "/study/video-2?sessionId=session-2",
+      );
     });
   });
 });
