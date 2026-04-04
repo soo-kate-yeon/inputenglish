@@ -1,10 +1,12 @@
 {
   "mcpServers": {
     "framingui": {
+      "type": "stdio",
       "command": "npx",
       "args": ["-y", "@framingui/mcp-server@latest"],
       "env": {
-        "FRAMINGUI_API_KEY": "tk_live_e949d1573845844064e45f8b0dcffdf5d8e234053a3b9c0ad881083d51dc3585"
+        "FRAMINGUI_API_KEY": "tk_live_095c78484eaef59286e96b4db6aaed9cb78d0e05739a68f62557350aad3d914d",
+        "FRAMINGUI_API_URL": "https://framingui.com"
       }
     },
     "blitz": {

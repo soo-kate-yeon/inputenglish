@@ -1,0 +1,268 @@
+{
+  "id": "podcast-ambient",
+  "name": "Podcast Ambient",
+  "description": "Thumbnail-driven ambient playback mood with neutral controls and crisp white list views.",
+  "schemaVersion": "2.1",
+  "brandTone": "calm",
+  "designDNA": {
+    "moodKeywords": ["immersive", "ambient", "cinematic", "calm"],
+    "targetEmotion": "focused immersion",
+    "visualAtmosphere": "podcast app with blurred artwork-tinted now-playing surfaces",
+    "principles": [
+      "Artwork First Ambient Tint",
+      "Neutral White Controls on Session Surfaces",
+      "Crisp White List View With Black Type"
+    ]
+  },
+  "tokens": {
+    "atomic": {
+      "color": {
+        "brand": {
+          "50": { "l": 0.97, "c": 0.01, "h": 70 },
+          "100": { "l": 0.93, "c": 0.02, "h": 70 },
+          "200": { "l": 0.86, "c": 0.03, "h": 66 },
+          "300": { "l": 0.76, "c": 0.05, "h": 58 },
+          "400": { "l": 0.65, "c": 0.07, "h": 52 },
+          "500": { "l": 0.55, "c": 0.08, "h": 46 },
+          "600": { "l": 0.44, "c": 0.07, "h": 42 },
+          "700": { "l": 0.34, "c": 0.06, "h": 38 },
+          "800": { "l": 0.26, "c": 0.05, "h": 34 },
+          "900": { "l": 0.18, "c": 0.04, "h": 30 },
+          "950": { "l": 0.12, "c": 0.03, "h": 30 }
+        },
+        "neutral": {
+          "white": { "l": 1, "c": 0, "h": 0 },
+          "black": { "l": 0, "c": 0, "h": 0 },
+          "50": { "l": 0.98, "c": 0.004, "h": 255 },
+          "100": { "l": 0.95, "c": 0.008, "h": 255 },
+          "200": { "l": 0.9, "c": 0.012, "h": 255 },
+          "300": { "l": 0.83, "c": 0.014, "h": 255 },
+          "400": { "l": 0.71, "c": 0.016, "h": 255 },
+          "500": { "l": 0.58, "c": 0.018, "h": 255 },
+          "600": { "l": 0.46, "c": 0.017, "h": 255 },
+          "700": { "l": 0.34, "c": 0.016, "h": 255 },
+          "800": { "l": 0.24, "c": 0.014, "h": 255 },
+          "900": { "l": 0.16, "c": 0.012, "h": 255 },
+          "950": { "l": 0.1, "c": 0.01, "h": 255 }
+        },
+        "accent": {
+          "play": { "l": 0.88, "c": 0.03, "h": 90 },
+          "progress": { "l": 0.84, "c": 0.02, "h": 80 }
+        }
+      },
+      "radius": {
+        "sm": "8px",
+        "md": "12px",
+        "lg": "16px",
+        "xl": "20px",
+        "2xl": "24px",
+        "full": "9999px",
+        "select": "12px"
+      },
+      "spacing": {
+        "2": "0.5rem",
+        "3": "0.75rem",
+        "4": "1rem",
+        "6": "1.5rem",
+        "8": "2rem",
+        "12": "3rem",
+        "16": "4rem"
+      }
+    },
+    "semantic": {
+      "background": {
+        "canvas": "atomic.color.neutral.white",
+        "surface": {
+          "subtle": "atomic.color.neutral.50",
+          "default": "atomic.color.neutral.white",
+          "emphasis": "atomic.color.neutral.100",
+          "popover": "atomic.color.neutral.white"
+        },
+        "brand": {
+          "subtle": "atomic.color.brand.100",
+          "default": "atomic.color.neutral.900",
+          "emphasis": "atomic.color.brand.700"
+        }
+      },
+      "border": {
+        "default": {
+          "subtle": "atomic.color.neutral.200",
+          "default": "atomic.color.neutral.300",
+          "emphasis": "atomic.color.neutral.400"
+        },
+        "focus": "atomic.color.brand.500"
+      },
+      "text": {
+        "primary": "atomic.color.neutral.950",
+        "secondary": "atomic.color.neutral.600",
+        "muted": "atomic.color.neutral.500",
+        "inverted": "atomic.color.neutral.white"
+      }
+    },
+    "component": {
+      "modes": {
+        "list": {
+          "canvas": "atomic.color.neutral.white",
+          "text": "atomic.color.neutral.950"
+        },
+        "session": {
+          "canvas": "atomic.color.brand.800",
+          "overlay": "atomic.color.neutral.900",
+          "control": "atomic.color.neutral.white"
+        },
+        "modal": {
+          "canvas": "atomic.color.brand.700",
+          "overlay": "atomic.color.neutral.900",
+          "control": "atomic.color.neutral.white"
+        }
+      }
+    },
+    "recipes": {
+      "card": {
+        "list": "bg-white text-[var(--text-primary)] rounded-[20px] border border-[var(--border-default)] shadow-[0_1px_2px_rgba(15,23,42,0.06)]",
+        "session": "bg-white/10 text-white rounded-[16px] border border-white/12 backdrop-blur-2xl",
+        "modal": "bg-white/14 text-white rounded-[18px] border border-white/16 backdrop-blur-3xl"
+      },
+      "button": {
+        "primary": "inline-flex items-center justify-center rounded-full bg-[var(--bg-primary)] px-4 py-2 text-sm font-semibold text-[var(--bg-primary-foreground)] hover:opacity-90 transition-opacity",
+        "secondary": "inline-flex items-center justify-center rounded-full bg-[var(--bg-secondary)] px-4 py-2 text-sm font-medium text-[var(--text-primary)]",
+        "player": "inline-flex items-center justify-center rounded-full bg-white/90 text-neutral-900 backdrop-blur-md font-semibold",
+        "ghost": "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
+      },
+      "input": {
+        "list": "w-full rounded-[12px] border border-[var(--border-default)] bg-white px-3 py-2 text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]",
+        "session": "w-full rounded-full border border-white/20 bg-white/12 px-4 py-2 text-white placeholder:text-white/70 backdrop-blur-lg"
+      },
+      "badge": {
+        "default": "inline-flex items-center rounded-full bg-[var(--bg-primary)] px-2.5 py-0.5 text-xs font-semibold text-[var(--bg-primary-foreground)]",
+        "session": "inline-flex items-center rounded-full bg-white/18 px-2.5 py-0.5 text-xs font-medium text-white"
+      },
+      "typography": {
+        "h1": "text-4xl font-semibold tracking-tight text-[var(--text-primary)]",
+        "h2": "text-3xl font-semibold tracking-tight text-[var(--text-primary)]",
+        "h3": "text-xl font-semibold text-[var(--text-primary)]",
+        "body": "text-base leading-relaxed text-[var(--text-secondary)]",
+        "caption": "text-sm text-[var(--text-muted)]",
+        "sessionTitle": "text-3xl font-semibold tracking-tight text-white",
+        "sessionBody": "text-base leading-relaxed text-white/82"
+      },
+      "layout": {
+        "list": "bg-white min-h-screen",
+        "session": "relative min-h-screen text-white",
+        "modal": "relative rounded-[18px]",
+        "container": "max-w-6xl mx-auto px-6",
+        "section": "py-16",
+        "grid": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      },
+      "audio": {
+        "progressTrack": "h-1.5 rounded-full bg-white/35",
+        "progressFill": "h-1.5 rounded-full bg-white/90",
+        "controlIcon": "text-white/92",
+        "controlGhost": "text-white/72"
+      }
+    }
+  },
+  "stateLayer": {
+    "hover": { "opacity": 0.08 },
+    "pressed": { "opacity": 0.12 },
+    "focus": {
+      "opacity": 0.14,
+      "ring": {
+        "width": "2px",
+        "offset": "2px",
+        "color": "atomic.color.brand.400"
+      }
+    },
+    "disabled": {
+      "opacity": 0.38,
+      "contentOpacity": 0.42
+    }
+  },
+  "motion": {
+    "duration": {
+      "fast": "120ms",
+      "base": "220ms",
+      "slow": "360ms"
+    },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0, 0, 1)",
+      "decelerate": "cubic-bezier(0, 0, 0, 1)",
+      "accelerate": "cubic-bezier(0.3, 0, 1, 1)"
+    }
+  },
+  "elevation": {
+    "level": {
+      "0": "none",
+      "1": "0 1px 2px rgba(15, 23, 42, 0.08)",
+      "2": "0 6px 24px rgba(15, 23, 42, 0.14)",
+      "3": "0 16px 36px rgba(15, 23, 42, 0.2)"
+    },
+    "context": {
+      "list": "level.1",
+      "session": "level.2",
+      "modal": "level.3"
+    }
+  },
+  "border": {
+    "width": {
+      "none": "0px",
+      "sm": "1px",
+      "md": "1.5px",
+      "lg": "2px"
+    },
+    "style": {
+      "default": "solid"
+    },
+    "radius": {
+      "card": "16px",
+      "pill": "9999px",
+      "modal": "18px"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans": "SF Pro Text, SF Pro Display, -apple-system, BlinkMacSystemFont, Helvetica Neue, Apple SD Gothic Neo, sans-serif"
+    },
+    "fontWeight": {
+      "regular": "400",
+      "medium": "500",
+      "semibold": "600",
+      "bold": "700"
+    },
+    "lineHeight": {
+      "tight": "1.2",
+      "normal": "1.5",
+      "relaxed": "1.7"
+    }
+  },
+  "density": {
+    "mode": "comfortable",
+    "scale": {
+      "touch": 1,
+      "compact": 0.95
+    }
+  },
+  "effects": {
+    "blur": {
+      "ambient": "56px",
+      "session": "36px",
+      "modal": "28px"
+    },
+    "backdrop": {
+      "blur": "24px",
+      "saturate": "1.2",
+      "brightness": "0.92"
+    },
+    "overlay": {
+      "session": "linear-gradient(180deg, rgba(10,12,16,0.18) 0%, rgba(10,12,16,0.44) 100%)",
+      "modal": "linear-gradient(180deg, rgba(10,12,16,0.24) 0%, rgba(10,12,16,0.52) 100%)"
+    }
+  },
+  "aiContext": {
+    "designPhilosophy": "Derive atmosphere from artwork, keep controls neutral, and preserve strong readability by switching to white list surfaces outside active sessions.",
+    "colorGuidance": "For now-playing and modal contexts, use artwork-tinted dark/warm backgrounds with strong blur and white controls. For list/feed contexts, use white surfaces with near-black text.",
+    "componentGuidance": "Primary controls in session contexts should be white or white-alpha. Generic app actions on list pages should remain neutral dark.",
+    "spacingGuidance": "Maintain comfortable touch spacing and generous vertical rhythm for transcript and queue lists.",
+    "accessibilityNotes": "Ensure 4.5:1 contrast in list mode and >=3:1 for iconography over tinted session overlays."
+  }
+}

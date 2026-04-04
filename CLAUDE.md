@@ -530,3 +530,81 @@ Language: English
 Core Rule: MoAI is an orchestrator; direct implementation is prohibited
 
 For detailed patterns on plugins, sandboxing, headless mode, and version management, see Skill("moai-foundation-claude").
+
+## FramingUI Workflow
+
+### Authentication
+
+Before using licensed themes:
+
+```bash
+framingui-mcp login
+```
+
+### Production Screen Flow
+
+1. Decide the style contract:
+   - `host-utility`
+   - `framingui-native`
+   - `migrate`
+2. Inspect the theme when defaults matter:
+   - `preview-theme`
+3. Gather generation context:
+   - `get-screen-generation-context`
+4. Resolve ambiguity before drafting:
+   - `preview-component`
+   - `list-icon-libraries` when icons are needed
+5. Validate structure:
+   - `validate-screen-definition`
+6. Write React code from the validated definition
+7. Verify project integration:
+   - `validate-environment` with `sourceFiles`
+
+### Style Contract Rules
+
+- If the project stays `host-utility`, keep utility classes explicit.
+- If the project uses `framingui-native`, ensure the global stylesheet imports `@framingui/ui/styles` before relying on FramingUI default variants.
+
+### Slash Commands
+
+- `/screen`
+- `/draft`
+- `/section`
+- `/responsive`
+- `/a11y`
+- `/theme-swap`
+- `/doctor`
+- `/install-check`
+- `/export`
+- `/update`
+
+### Component Rule
+
+Do not claim a FramingUI component is unavailable without checking `list-components` or `preview-component`.
+
+### Example
+
+```tsx
+// app/page.tsx
+import "@framingui/ui/styles";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@framingui/ui";
+
+export default function Page() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Ready for MCP-assisted UI work</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Button>Continue</Button>
+      </CardContent>
+    </Card>
+  );
+}
+```
