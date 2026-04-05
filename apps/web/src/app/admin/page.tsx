@@ -88,6 +88,21 @@ function AdminPageContent() {
   const [highlightedSentenceIds, setHighlightedSentenceIds] = useState<
     Set<string>
   >(new Set());
+  const [selectedSentenceIds, setSelectedSentenceIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const handleSentenceSelect = (id: string) => {
+    setSelectedSentenceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Scene Analysis State
   const [analyzingScenes, setAnalyzingScenes] = useState(false);
@@ -710,6 +725,8 @@ function AdminPageContent() {
             loading={loading}
             rawScript={rawScript}
             highlightedSentenceIds={highlightedSentenceIds}
+            selectedSentenceIds={selectedSentenceIds}
+            onSentenceSelect={handleSentenceSelect}
             onParseScript={handleParseScript}
             onAnalyzeScenes={handleAnalyzeScenes}
             analyzingScenes={analyzingScenes}
@@ -726,11 +743,12 @@ function AdminPageContent() {
             sentences={sentences}
             videoId={getVideoId() || ""}
             videoTitle={title}
+            selectedIds={selectedSentenceIds}
+            onSelectedIdsChange={setSelectedSentenceIds}
             onSessionsChange={setCreatedSessions}
             onHighlightedSentencesChange={setHighlightedSentenceIds}
             initialSessions={createdSessions}
             suggestedScenes={analyzedScenes}
-            onTranslateSelected={handleTranslateSelected}
           />
         </div>
       </div>

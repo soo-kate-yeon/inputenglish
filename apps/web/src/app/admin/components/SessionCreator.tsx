@@ -10,7 +10,7 @@ import type {
   SessionSpeakingFunction,
 } from "@inputenglish/shared";
 import { SESSION_SOURCE_TYPES } from "@inputenglish/shared";
-import { Check, Plus, Trash2, Clock, Edit2, Sparkles } from "lucide-react";
+import { Plus, Trash2, Clock, Edit2, Sparkles } from "lucide-react";
 import { TransformationExerciseEditor } from "./TransformationExerciseEditor";
 import {
   Sheet,
@@ -97,33 +97,30 @@ interface SessionCreatorProps {
   sentences: Sentence[];
   videoId: string;
   videoTitle?: string;
+  selectedIds: Set<string>;
+  onSelectedIdsChange: (ids: Set<string>) => void;
   onSessionsChange: (sessions: LearningSession[]) => void;
   onHighlightedSentencesChange?: (ids: Set<string>) => void;
   initialSessions?: LearningSession[];
   suggestedScenes?: SceneRecommendation[];
-  onTranslateSelected?: (sentenceIds: string[]) => Promise<void>;
 }
 
 export function SessionCreator({
   sentences,
   videoId,
   videoTitle,
+  selectedIds,
+  onSelectedIdsChange,
   onSessionsChange,
   onHighlightedSentencesChange,
   initialSessions = [],
   suggestedScenes = [],
-  onTranslateSelected,
 }: SessionCreatorProps) {
-  // Selection State
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
-
   const [checkedSessionIds, setCheckedSessionIds] = useState<Set<string>>(
     new Set(),
   );
 
   const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
-  const [isTranslating, setIsTranslating] = useState(false);
 
   // Edit Sheet State
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -196,11 +193,24 @@ export function SessionCreator({
   const toggleSessionCheck = (sessionId: string) => {
     setCheckedSessionIds((prev) => {
       const next = new Set(prev);
-      if (next.has(sessionId)) {
+      const wasChecked = next.has(sessionId);
+      if (wasChecked) {
         next.delete(sessionId);
       } else {
         next.add(sessionId);
       }
+
+      // Sync sentence selection with all checked sessions
+      const sentenceIds = new Set<string>();
+      for (const session of createdSessions) {
+        if (next.has(session.id)) {
+          for (const sid of session.sentence_ids) {
+            sentenceIds.add(sid);
+          }
+        }
+      }
+      onSelectedIdsChange(sentenceIds);
+
       return next;
     });
   };
@@ -272,51 +282,6 @@ export function SessionCreator({
   }, [sortedSelectedSentences]);
 
   // Handlers
-  const handleSentenceClick = (sentenceId: string, e: React.MouseEvent) => {
-    if (e.shiftKey && lastClickedId) {
-      // Range selection
-      const currentIndex = sentences.findIndex((s) => s.id === sentenceId);
-      const lastIndex = sentences.findIndex((s) => s.id === lastClickedId);
-
-      if (currentIndex === -1 || lastIndex === -1) return;
-
-      const start = Math.min(currentIndex, lastIndex);
-      const end = Math.max(currentIndex, lastIndex);
-
-      const newSelected = new Set(selectedIds);
-      // If ctrl/cmd is NOT held, we might want to keep existing?
-      // Standard behavior: Shift adds to selection or defines range.
-      // Let's make Shift+Click add the range.
-      for (let i = start; i <= end; i++) {
-        newSelected.add(sentences[i].id);
-      }
-      setSelectedIds(newSelected);
-    } else if (e.metaKey || e.ctrlKey) {
-      // Toggle individual
-      const newSelected = new Set(selectedIds);
-      if (newSelected.has(sentenceId)) {
-        newSelected.delete(sentenceId);
-      } else {
-        newSelected.add(sentenceId);
-      }
-      setSelectedIds(newSelected);
-      setLastClickedId(sentenceId);
-    } else {
-      // Single select (and clear others? usually yes for file explorers,
-      // but for this multi-select builder, maybe toggle or start new?)
-      // Let's implement: Click = Toggle, but keep others?
-      // User requested "shift+click으로 선택하면".
-      // Usually, simple click selects just one and clears others.
-      // Ctrl+click toggles.
-      // Let's stick to standard: Click = Select Only This; Ctrl+Click = Toggle; Shift+Click = Range
-
-      const newSelected = new Set<string>();
-      newSelected.add(sentenceId);
-      setSelectedIds(newSelected);
-      setLastClickedId(sentenceId);
-    }
-  };
-
   const handleDeleteSession = (sessionId: string) => {
     setCreatedSessions((prev) => prev.filter((s) => s.id !== sessionId));
   };
@@ -391,8 +356,7 @@ export function SessionCreator({
     };
 
     setCreatedSessions((prev) => [...prev, newSession]);
-    setSelectedIds(new Set());
-    setLastClickedId(null);
+    onSelectedIdsChange(new Set());
     handleOpenEditSheet(newSession);
   };
 
@@ -580,138 +544,7 @@ export function SessionCreator({
         </span>
       </div>
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left: Sentence Selector */}
-        <div
-          className="flex flex-col overflow-hidden"
-          style={{
-            flex: 1,
-            backgroundColor: "#ffffff",
-            borderRight: "1px solid #e5e5e5",
-          }}
-        >
-          <div
-            className="shrink-0 flex justify-between items-center"
-            style={{ padding: "4px 12px", borderBottom: "1px solid #f0f0f0" }}
-          >
-            <span className="text-xs font-medium" style={{ color: "#0a0a0a" }}>
-              Transcript ({sentences.length})
-            </span>
-            <span className="text-[10px]" style={{ color: "#a3a3a3" }}>
-              Shift+Click range
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto select-none">
-            {sentences.map((s) => {
-              const isSelected = selectedIds.has(s.id);
-              return (
-                <div
-                  key={s.id}
-                  onClick={(e) => handleSentenceClick(s.id, e)}
-                  className="flex items-start cursor-pointer transition-colors"
-                  style={{
-                    padding: "6px 12px",
-                    gap: 8,
-                    backgroundColor: isSelected ? "#fafafa" : "transparent",
-                    borderBottom: "1px solid #f5f5f5",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected)
-                      e.currentTarget.style.backgroundColor = "#fafafa";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected)
-                      e.currentTarget.style.backgroundColor = "transparent";
-                  }}
-                >
-                  {/* Checkbox */}
-                  <div
-                    className="shrink-0 flex items-center"
-                    style={{ paddingTop: 2 }}
-                  >
-                    <div
-                      style={{
-                        width: 14,
-                        height: 14,
-                        border: isSelected ? "none" : "1px solid #d4d4d4",
-                        backgroundColor: isSelected ? "#171717" : "transparent",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {isSelected && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                  </div>
-                  {/* Time */}
-                  <span
-                    className="shrink-0 text-[10px] font-mono"
-                    style={{ color: "#a3a3a3", width: 32, paddingTop: 3 }}
-                  >
-                    {Math.floor(s.startTime / 60)}:
-                    {String(Math.floor(s.startTime % 60)).padStart(2, "0")}
-                  </span>
-                  {/* Text */}
-                  <span
-                    className="flex-1 text-xs"
-                    style={{
-                      color: isSelected ? "#0a0a0a" : "#525252",
-                      fontWeight: isSelected ? 500 : 400,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {s.text}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {/* Footer */}
-          <div
-            className="shrink-0 flex justify-between items-center"
-            style={{
-              padding: "4px 12px",
-              borderTop: "1px solid #e5e5e5",
-              backgroundColor: "#fafafa",
-            }}
-          >
-            <span className="text-[10px]" style={{ color: "#737373" }}>
-              {selectedIds.size} selected
-            </span>
-            {onTranslateSelected && selectedIds.size > 0 && (
-              <button
-                onClick={async () => {
-                  setIsTranslating(true);
-                  try {
-                    await onTranslateSelected(Array.from(selectedIds));
-                  } finally {
-                    setIsTranslating(false);
-                  }
-                }}
-                disabled={isTranslating}
-                className="text-[10px] uppercase tracking-wide"
-                style={{
-                  backgroundColor: isTranslating ? "#d4d4d4" : "#171717",
-                  color: "#fff",
-                  padding: "1px 6px",
-                  border: "none",
-                  cursor: isTranslating ? "not-allowed" : "pointer",
-                }}
-              >
-                {isTranslating ? "Translating..." : "Translate"}
-              </button>
-            )}
-            <span
-              className="text-[10px] font-mono font-medium"
-              style={{ color: "#171717" }}
-            >
-              {Math.floor(selectionDuration / 60)}:
-              {String(Math.floor(selectionDuration % 60)).padStart(2, "0")}
-            </span>
-          </div>
-        </div>
-
-        {/* Right: Sessions List */}
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="flex flex-col overflow-hidden" style={{ flex: 1 }}>
           {/* Create Session Bar */}
           <div

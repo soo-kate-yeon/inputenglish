@@ -17,13 +17,14 @@ describe("SessionCreator", () => {
           },
         ]}
         videoId="video-1"
+        selectedIds={new Set()}
+        onSelectedIdsChange={() => {}}
         onSessionsChange={() => {}}
       />,
     );
 
-    expect(html).toContain('placeholder="세션 제목"');
-    expect(html).toContain('placeholder="세션 설명"');
-    expect(html.match(/class="flex-1 overflow-y-auto"/g)?.length ?? 0).toBe(2);
+    expect(html).toContain("세션 만들기");
+    expect(html).toContain("0개 생성됨");
   });
 
   it("shows an AI suggestion modal trigger when recommended scenes exist", () => {
@@ -46,6 +47,8 @@ describe("SessionCreator", () => {
           },
         ]}
         videoId="video-1"
+        selectedIds={new Set()}
+        onSelectedIdsChange={() => {}}
         onSessionsChange={() => {}}
         suggestedScenes={[
           {

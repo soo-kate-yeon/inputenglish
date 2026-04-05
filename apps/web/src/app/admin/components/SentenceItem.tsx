@@ -5,6 +5,8 @@ interface SentenceItemProps {
   sentence: Sentence;
   index: number;
   highlighted?: boolean;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
   onUpdateTime: (
     id: string,
     field: "startTime" | "endTime",
@@ -31,6 +33,8 @@ export function SentenceItem({
   onMergeWithPrevious,
   onPlayFrom,
   highlighted = false,
+  selected = false,
+  onSelect,
 }: SentenceItemProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -81,6 +85,21 @@ export function SentenceItem({
       }}
     >
       <div className="flex items-start" style={{ gap: 8 }}>
+        {/* Selection checkbox */}
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onSelect(sentence.id)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              marginTop: 3,
+              accentColor: "#3b82f6",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          />
+        )}
         {/* Index + Time column */}
         <div
           className="shrink-0 flex flex-col items-end"
