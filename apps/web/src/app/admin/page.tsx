@@ -85,6 +85,9 @@ function AdminPageContent() {
 
   // Session Creation State
   const [createdSessions, setCreatedSessions] = useState<LearningSession[]>([]);
+  const [highlightedSentenceIds, setHighlightedSentenceIds] = useState<
+    Set<string>
+  >(new Set());
 
   // Scene Analysis State
   const [analyzingScenes, setAnalyzingScenes] = useState(false);
@@ -706,6 +709,7 @@ function AdminPageContent() {
             sentences={sentences}
             loading={loading}
             rawScript={rawScript}
+            highlightedSentenceIds={highlightedSentenceIds}
             onParseScript={handleParseScript}
             onAnalyzeScenes={handleAnalyzeScenes}
             analyzingScenes={analyzingScenes}
@@ -723,6 +727,7 @@ function AdminPageContent() {
             videoId={getVideoId() || ""}
             videoTitle={title}
             onSessionsChange={setCreatedSessions}
+            onHighlightedSentencesChange={setHighlightedSentenceIds}
             initialSessions={createdSessions}
             suggestedScenes={analyzedScenes}
             onTranslateSelected={handleTranslateSelected}

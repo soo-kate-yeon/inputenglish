@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 interface SentenceItemProps {
   sentence: Sentence;
   index: number;
+  highlighted?: boolean;
   onUpdateTime: (
     id: string,
     field: "startTime" | "endTime",
@@ -29,6 +30,7 @@ export function SentenceItem({
   onSplit,
   onMergeWithPrevious,
   onPlayFrom,
+  highlighted = false,
 }: SentenceItemProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -61,16 +63,21 @@ export function SentenceItem({
     <div
       className="group cursor-pointer transition-all"
       style={{
-        backgroundColor: "#ffffff",
+        backgroundColor: highlighted ? "#eff6ff" : "#ffffff",
         padding: "8px 12px",
         borderBottom: "1px solid #f0f0f0",
+        borderLeft: highlighted ? "3px solid #3b82f6" : "3px solid transparent",
       }}
       onClick={handlePlayClick}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = "#fafafa";
+        e.currentTarget.style.backgroundColor = highlighted
+          ? "#dbeafe"
+          : "#fafafa";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = "#ffffff";
+        e.currentTarget.style.backgroundColor = highlighted
+          ? "#eff6ff"
+          : "#ffffff";
       }}
     >
       <div className="flex items-start" style={{ gap: 8 }}>

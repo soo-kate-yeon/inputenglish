@@ -5,6 +5,7 @@ interface SentenceListEditorProps {
   sentences: Sentence[];
   loading: boolean;
   rawScript: string;
+  highlightedSentenceIds?: Set<string>;
   onParseScript: () => void;
   onAnalyzeScenes: () => void;
   analyzingScenes: boolean;
@@ -28,6 +29,7 @@ export function SentenceListEditor({
   sentences,
   loading,
   rawScript,
+  highlightedSentenceIds,
   onParseScript,
   onAnalyzeScenes,
   analyzingScenes,
@@ -122,6 +124,7 @@ export function SentenceListEditor({
             key={s.id}
             sentence={s}
             index={idx}
+            highlighted={highlightedSentenceIds?.has(s.id)}
             onUpdateTime={onUpdateTime}
             onUpdateText={onUpdateText}
             onDelete={onDelete}

@@ -98,6 +98,7 @@ interface SessionCreatorProps {
   videoId: string;
   videoTitle?: string;
   onSessionsChange: (sessions: LearningSession[]) => void;
+  onHighlightedSentencesChange?: (ids: Set<string>) => void;
   initialSessions?: LearningSession[];
   suggestedScenes?: SceneRecommendation[];
   onTranslateSelected?: (sentenceIds: string[]) => Promise<void>;
@@ -108,6 +109,7 @@ export function SessionCreator({
   videoId,
   videoTitle,
   onSessionsChange,
+  onHighlightedSentencesChange,
   initialSessions = [],
   suggestedScenes = [],
   onTranslateSelected,
@@ -115,6 +117,10 @@ export function SessionCreator({
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+
+  const [checkedSessionIds, setCheckedSessionIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -173,6 +179,31 @@ export function SessionCreator({
       setIsSuggestionModalOpen(true);
     }
   }, [suggestedScenes.length]);
+
+  // Notify parent about highlighted sentence IDs when checked sessions change
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const session of createdSessions) {
+      if (checkedSessionIds.has(session.id)) {
+        for (const sid of session.sentence_ids) {
+          ids.add(sid);
+        }
+      }
+    }
+    onHighlightedSentencesChange?.(ids);
+  }, [checkedSessionIds, createdSessions, onHighlightedSentencesChange]);
+
+  const toggleSessionCheck = (sessionId: string) => {
+    setCheckedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  };
 
   // Auto-sync sessions when sentences are edited in Step2
   useEffect(() => {
@@ -779,6 +810,18 @@ export function SessionCreator({
                     e.currentTarget.style.backgroundColor = "transparent";
                   }}
                 >
+                  <input
+                    type="checkbox"
+                    checked={checkedSessionIds.has(session.id)}
+                    onChange={() => toggleSessionCheck(session.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      marginTop: 3,
+                      accentColor: "#3b82f6",
+                      cursor: "pointer",
+                    }}
+                    title="트랜스크립트에서 해당 구간 표시"
+                  />
                   <span
                     className="shrink-0 text-[10px] font-mono"
                     style={{ color: "#a3a3a3", paddingTop: 2 }}
