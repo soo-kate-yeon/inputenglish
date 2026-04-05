@@ -13,6 +13,59 @@ interface SaveTransformationSetRequest {
   exercises: Partial<TransformationExercise>[];
 }
 
+export async function GET(request: NextRequest) {
+  try {
+    const sessionId = request.nextUrl.searchParams.get("sessionId");
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: "sessionId is required" },
+        { status: 400 },
+      );
+    }
+
+    const supabase = createAdminClient();
+
+    const { data: sets, error: setError } = await supabase
+      .from("transformation_sets")
+      .select("*, transformation_exercises(*)")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (setError) {
+      return NextResponse.json({ error: setError.message }, { status: 500 });
+    }
+
+    if (!sets || sets.length === 0) {
+      return NextResponse.json({ set: null, exercises: [] });
+    }
+
+    const latestSet = sets[0];
+    const exercises = (latestSet.transformation_exercises ?? []).sort(
+      (a: { page_order: number }, b: { page_order: number }) =>
+        a.page_order - b.page_order,
+    );
+
+    return NextResponse.json({
+      set: {
+        id: latestSet.id,
+        target_pattern: latestSet.target_pattern,
+        pattern_type: latestSet.pattern_type,
+        pattern_rationale: latestSet.pattern_rationale,
+      },
+      exercises,
+    });
+  } catch (error) {
+    console.error("[save-transformation-set GET] error:", error);
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as SaveTransformationSetRequest;

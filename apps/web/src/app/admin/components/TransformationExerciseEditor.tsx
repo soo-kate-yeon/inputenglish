@@ -1,6 +1,6 @@
 "use client";
 // @MX:NOTE: [AUTO] Admin editor for reviewing and saving AI-generated transformation exercises (SPEC-MOBILE-011).
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type {
   Sentence,
   TransformationExercise,
@@ -314,6 +314,30 @@ export function TransformationExerciseEditor({
   );
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isSaved) return;
+    let cancelled = false;
+    setIsLoading(true);
+    fetch(`/api/admin/save-transformation-set?sessionId=${sessionId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.set) {
+          setGeneratedSet(data.set);
+          setExercises(data.exercises ?? []);
+          onPatternGenerated?.(data.set.target_pattern);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, isSaved]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -425,7 +449,11 @@ export function TransformationExerciseEditor({
             cursor: isGenerating ? "not-allowed" : "pointer",
           }}
         >
-          {isGenerating ? "AI 생성 중..." : "AI로 생성"}
+          {isGenerating
+            ? "AI 생성 중..."
+            : exercises.length > 0
+              ? "AI로 재생성"
+              : "AI로 생성"}
         </button>
       </div>
 
