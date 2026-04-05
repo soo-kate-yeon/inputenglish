@@ -126,12 +126,13 @@ dialog-completion:
 
 ━━ instruction_text 작성 규칙 ━━
 - 해요체(~해 보세요, ~해 주세요, ~말해 보세요)로 쓸 것. 반말(~해봐, ~말해봐, ~해라) 절대 금지.
-- 짧고 직접적. 한 문장.
-- 유형별 instruction_text 예시:
-  kr-to-en: "아래 문장을 영어로 말해 보세요."
-  qa-response: "아래 질문에 영어로 답해 보세요."
-  situation-response: "아래 상황에서 영어로 말해 보세요."
-  dialog-completion: "빈칸에 들어갈 말을 영어로 말해 보세요."
+- 타깃 패턴을 작은따옴표로 포함해서 "이 패턴을 써서 답하라"는 의도를 명시할 것.
+- 짧고 직접적. 1-2문장.
+- 유형별 instruction_text 예시 (타깃 패턴이 "What we're seeing is..."인 경우):
+  kr-to-en: "'What we're seeing is...' 패턴을 써서 아래 문장을 영어로 말해 보세요."
+  qa-response: "'What we're seeing is...' 패턴을 써서 아래 질문에 답해 보세요."
+  situation-response: "'What we're seeing is...' 패턴을 써서 아래 상황에 맞게 말해 보세요."
+  dialog-completion: "'What we're seeing is...' 패턴을 써서 빈칸을 채워 보세요."
 
 ━━ 금지사항 ━━
 - instruction_text에 "효과적으로", "전략적으로", "활용하여" 금지
