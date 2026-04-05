@@ -926,11 +926,13 @@ export default function StudyScreen() {
                 />
               )}
 
-              <LinearGradient
-                colors={["rgba(255,255,255,0)", colors.bg]}
-                style={styles.scriptGradient}
-                pointerEvents="none"
-              />
+              {mainTab !== "transformation" && (
+                <LinearGradient
+                  colors={["rgba(255,255,255,0)", colors.bg]}
+                  style={styles.scriptGradient}
+                  pointerEvents="none"
+                />
+              )}
             </View>
 
             {/* Recording bar (shadowing, when recording) */}

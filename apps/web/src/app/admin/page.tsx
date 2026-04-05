@@ -50,6 +50,7 @@ function AdminPageContent() {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Use custom hooks
   const transcriptFetch = useTranscriptFetch();
@@ -129,29 +130,36 @@ function AdminPageContent() {
     const init = async () => {
       if (editId) {
         setLoading(true);
-        const { data, error } = await supabase
-          .from("curated_videos")
-          .select("*")
-          .eq("video_id", editId)
-          .single();
+        setErrorMessage(null);
+        try {
+          const { data, error } = await supabase
+            .from("curated_videos")
+            .select("*")
+            .eq("video_id", editId)
+            .single();
 
-        if (data) {
-          setYoutubeUrl(
-            normalizeYouTubeUrl(
-              data.youtube_url || `https://youtu.be/${data.video_id}`,
-            ),
-          );
-          setTitle(data.title || "");
-          setDifficulty(data.difficulty || "intermediate");
-          setTags(data.tags?.join(", ") || "");
-          setSentences(data.transcript || []);
-          setLastSyncTime(data.snippet_end_time || 0);
-          console.log("Loaded video for editing:", data.title);
+          if (error) {
+            setErrorMessage(`Failed to load video: ${error.message}`);
+            return;
+          }
 
-          const { data: sessionData } = await supabase
-            .from("learning_sessions")
-            .select(
-              `
+          if (data) {
+            setYoutubeUrl(
+              normalizeYouTubeUrl(
+                data.youtube_url || `https://youtu.be/${data.video_id}`,
+              ),
+            );
+            setTitle(data.title || "");
+            setDifficulty(data.difficulty || "intermediate");
+            setTags(data.tags?.join(", ") || "");
+            setSentences(data.transcript || []);
+            setLastSyncTime(data.snippet_end_time || 0);
+            console.log("Loaded video for editing:", data.title);
+
+            const { data: sessionData } = await supabase
+              .from("learning_sessions")
+              .select(
+                `
                 *,
                 context:session_contexts (
                   session_id,
@@ -167,35 +175,41 @@ function AdminPageContent() {
                   updated_at
                 )
               `,
-            )
-            .eq("source_video_id", editId)
-            .order("order_index", { ascending: true });
+              )
+              .eq("source_video_id", editId)
+              .order("order_index", { ascending: true });
 
-          if (sessionData) {
-            const sessionsWithSentences = sessionData.map((session) => {
-              const sessionSentences = session.sentence_ids
-                .map((id: string) =>
-                  data.transcript?.find((s: Sentence) => s.id === id),
-                )
-                .filter(
-                  (s: Sentence | undefined): s is Sentence => s !== undefined,
-                );
+            if (sessionData) {
+              const sessionsWithSentences = sessionData.map((session) => {
+                const sessionSentences = session.sentence_ids
+                  .map((id: string) =>
+                    data.transcript?.find((s: Sentence) => s.id === id),
+                  )
+                  .filter(
+                    (s: Sentence | undefined): s is Sentence => s !== undefined,
+                  );
 
-              return {
-                ...session,
-                sentences: sessionSentences,
-                context: Array.isArray(session.context)
-                  ? (session.context[0] ?? null)
-                  : (session.context ?? null),
-              } as LearningSession;
-            });
+                return {
+                  ...session,
+                  sentences: sessionSentences,
+                  context: Array.isArray(session.context)
+                    ? (session.context[0] ?? null)
+                    : (session.context ?? null),
+                } as LearningSession;
+              });
 
-            setCreatedSessions(sessionsWithSentences);
+              setCreatedSessions(sessionsWithSentences);
+            }
+          } else {
+            setErrorMessage("Video not found for editing.");
           }
-        } else {
-          console.error("Video not found for editing");
+        } catch (err) {
+          setErrorMessage(
+            err instanceof Error ? err.message : "Failed to load video data.",
+          );
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
         return;
       }
     };
@@ -289,9 +303,9 @@ function AdminPageContent() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Scene analysis error:", err.message);
-      }
+      const msg = err instanceof Error ? err.message : "Scene analysis failed.";
+      console.error("Scene analysis error:", msg);
+      setErrorMessage(msg);
     } finally {
       setAnalyzingScenes(false);
     }
@@ -319,6 +333,7 @@ function AdminPageContent() {
     } catch (err: unknown) {
       if (err instanceof Error && err.message !== "Translation cancelled") {
         console.error(err.message);
+        setErrorMessage(err.message);
       }
     }
   };
@@ -349,6 +364,7 @@ function AdminPageContent() {
     } catch (err: unknown) {
       if (err instanceof Error) {
         console.error(err.message);
+        setErrorMessage(err.message);
       }
     }
   };
@@ -370,6 +386,7 @@ function AdminPageContent() {
     } catch (err: unknown) {
       if (err instanceof Error) {
         console.error(err.message);
+        setErrorMessage(err.message);
       }
     }
   };
@@ -537,9 +554,9 @@ function AdminPageContent() {
         }
       }, 2000);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error(err.message);
-      }
+      const msg = err instanceof Error ? err.message : "Save failed.";
+      console.error(msg);
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -579,6 +596,28 @@ function AdminPageContent() {
           <p className="text-sm" style={{ color: "#cf1e29" }}>
             {transcriptFetch.error}
           </p>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div
+          className="shrink-0 flex items-center justify-between"
+          style={{
+            backgroundColor: "rgba(207, 30, 41, 0.08)",
+            borderBottom: "1px solid #cf1e29",
+            padding: "8px 16px",
+          }}
+        >
+          <p className="text-sm" style={{ color: "#cf1e29" }}>
+            {errorMessage}
+          </p>
+          <button
+            className="text-xs ml-4 shrink-0"
+            style={{ color: "#cf1e29", opacity: 0.7 }}
+            onClick={() => setErrorMessage(null)}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

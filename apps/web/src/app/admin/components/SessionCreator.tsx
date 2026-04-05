@@ -10,7 +10,7 @@ import type {
   SessionSpeakingFunction,
 } from "@inputenglish/shared";
 import { SESSION_SOURCE_TYPES } from "@inputenglish/shared";
-import { Plus, Trash2, Clock, Edit2, Sparkles } from "lucide-react";
+import { Plus, Trash2, Clock, Edit2, Sparkles, RefreshCw } from "lucide-react";
 import { TransformationExerciseEditor } from "./TransformationExerciseEditor";
 import {
   Sheet,
@@ -191,71 +191,68 @@ export function SessionCreator({
   }, [checkedSessionIds, createdSessions, onHighlightedSentencesChange]);
 
   const toggleSessionCheck = (sessionId: string) => {
-    setCheckedSessionIds((prev) => {
-      const next = new Set(prev);
-      const wasChecked = next.has(sessionId);
-      if (wasChecked) {
-        next.delete(sessionId);
-      } else {
-        next.add(sessionId);
-      }
+    const nextChecked = new Set(checkedSessionIds);
+    if (nextChecked.has(sessionId)) {
+      nextChecked.delete(sessionId);
+    } else {
+      nextChecked.add(sessionId);
+    }
+    setCheckedSessionIds(nextChecked);
 
-      // Sync sentence selection with all checked sessions
-      const sentenceIds = new Set<string>();
-      for (const session of createdSessions) {
-        if (next.has(session.id)) {
-          for (const sid of session.sentence_ids) {
-            sentenceIds.add(sid);
-          }
+    // Sync sentence selection with all checked sessions
+    const sentenceIds = new Set<string>();
+    for (const session of createdSessions) {
+      if (nextChecked.has(session.id)) {
+        for (const sid of session.sentence_ids) {
+          sentenceIds.add(sid);
         }
       }
-      onSelectedIdsChange(sentenceIds);
-
-      return next;
-    });
+    }
+    onSelectedIdsChange(sentenceIds);
   };
 
   // Auto-sync sessions when sentences are edited/split/merged in Step2.
   // Uses time-range matching so split sentences (new IDs) are picked up.
+  // Uses functional state update to avoid stale closure on createdSessions.
   useEffect(() => {
-    if (createdSessions.length === 0) return;
+    setCreatedSessions((prev) => {
+      if (prev.length === 0) return prev;
 
-    const updatedSessions = createdSessions.map((session) => {
-      // Find all sentences that overlap with this session's time range
-      const currentSentences = sentences
-        .filter(
-          (s) =>
-            s.startTime >= session.start_time - 0.05 &&
-            s.endTime <= session.end_time + 0.05,
-        )
-        .sort((a, b) => a.startTime - b.startTime);
+      const updatedSessions = prev.map((session) => {
+        // Find all sentences that overlap with this session's time range
+        const currentSentences = sentences
+          .filter(
+            (s) =>
+              s.startTime >= session.start_time - 0.05 &&
+              s.endTime <= session.end_time + 0.05,
+          )
+          .sort((a, b) => a.startTime - b.startTime);
 
-      if (currentSentences.length === 0) return session;
+        if (currentSentences.length === 0) return session;
 
-      const startTime = currentSentences[0].startTime;
-      const endTime = currentSentences[currentSentences.length - 1].endTime;
+        const startTime = currentSentences[0].startTime;
+        const endTime = currentSentences[currentSentences.length - 1].endTime;
 
-      return {
-        ...session,
-        sentence_ids: currentSentences.map((s) => s.id),
-        sentences: currentSentences,
-        start_time: startTime,
-        end_time: endTime,
-        duration: endTime - startTime,
-      };
+        return {
+          ...session,
+          sentence_ids: currentSentences.map((s) => s.id),
+          sentences: currentSentences,
+          start_time: startTime,
+          end_time: endTime,
+          duration: endTime - startTime,
+        };
+      });
+
+      const hasChanges = updatedSessions.some((updated, idx) => {
+        const original = prev[idx];
+        return (
+          updated.sentence_ids.length !== original.sentence_ids.length ||
+          updated.sentence_ids.some((id, i) => id !== original.sentence_ids[i])
+        );
+      });
+
+      return hasChanges ? updatedSessions : prev;
     });
-
-    const hasChanges = updatedSessions.some((updated, idx) => {
-      const original = createdSessions[idx];
-      return (
-        updated.sentence_ids.length !== original.sentence_ids.length ||
-        updated.sentence_ids.some((id, i) => id !== original.sentence_ids[i])
-      );
-    });
-
-    if (hasChanges) {
-      setCreatedSessions(updatedSessions);
-    }
   }, [sentences]); // Trigger when sentences array changes
 
   // DB에 실제로 저장된 세션 ID 집합
@@ -284,6 +281,28 @@ export function SessionCreator({
   // Handlers
   const handleDeleteSession = (sessionId: string) => {
     setCreatedSessions((prev) => prev.filter((s) => s.id !== sessionId));
+  };
+
+  const handleOverwriteSessionSentences = (sessionId: string) => {
+    if (sortedSelectedSentences.length === 0) return;
+    const start = sortedSelectedSentences[0].startTime;
+    const end =
+      sortedSelectedSentences[sortedSelectedSentences.length - 1].endTime;
+    setCreatedSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId
+          ? {
+              ...s,
+              sentence_ids: sortedSelectedSentences.map((sent) => sent.id),
+              sentences: sortedSelectedSentences,
+              start_time: start,
+              end_time: end,
+              duration: end - start,
+            }
+          : s,
+      ),
+    );
+    onSelectedIdsChange(new Set());
   };
 
   const handleOpenEditSheet = (
@@ -373,7 +392,11 @@ export function SessionCreator({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ sentences: sessionSentences, videoTitle }),
+        body: JSON.stringify({
+          sentences: sessionSentences,
+          videoTitle,
+          targetPattern: editTransformationPattern ?? undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -453,6 +476,28 @@ export function SessionCreator({
       scene.startIndex,
       scene.endIndex + 1,
     );
+
+    if (sceneSentences.length === 0) {
+      return {
+        id: crypto.randomUUID(),
+        source_video_id: videoId,
+        title: scene.title,
+        description: scene.reason,
+        start_time: 0,
+        end_time: 0,
+        duration: 0,
+        sentence_ids: [],
+        difficulty: "intermediate" as const,
+        order_index: orderIndex,
+        source_type: "podcast" as const,
+        speaking_function: "summarize" as const,
+        role_relevance: ["pm"] as SessionRoleRelevance[],
+        premium_required: true,
+        created_at: new Date().toISOString(),
+        sentences: [],
+        context: null,
+      };
+    }
 
     return {
       id: crypto.randomUUID(),
@@ -705,6 +750,35 @@ export function SessionCreator({
                     className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ gap: 2 }}
                   >
+                    {selectedIds.size > 0 && (
+                      <button
+                        onClick={() =>
+                          handleOverwriteSessionSentences(session.id)
+                        }
+                        title="선택된 문장으로 이 세션의 범위를 덮어씁니다"
+                        style={{
+                          padding: "2px 8px",
+                          color: "#d97706",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          border: "1px solid #fde68a",
+                          backgroundColor: "#fffbeb",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = "#fef3c7";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "#fffbeb";
+                        }}
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        선택 범위로 덮어쓰기
+                      </button>
+                    )}
                     <button
                       onClick={() => handleOpenEditSheet(session)}
                       title="세션 편집하기"
@@ -840,7 +914,11 @@ export function SessionCreator({
                     }}
                   >
                     <Sparkles className="w-3 h-3" />
-                    {isEditAutofilling ? "생성 중..." : "AI 자동 채우기"}
+                    {isEditAutofilling
+                      ? "생성 중..."
+                      : editTransformationPattern
+                        ? `AI 자동 채우기 ('${editTransformationPattern}' 기반)`
+                        : "AI 자동 채우기"}
                   </button>
                 </div>
                 <input

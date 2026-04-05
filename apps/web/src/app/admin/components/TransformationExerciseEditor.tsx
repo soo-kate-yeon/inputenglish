@@ -330,7 +330,15 @@ export function TransformationExerciseEditor({
           onPatternGenerated?.(data.set.target_pattern);
         }
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load transformation set.",
+          );
+        }
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
       });

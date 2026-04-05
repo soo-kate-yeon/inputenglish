@@ -7,11 +7,17 @@ function normalizeVocabEntry(
   item: string | KeyVocabularyEntry,
 ): Required<KeyVocabularyEntry> {
   if (typeof item === "string")
-    return { expression: item, example: "", translation: "" };
+    return {
+      expression: item,
+      example: "",
+      translation: "",
+      pronunciation_note: "",
+    };
   return {
     expression: item.expression ?? "",
     example: item.example ?? "",
     translation: item.translation ?? "",
+    pronunciation_note: item.pronunciation_note ?? "",
   };
 }
 
