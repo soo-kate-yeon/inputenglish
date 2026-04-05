@@ -215,41 +215,41 @@ export function SessionCreator({
     });
   };
 
-  // Auto-sync sessions when sentences are edited in Step2
+  // Auto-sync sessions when sentences are edited/split/merged in Step2.
+  // Uses time-range matching so split sentences (new IDs) are picked up.
   useEffect(() => {
     if (createdSessions.length === 0) return;
 
-    // Update each session's sentence content to reflect current state
     const updatedSessions = createdSessions.map((session) => {
-      // Map sentence_ids to current sentence objects
-      const currentSentences = session.sentence_ids
-        .map((id) => sentences.find((s) => s.id === id))
-        .filter((s): s is Sentence => s !== undefined);
+      // Find all sentences that overlap with this session's time range
+      const currentSentences = sentences
+        .filter(
+          (s) =>
+            s.startTime >= session.start_time - 0.05 &&
+            s.endTime <= session.end_time + 0.05,
+        )
+        .sort((a, b) => a.startTime - b.startTime);
 
-      // Skip if no sentences found (shouldn't happen)
       if (currentSentences.length === 0) return session;
 
-      // Recalculate times based on updated sentences
       const startTime = currentSentences[0].startTime;
       const endTime = currentSentences[currentSentences.length - 1].endTime;
-      const duration = endTime - startTime;
 
       return {
         ...session,
+        sentence_ids: currentSentences.map((s) => s.id),
         sentences: currentSentences,
         start_time: startTime,
         end_time: endTime,
-        duration,
+        duration: endTime - startTime,
       };
     });
 
-    // Only update if something actually changed
     const hasChanges = updatedSessions.some((updated, idx) => {
       const original = createdSessions[idx];
       return (
-        updated.start_time !== original.start_time ||
-        updated.end_time !== original.end_time ||
-        JSON.stringify(updated.sentences) !== JSON.stringify(original.sentences)
+        updated.sentence_ids.length !== original.sentence_ids.length ||
+        updated.sentence_ids.some((id, i) => id !== original.sentence_ids[i])
       );
     });
 
