@@ -109,9 +109,12 @@ ${formatCommonMistakes(commonMistakes)}
 ━━ Step 1: 타깃 패턴 선택 ━━
 트랜스크립트의 표현들 중에서 아래 기준으로 하나의 핵심 패턴을 골라라:
 
+⚠️ 최우선 규칙: 핵심 표현(key_vocabulary) 목록에 있는 표현 중에서 골라라.
+key_vocabulary에서 고를 수 없는 경우(단어 수준이라 변형이 불가능하거나, 구조적 패턴이 아닌 경우)에만 트랜스크립트에서 자유 선택하되, pattern_rationale에 key_vocabulary에서 고르지 않은 이유를 명시해라.
+
 선택 기준 (우선순위 순):
-1. 학습 기대효과(expected_takeaway)에 가장 직결되는 표현
-2. 핵심 표현(key_vocabulary)에 포함된 것 우선
+1. 핵심 표현(key_vocabulary)에 포함된 것 (최우선 — 세션 브리핑과 일관성 유지)
+2. 학습 기대효과(expected_takeaway)에 가장 직결되는 표현
 3. 변형 가능성이 높은 것 — 주어, 목적어, 시제를 바꿔도 구조가 유지됨
 4. 회의실 밖 일상 상황에서도 재사용 빈도가 높은 것
 5. 한국어 직역으로는 나오기 어려운 영어다운 구조
