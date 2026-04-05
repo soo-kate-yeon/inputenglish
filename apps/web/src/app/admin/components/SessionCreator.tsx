@@ -214,6 +214,12 @@ export function SessionCreator({
     }
   }, [sentences]); // Trigger when sentences array changes
 
+  // DB에 실제로 저장된 세션 ID 집합
+  const persistedSessionIds = useMemo(
+    () => new Set(initialSessions.map((s) => s.id)),
+    [initialSessions],
+  );
+
   // Derived State
   const sortedSelectedSentences = useMemo(() => {
     if (selectedIds.size === 0) return [];
@@ -1218,6 +1224,7 @@ export function SessionCreator({
                 sentences={sentences.filter((s) =>
                   editingSession.sentence_ids.includes(s.id),
                 )}
+                isSaved={persistedSessionIds.has(editingSession.id)}
                 onSaved={() => setIsEditSheetOpen(false)}
               />
             </div>

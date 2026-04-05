@@ -16,6 +16,7 @@ interface TransformationSet {
 interface TransformationExerciseEditorProps {
   sessionId: string;
   sentences: Sentence[];
+  isSaved?: boolean;
   onSaved?: (setId: string) => void;
 }
 
@@ -296,6 +297,7 @@ function ExerciseAccordion({
 export function TransformationExerciseEditor({
   sessionId,
   sentences,
+  isSaved = true,
   onSaved,
 }: TransformationExerciseEditorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -365,6 +367,27 @@ export function TransformationExerciseEditor({
       setIsSaving(false);
     }
   };
+
+  if (!isSaved) {
+    return (
+      <div
+        style={{
+          padding: "20px 16px",
+          margin: 12,
+          backgroundColor: "#fffbeb",
+          border: "1px solid #fde68a",
+          fontSize: 12,
+          color: "#92400e",
+          lineHeight: 1.6,
+        }}
+      >
+        <strong>세션을 먼저 저장하세요.</strong>
+        <br />
+        변형 문제는 세션이 DB에 저장된 후 생성할 수 있어요. 오른쪽 패널에서
+        세션을 저장한 뒤 다시 이 탭을 열어주세요.
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
