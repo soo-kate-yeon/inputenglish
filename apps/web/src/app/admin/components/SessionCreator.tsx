@@ -1257,7 +1257,7 @@ export function SessionCreator({
                 )}
                 speakingFunction={editSpeakingFunction}
                 isSaved={persistedSessionIds.has(editingSession.id)}
-                onSaved={() => setIsEditSheetOpen(false)}
+                onSaved={() => setEditTab("context")}
                 onPatternGenerated={setEditTransformationPattern}
               />
             </div>
