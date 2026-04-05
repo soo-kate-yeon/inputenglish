@@ -214,7 +214,7 @@ dist-ssr/
 node_modules
 /.pnp
 .pnp.js
-/coverage
+**/coverage
 /out/
 /build
 npm-debug.log*
