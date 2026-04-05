@@ -1,18 +1,23 @@
 // @MX:NOTE: [AUTO] QA response exercise page with recording (SPEC-MOBILE-011).
 // Shows question_text; user records their English answer.
-import React, { useCallback } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { TransformationExercise } from "@inputenglish/shared";
 import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
-import { colors, font, spacing } from "../../../theme";
+import { colors, font, radius, spacing } from "../../../theme";
 
 interface QAResponsePageProps {
   exercise: TransformationExercise;
   onConfirm: (audioUri: string | null, duration: number) => void;
+  onRecordingStateChange?: (recording: boolean) => void;
 }
 
-export function QAResponsePage({ exercise, onConfirm }: QAResponsePageProps) {
+export function QAResponsePage({
+  exercise,
+  onConfirm,
+  onRecordingStateChange,
+}: QAResponsePageProps) {
   const {
     recordingState,
     audioUri,
@@ -26,6 +31,10 @@ export function QAResponsePage({ exercise, onConfirm }: QAResponsePageProps) {
     resetRecording,
   } = useAudioRecorder();
 
+  useEffect(() => {
+    onRecordingStateChange?.(recordingState !== "idle");
+  }, [recordingState, onRecordingStateChange]);
+
   const handleConfirm = useCallback(() => {
     onConfirm(audioUri, duration);
   }, [audioUri, duration, onConfirm]);
@@ -36,7 +45,11 @@ export function QAResponsePage({ exercise, onConfirm }: QAResponsePageProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.label}>Q&A RESPONSE</Text>
         <Text style={styles.instruction}>{exercise.instruction_text}</Text>
         {exercise.question_text != null && (
@@ -46,7 +59,7 @@ export function QAResponsePage({ exercise, onConfirm }: QAResponsePageProps) {
           </View>
         )}
         <Text style={styles.hint}>영어로 답변을 녹음해보세요.</Text>
-      </View>
+      </ScrollView>
       <ExerciseRecordingBar
         recordingState={recordingState}
         duration={duration}
@@ -66,47 +79,50 @@ export function QAResponsePage({ exercise, onConfirm }: QAResponsePageProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "space-between",
+  },
+  scrollArea: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
     gap: spacing.md,
   },
   label: {
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
-    letterSpacing: 2,
-    color: colors.textMuted,
+    letterSpacing: 2.5,
+    color: colors.textSecondary,
   },
   instruction: {
     fontSize: font.size.md,
     color: colors.textSecondary,
-    lineHeight: font.size.md * 1.5,
+    lineHeight: font.size.md * 1.6,
   },
   questionBox: {
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: spacing.md,
     backgroundColor: colors.bgMuted,
-    borderRadius: 8,
-    padding: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     alignItems: "flex-start",
   },
   questionLabel: {
     fontSize: font.size.md,
     fontWeight: font.weight.bold,
-    color: colors.primary,
+    color: colors.textSecondary,
     minWidth: 20,
   },
   questionText: {
     flex: 1,
     fontSize: font.size.base,
     color: colors.text,
-    lineHeight: font.size.base * 1.6,
+    lineHeight: font.size.base * 1.7,
   },
   hint: {
     fontSize: font.size.sm,
     color: colors.textMuted,
+    fontStyle: "italic",
   },
 });

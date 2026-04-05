@@ -1,6 +1,12 @@
 // @MX:NOTE: [AUTO] Intro page for transformation carousel; explains the practice goal (SPEC-MOBILE-011).
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { colors, font, radius, spacing } from "../../../theme";
 
 interface IntroPageProps {
@@ -11,7 +17,11 @@ interface IntroPageProps {
 export function IntroPage({ onSkip, onDismissForever }: IntroPageProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.label}>TRANSFORMATION PRACTICE</Text>
         <Text style={styles.title}>변형 연습이란?</Text>
         <Text style={styles.body}>
@@ -25,8 +35,9 @@ export function IntroPage({ onSkip, onDismissForever }: IntroPageProps) {
           <Text style={styles.step}>1. 한국어 문장을 영어로 말해보기</Text>
           <Text style={styles.step}>2. 질문에 영어로 답변하기</Text>
           <Text style={styles.step}>3. 대화 완성하기</Text>
+          <Text style={styles.step}>4. 상황에서 영어로 말하기</Text>
         </View>
-      </View>
+      </ScrollView>
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.dismissBtn}
@@ -50,18 +61,21 @@ export function IntroPage({ onSkip, onDismissForever }: IntroPageProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "space-between",
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.xl,
+  },
+  scrollArea: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.lg,
   },
   label: {
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
-    letterSpacing: 2,
-    color: colors.textMuted,
+    letterSpacing: 2.5,
+    color: colors.textSecondary,
   },
   title: {
     fontSize: font.size["2xl"],
@@ -70,17 +84,22 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: font.size.md,
-    lineHeight: font.size.md * 1.6,
+    lineHeight: font.size.md * 1.7,
     color: colors.textSecondary,
   },
   steps: {
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
+    gap: spacing.md,
+    paddingTop: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.bgMuted,
+    borderRadius: radius.lg,
   },
   step: {
     fontSize: font.size.md,
     color: colors.text,
     fontWeight: font.weight.medium,
+    lineHeight: font.size.md * 1.5,
   },
   footer: {
     paddingHorizontal: spacing.lg,
@@ -97,12 +116,13 @@ const styles = StyleSheet.create({
   startBtn: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
   },
   startText: {
     fontSize: font.size.md,
     fontWeight: font.weight.semibold,
     color: colors.textInverse,
+    letterSpacing: 0.5,
   },
 });

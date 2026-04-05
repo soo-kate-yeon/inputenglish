@@ -1,20 +1,22 @@
 // @MX:NOTE: [AUTO] KR->EN translation exercise page with recording (SPEC-MOBILE-011).
 // Shows source_korean text; user records their English translation.
-import React, { useCallback } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { TransformationExercise } from "@inputenglish/shared";
 import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
-import { colors, font, spacing } from "../../../theme";
+import { colors, font, radius, spacing } from "../../../theme";
 
 interface KoreanToEnglishPageProps {
   exercise: TransformationExercise;
   onConfirm: (audioUri: string | null, duration: number) => void;
+  onRecordingStateChange?: (recording: boolean) => void;
 }
 
 export function KoreanToEnglishPage({
   exercise,
   onConfirm,
+  onRecordingStateChange,
 }: KoreanToEnglishPageProps) {
   const {
     recordingState,
@@ -29,6 +31,10 @@ export function KoreanToEnglishPage({
     resetRecording,
   } = useAudioRecorder();
 
+  useEffect(() => {
+    onRecordingStateChange?.(recordingState !== "idle");
+  }, [recordingState, onRecordingStateChange]);
+
   const handleConfirm = useCallback(() => {
     onConfirm(audioUri, duration);
   }, [audioUri, duration, onConfirm]);
@@ -39,7 +45,11 @@ export function KoreanToEnglishPage({
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.label}>KR → EN</Text>
         <Text style={styles.instruction}>{exercise.instruction_text}</Text>
         {exercise.source_korean != null && (
@@ -48,7 +58,7 @@ export function KoreanToEnglishPage({
           </View>
         )}
         <Text style={styles.hint}>녹음 버튼을 눌러 영어로 말해보세요.</Text>
-      </View>
+      </ScrollView>
       <ExerciseRecordingBar
         recordingState={recordingState}
         duration={duration}
@@ -68,38 +78,41 @@ export function KoreanToEnglishPage({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "space-between",
+  },
+  scrollArea: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
     gap: spacing.md,
   },
   label: {
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
-    letterSpacing: 2,
-    color: colors.textMuted,
+    letterSpacing: 2.5,
+    color: colors.textSecondary,
   },
   instruction: {
     fontSize: font.size.md,
     color: colors.textSecondary,
-    lineHeight: font.size.md * 1.5,
+    lineHeight: font.size.md * 1.6,
   },
   koreanBox: {
     backgroundColor: colors.bgMuted,
-    borderRadius: 8,
-    padding: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
   koreanText: {
     fontSize: font.size.base,
     fontWeight: font.weight.medium,
     color: colors.text,
-    lineHeight: font.size.base * 1.6,
+    lineHeight: font.size.base * 1.7,
   },
   hint: {
     fontSize: font.size.sm,
     color: colors.textMuted,
+    fontStyle: "italic",
   },
 });

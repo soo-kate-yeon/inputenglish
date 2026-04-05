@@ -1,6 +1,6 @@
 // @MX:NOTE: [AUTO] Dialog completion exercise page (SPEC-MOBILE-011).
 // Non-blank lines have TTS play buttons (English only); blank turn shows recording bar.
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -18,6 +18,7 @@ import { colors, font, spacing, radius } from "../../../theme";
 interface DialogCompletionPageProps {
   exercise: TransformationExercise;
   onConfirm: (audioUri: string | null, duration: number) => void;
+  onRecordingStateChange?: (recording: boolean) => void;
 }
 
 interface DialogLineRowProps {
@@ -101,6 +102,7 @@ function DialogLineRow({
 export function DialogCompletionPage({
   exercise,
   onConfirm,
+  onRecordingStateChange,
 }: DialogCompletionPageProps) {
   const {
     recordingState,
@@ -116,6 +118,10 @@ export function DialogCompletionPage({
   } = useAudioRecorder();
 
   const { speak, isAvailable: ttsAvailable } = useTTS();
+
+  useEffect(() => {
+    onRecordingStateChange?.(recordingState !== "idle");
+  }, [recordingState, onRecordingStateChange]);
 
   const handleConfirm = useCallback(() => {
     onConfirm(audioUri, duration);
@@ -171,20 +177,20 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
     gap: spacing.md,
   },
   label: {
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
-    letterSpacing: 2,
-    color: colors.textMuted,
+    letterSpacing: 2.5,
+    color: colors.textSecondary,
   },
   instruction: {
     fontSize: font.size.md,
     color: colors.textSecondary,
-    lineHeight: font.size.md * 1.5,
+    lineHeight: font.size.md * 1.6,
   },
   dialog: {
     gap: spacing.sm,
@@ -192,20 +198,18 @@ const styles = StyleSheet.create({
   },
   lineContainer: {
     gap: 4,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.bgSubtle,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
   },
   lineContainerUser: {
     backgroundColor: colors.bgMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   speaker: {
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
-    letterSpacing: 0.5,
+    letterSpacing: 1,
     color: colors.textMuted,
     textTransform: "uppercase",
   },
@@ -219,7 +223,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: font.size.md,
     color: colors.text,
-    lineHeight: font.size.md * 1.6,
+    lineHeight: font.size.md * 1.7,
   },
   ttsBtn: {
     padding: 6,

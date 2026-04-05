@@ -69,13 +69,13 @@ const styles = StyleSheet.create({
   startBtn: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
+    paddingHorizontal: 36,
+    paddingVertical: 16,
   },
   startText: {
     fontSize: font.size.sm,
     fontWeight: font.weight.semibold,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     color: colors.textInverse,
   },
 });

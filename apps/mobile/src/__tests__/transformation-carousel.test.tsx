@@ -93,11 +93,9 @@ jest.mock("../../src/lib/supabase", () => ({
         upload: jest
           .fn()
           .mockResolvedValue({ data: { path: "test.m4a" }, error: null }),
-        getPublicUrl: jest
-          .fn()
-          .mockReturnValue({
-            data: { publicUrl: "https://test.com/test.m4a" },
-          }),
+        getPublicUrl: jest.fn().mockReturnValue({
+          data: { publicUrl: "https://test.com/test.m4a" },
+        }),
       })),
     },
   },
@@ -426,7 +424,7 @@ describe("CarouselPagination", () => {
 
     const dots = getAllByTestId("pagination-dot");
     expect(dots[2].props.style).toMatchObject(
-      expect.arrayContaining([expect.objectContaining({ opacity: 1 })]),
+      expect.arrayContaining([expect.objectContaining({ width: 20 })]),
     );
   });
 });

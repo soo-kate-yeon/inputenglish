@@ -1,7 +1,13 @@
 // @MX:NOTE: [AUTO] Main carousel component replacing TransformationPracticePanel (SPEC-MOBILE-011).
 // @MX:ANCHOR: [AUTO] Central integration point for transformation practice; consumed by study/[videoId].tsx
 // @MX:REASON: High fan_in - used by study screen and tested by multiple test suites
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Dimensions,
   FlatList,
@@ -40,17 +46,40 @@ interface TransformationCarouselProps {
 function renderExercisePage(
   exercise: TransformationExercise,
   onConfirm: (audioUri: string | null, duration: number) => void,
+  onRecordingStateChange: (recording: boolean) => void,
 ): React.ReactElement | null {
   switch (exercise.exercise_type) {
     case "kr-to-en":
-      return <KoreanToEnglishPage exercise={exercise} onConfirm={onConfirm} />;
+      return (
+        <KoreanToEnglishPage
+          exercise={exercise}
+          onConfirm={onConfirm}
+          onRecordingStateChange={onRecordingStateChange}
+        />
+      );
     case "qa-response":
-      return <QAResponsePage exercise={exercise} onConfirm={onConfirm} />;
+      return (
+        <QAResponsePage
+          exercise={exercise}
+          onConfirm={onConfirm}
+          onRecordingStateChange={onRecordingStateChange}
+        />
+      );
     case "dialog-completion":
-      return <DialogCompletionPage exercise={exercise} onConfirm={onConfirm} />;
+      return (
+        <DialogCompletionPage
+          exercise={exercise}
+          onConfirm={onConfirm}
+          onRecordingStateChange={onRecordingStateChange}
+        />
+      );
     case "situation-response":
       return (
-        <SituationResponsePage exercise={exercise} onConfirm={onConfirm} />
+        <SituationResponsePage
+          exercise={exercise}
+          onConfirm={onConfirm}
+          onRecordingStateChange={onRecordingStateChange}
+        />
       );
     default:
       return null;
@@ -99,6 +128,29 @@ export function TransformationCarousel({
     setCurrentIndex(1);
   }, []);
 
+  const exercises = useMemo(
+    () =>
+      [...(set?.exercises ?? [])].sort((a, b) => a.page_order - b.page_order),
+    [set?.exercises],
+  );
+
+  const handleRecordingStateChange = useCallback((recording: boolean) => {
+    setIsRecording(recording);
+  }, []);
+
+  // Build pages: [IntroPage, ...exercises]
+  const pages = useMemo(
+    () => [
+      { key: "intro", type: "intro" as const },
+      ...exercises.map((ex) => ({
+        key: ex.id,
+        type: "exercise" as const,
+        exercise: ex,
+      })),
+    ],
+    [exercises],
+  );
+
   const handleConfirm = useCallback(
     async (
       exercise: TransformationExercise,
@@ -129,7 +181,6 @@ export function TransformationCarousel({
         });
 
         // Advance to next page if available
-        const exercises = set?.exercises ?? [];
         const exerciseIndex = exercises.findIndex((e) => e.id === exercise.id);
         const nextPageIndex = exerciseIndex + 2; // +1 for intro page offset
         const totalPages = 1 + exercises.length; // intro + exercise pages
@@ -144,7 +195,7 @@ export function TransformationCarousel({
         console.error("[TransformationCarousel] handleConfirm error:", err);
       }
     },
-    [set],
+    [exercises],
   );
 
   if (isLoading) {
@@ -155,7 +206,7 @@ export function TransformationCarousel({
     );
   }
 
-  if (!set || !set.exercises || set.exercises.length === 0) {
+  if (!set || exercises.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>
@@ -164,18 +215,6 @@ export function TransformationCarousel({
       </View>
     );
   }
-
-  const exercises = set.exercises.sort((a, b) => a.page_order - b.page_order);
-
-  // Build pages: [IntroPage, ...exercises]
-  const pages = [
-    { key: "intro", type: "intro" as const },
-    ...exercises.map((ex) => ({
-      key: ex.id,
-      type: "exercise" as const,
-      exercise: ex,
-    })),
-  ];
 
   return (
     <View style={styles.container}>
@@ -215,8 +254,11 @@ export function TransformationCarousel({
           const exercise = item.exercise;
           return (
             <View style={styles.page}>
-              {renderExercisePage(exercise, (audioUri, duration) =>
-                handleConfirm(exercise, audioUri, duration),
+              {renderExercisePage(
+                exercise,
+                (audioUri, duration) =>
+                  handleConfirm(exercise, audioUri, duration),
+                handleRecordingStateChange,
               )}
             </View>
           );
