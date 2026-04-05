@@ -129,7 +129,8 @@ export interface KeyVocabularyEntry {
 
 export interface SessionContext {
   session_id?: string;
-  strategic_intent: string;
+  /** @deprecated Use expected_takeaway instead. Kept optional for backward compat with existing DB rows. */
+  strategic_intent?: string;
   speaking_function?: SessionSpeakingFunction;
   reusable_scenarios: string[];
   key_vocabulary: (string | KeyVocabularyEntry)[];
@@ -193,6 +194,7 @@ export interface LearningSession {
   id: string;
   source_video_id: string;
   title: string;
+  subtitle?: string;
   description?: string;
   duration: number; // seconds (auto-calculated)
   sentence_ids: string[];
@@ -294,4 +296,50 @@ export interface AINote {
     focusPoint: string;
   };
   createdAt: number;
+}
+
+// ==================== Transformation Practice Types ====================
+
+export type ExerciseType = "kr-to-en" | "qa-response" | "dialog-completion";
+export type PatternType = "declarative" | "interrogative";
+
+export interface DialogLine {
+  speaker: string;
+  text: string;
+  is_blank: boolean;
+}
+
+export interface TransformationSet {
+  id: string;
+  session_id: string;
+  target_pattern: string;
+  pattern_type: PatternType;
+  generated_by: "ai" | "manual";
+  created_at: string;
+  updated_at: string;
+  exercises?: TransformationExercise[];
+}
+
+export interface TransformationExercise {
+  id: string;
+  set_id: string;
+  page_order: number; // 2-5
+  exercise_type: ExerciseType;
+  instruction_text: string;
+  source_korean?: string; // for kr-to-en
+  question_text?: string; // for qa-response
+  dialog_lines?: DialogLine[]; // for dialog-completion
+  reference_answer?: string; // V2, nullable
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TransformationAttempt {
+  id: string;
+  user_id: string;
+  exercise_id: string;
+  recording_url?: string;
+  recording_duration?: number;
+  completed_at: string;
+  attempt_metadata?: Record<string, unknown>;
 }
