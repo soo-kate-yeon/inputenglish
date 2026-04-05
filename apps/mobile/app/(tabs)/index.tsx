@@ -4,8 +4,6 @@ import {
   Dimensions,
   FlatList,
   Image,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -15,150 +13,21 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchLearningSessions, SessionListItem } from "../../src/lib/api";
+import { FEED_CATEGORIES } from "../../src/lib/feed-categories";
 import { colors, radius, font, spacing } from "../../src/theme";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const CARD_SIZE = (SCREEN_WIDTH - spacing.md * 2 - 12) / 2.4;
-const HERO_HEIGHT = Math.round(SCREEN_WIDTH * 0.68);
-const HERO_MAX = 5;
+const CARD_SIZE = (SCREEN_WIDTH - spacing.md * 2 - 12) / 1.4;
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-// -- Feed Categories --
-
-interface FeedCategory {
-  key: string;
-  title: string;
-  filter: (s: SessionListItem) => boolean;
-}
-
-const FEED_CATEGORIES: FeedCategory[] = [
-  {
-    key: "podcast",
-    title: "팟캐스트",
-    filter: (s) => s.source_type === "podcast",
-  },
-  {
-    key: "interview",
-    title: "인터뷰",
-    filter: (s) => s.source_type === "interview",
-  },
-  {
-    key: "persuade",
-    title: "설득하는 말하기",
-    filter: (s) => s.speaking_function === "persuade",
-  },
-];
-
-// -- Hero Banner Slide --
-
-function HeroBannerSlide({
-  item,
-  onPress,
-}: {
-  item: SessionListItem;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={styles.heroSlide}
-      onPress={onPress}
-      activeOpacity={0.95}
-    >
-      {item.thumbnail_url ? (
-        <Image
-          source={{ uri: item.thumbnail_url }}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[StyleSheet.absoluteFill, styles.heroPlaceholder]} />
-      )}
-
-      <LinearGradient
-        colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.78)"]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <View style={styles.heroContent}>
-        <Text style={styles.heroDuration}>{formatDuration(item.duration)}</Text>
-        <Text style={styles.heroTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        {item.expected_takeaway && (
-          <Text style={styles.heroTakeaway} numberOfLines={2}>
-            {item.expected_takeaway}
-          </Text>
-        )}
-        {item.channel_name && (
-          <Text style={styles.heroChannel}>{item.channel_name}</Text>
-        )}
-      </View>
-
-      <View style={styles.heroPlayButton}>
-        <Ionicons name="play" size={18} color={colors.text} />
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// -- Hero Carousel --
-
-function HeroCarousel({
-  items,
-  onPress,
-}: {
-  items: SessionListItem[];
-  onPress: (item: SessionListItem) => void;
-}) {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    setActiveIndex(idx);
-  }, []);
-
-  return (
-    <View style={styles.heroCarousel}>
-      <FlatList
-        data={items}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <HeroBannerSlide item={item} onPress={() => onPress(item)} />
-        )}
-      />
-
-      {/* Title + dots overlay — non-interactive */}
-      <View style={styles.heroOverlay} pointerEvents="none">
-        <Text style={styles.heroHeaderTitle}>홈</Text>
-        {items.length > 1 && (
-          <View style={styles.heroDots}>
-            {items.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.heroDot,
-                  i === activeIndex && styles.heroDotActive,
-                ]}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-    </View>
-  );
+  if (m === 0) return `${s}초`;
+  if (s === 0) return `${m}분`;
+  return `${m}분 ${s}초`;
 }
 
 // -- Square Card --
@@ -176,21 +45,30 @@ function SquareCard({
       onPress={onPress}
       activeOpacity={0.85}
     >
-      {item.thumbnail_url ? (
-        <Image
-          source={{ uri: item.thumbnail_url }}
-          style={styles.squareThumb}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[styles.squareThumb, styles.squareThumbPlaceholder]}>
-          <Ionicons name="musical-notes" size={24} color={colors.textMuted} />
+      <View>
+        {item.thumbnail_url ? (
+          <Image
+            source={{ uri: item.thumbnail_url }}
+            style={styles.squareThumb}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.squareThumb, styles.squareThumbPlaceholder]}>
+            <Ionicons name="musical-notes" size={24} color={colors.textMuted} />
+          </View>
+        )}
+        <View style={styles.durationBadge}>
+          <Text style={styles.durationBadgeText}>
+            {formatDuration(item.duration)}
+          </Text>
         </View>
-      )}
+      </View>
       <Text style={styles.squareTitle} numberOfLines={2}>
         {item.title}
       </Text>
-      <Text style={styles.squareMeta}>{formatDuration(item.duration)}</Text>
+      {item.subtitle ? (
+        <Text style={styles.squareSubtitle}>{item.subtitle}</Text>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -201,16 +79,28 @@ function CategorySection({
   title,
   sessions,
   onSessionPress,
+  onTitlePress,
 }: {
   title: string;
   sessions: SessionListItem[];
   onSessionPress: (s: SessionListItem) => void;
+  onTitlePress?: () => void;
 }) {
   if (sessions.length === 0) return null;
 
   return (
     <View style={styles.categorySection}>
-      <Text style={styles.categoryTitle}>{title}</Text>
+      <TouchableOpacity
+        style={styles.categoryHeader}
+        onPress={onTitlePress}
+        activeOpacity={0.7}
+        disabled={!onTitlePress}
+      >
+        <Text style={styles.categoryTitle}>{title}</Text>
+        {onTitlePress && (
+          <Ionicons name="chevron-forward" size={20} color={colors.text} />
+        )}
+      </TouchableOpacity>
       <FlatList
         horizontal
         data={sessions}
@@ -236,6 +126,7 @@ export default function HomeScreen() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -249,8 +140,6 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const heroItems = useMemo(() => sessions.slice(0, HERO_MAX), [sessions]);
 
   const categoryData = useMemo(
     () =>
@@ -292,14 +181,18 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 120 + insets.bottom },
+        ]}
       >
-        <HeroCarousel items={heroItems} onPress={navigateToStudy} />
+        <View style={[styles.header, { paddingTop: insets.top + spacing.lg }]}>
+          <Text style={styles.headerWordmark}>홈</Text>
+        </View>
 
         {categoryData.map((cat) => (
           <CategorySection
@@ -307,10 +200,15 @@ export default function HomeScreen() {
             title={cat.title}
             sessions={cat.sessions}
             onSessionPress={navigateToStudy}
+            onTitlePress={() =>
+              router.push(
+                `/collection/${cat.key}?title=${encodeURIComponent(cat.title)}`,
+              )
+            }
           />
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -348,86 +246,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // -- Hero Carousel --
-  heroCarousel: {
-    height: HERO_HEIGHT,
-  },
-  heroSlide: {
-    width: SCREEN_WIDTH,
-    height: HERO_HEIGHT,
-    backgroundColor: colors.bgInverse,
-  },
-  heroPlaceholder: {
-    backgroundColor: colors.bgInverse,
-  },
-  heroContent: {
-    position: "absolute",
-    bottom: 36,
-    left: 0,
-    right: 0,
+  // -- Header --
+  header: {
     paddingHorizontal: spacing.md,
-    gap: 4,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  heroDuration: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.65)",
-    fontWeight: "500",
-  },
-  heroTitle: {
+  headerWordmark: {
     fontSize: font.size["2xl"],
     fontWeight: font.weight.bold,
-    color: "#fff",
-    lineHeight: 34,
-  },
-  heroTakeaway: {
-    fontSize: font.size.sm,
-    color: "rgba(255,255,255,0.75)",
-    lineHeight: 18,
-    fontWeight: "400",
-  },
-  heroChannel: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
-    fontWeight: "500",
-  },
-  heroPlayButton: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "space-between",
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  heroHeaderTitle: {
-    color: "#fff",
-    fontSize: font.size.xl,
-    fontWeight: font.weight.bold,
-    paddingHorizontal: spacing.md,
-  },
-  heroDots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-  },
-  heroDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.4)",
-  },
-  heroDotActive: {
-    width: 18,
-    backgroundColor: "#fff",
+    letterSpacing: 0.5,
+    color: colors.text,
   },
 
   // -- Category Section --
@@ -435,11 +264,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     gap: 12,
   },
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing.md,
+  },
   categoryTitle: {
     fontSize: font.size.xl,
     fontWeight: font.weight.bold,
     color: colors.text,
-    paddingHorizontal: spacing.md,
   },
   categoryList: {
     paddingHorizontal: spacing.md,
@@ -452,7 +286,7 @@ const styles = StyleSheet.create({
   },
   squareThumb: {
     width: CARD_SIZE,
-    height: CARD_SIZE,
+    height: CARD_SIZE * (3 / 5),
     borderRadius: radius.lg,
     backgroundColor: colors.bgMuted,
   },
@@ -466,9 +300,23 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 20,
   },
-  squareMeta: {
+  squareSubtitle: {
     fontSize: 13,
     color: colors.textSecondary,
-    fontWeight: "500",
+    lineHeight: 18,
+  },
+  durationBadge: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  durationBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

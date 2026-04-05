@@ -213,11 +213,15 @@ export default function SessionSheet() {
             <Text style={styles.headerTitle} numberOfLines={1}>
               {session.title}
             </Text>
-            {session.channel_name && (
+            {session.description ? (
+              <Text style={styles.headerDescription} numberOfLines={2}>
+                {session.description}
+              </Text>
+            ) : session.channel_name ? (
               <Text style={styles.headerChannel} numberOfLines={1}>
                 {session.channel_name}
               </Text>
-            )}
+            ) : null}
           </View>
           <TouchableOpacity onPress={closeSession} style={styles.headerButton}>
             <Ionicons name="close" size={22} color={colors.textMuted} />
@@ -323,6 +327,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: font.weight.semibold,
     color: colors.text,
+  },
+  headerDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    textAlign: "center",
   },
   headerChannel: {
     fontSize: 13,

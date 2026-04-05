@@ -18,8 +18,8 @@ const ICONS: Record<
     inactive: keyof typeof Ionicons.glyphMap;
   }
 > = {
-  index: { active: "home", inactive: "home-outline" },
-  archive: { active: "folder", inactive: "folder-outline" },
+  index: { active: "compass", inactive: "compass-outline" },
+  archive: { active: "albums", inactive: "albums-outline" },
   profile: { active: "person", inactive: "person-outline" },
 };
 

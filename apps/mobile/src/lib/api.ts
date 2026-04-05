@@ -44,6 +44,7 @@ export interface SessionListItem {
   id: string;
   source_video_id: string;
   title: string;
+  subtitle?: string;
   description?: string;
   duration: number;
   start_time?: number;
@@ -66,7 +67,7 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   const { data: sessions, error: sessionsError } = await supabase
     .from("learning_sessions")
     .select(
-      "id, source_video_id, title, description, duration, difficulty, thumbnail_url, order_index, source_type, speaking_function, role_relevance, premium_required, session_contexts(expected_takeaway)",
+      "id, source_video_id, title, subtitle, description, duration, difficulty, thumbnail_url, order_index, source_type, speaking_function, role_relevance, premium_required, session_contexts(expected_takeaway)",
     )
     .order("created_at", { ascending: false });
 
@@ -88,6 +89,7 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
       id: s.id,
       source_video_id: s.source_video_id,
       title: s.title,
+      subtitle: s.subtitle || undefined,
       description: s.description || undefined,
       duration: Number(s.duration),
       difficulty: s.difficulty as SessionListItem["difficulty"],
@@ -122,6 +124,7 @@ export async function fetchLearningSessionDetail(
         id,
         source_video_id,
         title,
+        subtitle,
         description,
         duration,
         start_time,
@@ -163,6 +166,7 @@ export async function fetchLearningSessionDetail(
     id: data.id,
     source_video_id: data.source_video_id,
     title: data.title,
+    subtitle: data.subtitle || undefined,
     description: data.description || undefined,
     duration: Number(data.duration),
     start_time:

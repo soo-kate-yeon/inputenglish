@@ -269,6 +269,8 @@ PODS:
     - Yoga
   - ExpoSecureStore (14.2.4):
     - ExpoModulesCore
+  - ExpoSpeech (13.0.1):
+    - ExpoModulesCore
   - ExpoSplashScreen (0.29.24):
     - ExpoModulesCore
   - ExpoSystemUI (4.0.9):
@@ -2053,6 +2055,7 @@ DEPENDENCIES:
   - "ExpoLinking (from `../../../node_modules/.pnpm/expo-linking@7.0.5_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+core_0df8530e7751c9b23c375bd17f97679a/node_modules/expo-linking/ios`)"
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
   - "ExpoSecureStore (from `../../../node_modules/.pnpm/expo-secure-store@14.2.4_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babe_b8684b5c9e96b5c44c95ca4959dfc1bd/node_modules/expo-secure-store/ios`)"
+  - ExpoSpeech (from `../../../node_modules/expo-speech/ios`)
   - "ExpoSplashScreen (from `../../../node_modules/.pnpm/expo-splash-screen@0.29.24_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@ba_c0ce5ff012d7420c3a3292d850f0d119/node_modules/expo-splash-screen/ios`)"
   - "ExpoSystemUI (from `../../../node_modules/.pnpm/expo-system-ui@4.0.9_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babel+co_d2dbf22d8802267ac4c21c9e6f41baee/node_modules/expo-system-ui/ios`)"
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
@@ -2193,6 +2196,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-modules-core"
   ExpoSecureStore:
     :path: "../../../node_modules/.pnpm/expo-secure-store@14.2.4_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@babe_b8684b5c9e96b5c44c95ca4959dfc1bd/node_modules/expo-secure-store/ios"
+  ExpoSpeech:
+    :path: "../../../node_modules/expo-speech/ios"
   ExpoSplashScreen:
     :path: "../../../node_modules/.pnpm/expo-splash-screen@0.29.24_expo@52.0.49_@babel+core@7.29.0_@babel+preset-env@7.29.0_@ba_c0ce5ff012d7420c3a3292d850f0d119/node_modules/expo-splash-screen/ios"
   ExpoSystemUI:
@@ -2372,6 +2377,7 @@ SPEC CHECKSUMS:
   ExpoLinking: 8d12bee174ba0cdf31239706578e29e74a417402
   ExpoModulesCore: 98297c2cc7977c43740a2e52d850d94ac8dbf176
   ExpoSecureStore: 3f1b632d6d40bcc62b4983ef9199cd079592a50a
+  ExpoSpeech: 8f74347608243ee8fdc2faa14e7d2cd5503f33f8
   ExpoSplashScreen: 8261985ce9778f904abc7e31bed3538dce67ed4d
   ExpoSystemUI: b82a45cf0f6a4fa18d07c46deba8725dd27688b4
   ExpoWebBrowser: dc39a88485f007e61a3dff05d6a75f22ab4a2e92

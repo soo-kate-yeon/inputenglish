@@ -45,7 +45,7 @@ import ScriptLine from "../../src/components/listening/ScriptLine";
 import ShadowingScriptLine from "../../src/components/shadowing/ShadowingScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
 import ContextBriefCard from "../../src/components/study/ContextBriefCard";
-import TransformationPracticePanel from "../../src/components/study/TransformationPracticePanel";
+import { TransformationCarousel } from "../../src/components/study/TransformationCarousel";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import { getPronunciationScore, uploadRecording } from "../../src/lib/ai-api";
 import { trackEvent } from "../../src/lib/analytics";
@@ -857,28 +857,9 @@ export default function StudyScreen() {
             {/* Script area */}
             <View style={styles.scriptContainer}>
               {mainTab === "transformation" ? (
-                <TransformationPracticePanel
-                  prompts={practicePrompts}
-                  sentences={studySentences}
-                  selectedMode={practiceMode}
-                  selectedSentenceId={selectedPracticeSentenceId}
-                  draftText={practiceDraft}
-                  speakingFunction={sessionDetail?.speaking_function}
-                  coachingSummary={coachingSummary}
-                  coachingLoading={coachingLoading || practiceLoading}
-                  voiceCoachingLoading={voiceCoachingLoading}
-                  saveMessage={playbookMessage}
-                  canRunVoiceCoaching={Boolean(
-                    selectedPracticeSentenceId &&
-                    uploadedRecordingUrls[selectedPracticeSentenceId],
-                  )}
-                  onModeChange={handlePracticeModeChange}
-                  onSentenceChange={handlePracticeSentenceChange}
-                  onDraftChange={setPracticeDraft}
-                  onCoach={handlePracticeCoach}
-                  onVoiceCoach={handleVoiceCoaching}
-                  onSave={handleSavePlaybook}
-                />
+                sessionId ? (
+                  <TransformationCarousel sessionId={sessionId} />
+                ) : null
               ) : !scriptVisible ? (
                 <View style={styles.empty}>
                   <Text style={styles.emptyText}>스크립트가 숨겨져 있어요</Text>

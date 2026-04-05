@@ -7,6 +7,7 @@
     "scheme": "inputenglish",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.morak.inputenglish",

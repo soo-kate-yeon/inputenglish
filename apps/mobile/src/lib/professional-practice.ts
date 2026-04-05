@@ -52,16 +52,16 @@ export function buildDefaultPracticePrompts(
   const scenario =
     input.context?.reusable_scenarios?.[0] ??
     input.description ??
-    "짧은 업무 업데이트";
+    "짧은 상황 설명";
   const userLabel = input.userDisplayName?.trim()
     ? input.userDisplayName.trim()
     : "나";
   const roleLabel = input.roleRelevance?.[0]
     ? ROLE_LABELS[input.roleRelevance[0]]
     : "실무자";
-  const strategicIntent =
-    input.context?.strategic_intent ??
-    "메시지는 구체적이고 차분하며 실무적으로 들리게 유지하세요.";
+  const takeawayHint =
+    input.context?.expected_takeaway ??
+    "메시지는 구체적이고 차분하며 자연스럽게 들리게 유지하세요.";
 
   return [
     {
@@ -72,7 +72,7 @@ export function buildDefaultPracticePrompts(
       guidance: [
         "문장 골조는 남기고 업무 맥락의 명사와 숫자만 바꿔보세요.",
         "톤을 완전히 바꾸기보다 원문의 전달감을 최대한 유지하세요.",
-        strategicIntent,
+        takeawayHint,
       ],
     },
     {

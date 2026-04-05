@@ -1,6 +1,54 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
+// Mock MMKV (required by TransformationCarousel)
+jest.mock("react-native-mmkv", () => {
+  const store: Record<string, string> = {};
+  return {
+    MMKV: jest.fn().mockImplementation(() => ({
+      getString: (key: string) => store[key] ?? undefined,
+      set: (key: string, value: string) => {
+        store[key] = value;
+      },
+      delete: (key: string) => {
+        delete store[key];
+      },
+      contains: (key: string) => key in store,
+      getAllKeys: () => Object.keys(store),
+    })),
+  };
+});
+
+// Mock expo-speech (required by useTTS used in TransformationCarousel)
+jest.mock("expo-speech", () => ({
+  speak: jest.fn(),
+  stop: jest.fn(),
+  isSpeakingAsync: jest.fn().mockResolvedValue(false),
+}));
+
+// Mock supabase (required by TransformationCarousel)
+jest.mock("../../src/lib/supabase", () => ({
+  supabase: {
+    auth: {
+      getUser: jest
+        .fn()
+        .mockResolvedValue({ data: { user: { id: "user-1" } } }),
+      getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
+    },
+    from: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  },
+}));
+
+// Mock transformation API (required by TransformationCarousel)
+jest.mock("../../src/lib/transformation-api", () => ({
+  fetchTransformationSet: jest.fn().mockResolvedValue(null),
+  saveTransformationAttempt: jest.fn().mockResolvedValue({ id: "attempt-1" }),
+}));
+
 const mockRouterPush = jest.fn();
 
 const mockSessionDetail = {

@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import Purchases from "react-native-purchases";
 import type { CustomerInfo } from "react-native-purchases";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import {
   getCustomerInfo,
   getPlanFromCustomerInfo,
@@ -22,21 +23,37 @@ export interface UseSubscriptionResult {
 
 export function useSubscription(): UseSubscriptionResult {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [plan, setPlan] = useState<Plan>("FREE");
   const [isLoading, setIsLoading] = useState(true);
   // Track the last synced plan to avoid redundant Supabase calls
   const lastSyncedPlanRef = useRef<Plan | null>(null);
 
-  const applyCustomerInfo = useCallback(async (info: CustomerInfo) => {
-    const derived = getPlanFromCustomerInfo(info);
-    setPlan(derived);
-    if (lastSyncedPlanRef.current !== derived) {
-      lastSyncedPlanRef.current = derived;
-      await syncPlanToSupabase(derived);
-    }
-  }, []);
+  const applyCustomerInfo = useCallback(
+    async (info: CustomerInfo) => {
+      const derived = getPlanFromCustomerInfo(info);
 
-  const userId = user?.id ?? null;
+      // Fallback: if RC says FREE, check Supabase users.plan for manual override (e.g. testing)
+      let finalPlan = derived;
+      if (derived === "FREE" && userId) {
+        const { data } = await supabase
+          .from("users")
+          .select("plan")
+          .eq("id", userId)
+          .single();
+        if (data?.plan === "PREMIUM") finalPlan = "PREMIUM";
+      }
+
+      setPlan(finalPlan);
+
+      // Only sync RC-derived value back to Supabase (don't overwrite manual override)
+      if (derived === "PREMIUM" && lastSyncedPlanRef.current !== derived) {
+        lastSyncedPlanRef.current = derived;
+        await syncPlanToSupabase(derived);
+      }
+    },
+    [userId],
+  );
 
   const refresh = useCallback(async () => {
     if (!userId) {

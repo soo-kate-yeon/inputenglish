@@ -21,9 +21,7 @@ interface ContextBriefCardProps {
 
 export default function ContextBriefCard({ context }: ContextBriefCardProps) {
   const hasContent = Boolean(
-    context?.strategic_intent ||
-    context?.expected_takeaway ||
-    context?.key_vocabulary?.length,
+    context?.expected_takeaway || context?.key_vocabulary?.length,
   );
 
   if (!hasContent) {
@@ -38,13 +36,6 @@ export default function ContextBriefCard({ context }: ContextBriefCardProps) {
 
   return (
     <View style={styles.container}>
-      {context?.strategic_intent ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>이 세션이 길러주는 말하기</Text>
-          <Text style={styles.bodyText}>{context.strategic_intent}</Text>
-        </View>
-      ) : null}
-
       {context?.expected_takeaway ? (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
