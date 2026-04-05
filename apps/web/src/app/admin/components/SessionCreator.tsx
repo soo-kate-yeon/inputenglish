@@ -145,6 +145,9 @@ export function SessionCreator({
     useState<SessionContext>(createEmptyContext());
   const [isEditGeneratingContext, setIsEditGeneratingContext] = useState(false);
   const [isEditAutofilling, setIsEditAutofilling] = useState(false);
+  const [editTransformationPattern, setEditTransformationPattern] = useState<
+    string | null
+  >(null);
 
   // List State
   const [createdSessions, setCreatedSessions] =
@@ -301,6 +304,7 @@ export function SessionCreator({
     setEditRoleRelevance(session.role_relevance || ["pm"]);
     setEditPremiumRequired(session.premium_required ?? true);
     setEditContext(session.context ?? createEmptyContext());
+    setEditTransformationPattern(null);
     setEditTab(tab);
     setIsEditSheetOpen(true);
   };
@@ -418,6 +422,7 @@ export function SessionCreator({
           description: editDescription,
           speakingFunction: editSpeakingFunction,
           sentences: sessionSentences,
+          targetPattern: editTransformationPattern ?? undefined,
         }),
       });
 
@@ -426,10 +431,16 @@ export function SessionCreator({
         throw new Error(errorData.error || "Failed to generate context");
       }
 
-      const data = (await response.json()) as SessionContext;
-      setEditContext(data);
-      if (data.speaking_function) {
-        setEditSpeakingFunction(data.speaking_function);
+      const data = (await response.json()) as {
+        context: SessionContext;
+        subtitle?: string;
+      };
+      setEditContext(data.context);
+      if (data.context.speaking_function) {
+        setEditSpeakingFunction(data.context.speaking_function);
+      }
+      if (data.subtitle) {
+        setEditSubtitle(data.subtitle);
       }
     } catch (error) {
       console.error("Context generation error:", error);
@@ -1074,6 +1085,24 @@ export function SessionCreator({
                   backgroundColor: "#fcfcfc",
                 }}
               >
+                {editTransformationPattern && (
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      backgroundColor: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      color: "#15803d",
+                      fontSize: 11,
+                      lineHeight: 1.5,
+                      marginBottom: 8,
+                    }}
+                  >
+                    변형연습 패턴{" "}
+                    <strong>{`'${editTransformationPattern}'`}</strong>이
+                    선택되었어요. 아래 버튼으로 컨텍스트를 생성하면 이 패턴
+                    중심으로 브리핑이 만들어집니다.
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span
                     className="text-[11px] font-bold uppercase tracking-wider"
@@ -1103,7 +1132,9 @@ export function SessionCreator({
                   >
                     {isEditGeneratingContext
                       ? "생성 중..."
-                      : "AI 컨텍스트 생성"}
+                      : editTransformationPattern
+                        ? `AI 컨텍스트 생성 ('${editTransformationPattern}' 기반)`
+                        : "AI 컨텍스트 생성"}
                   </button>
                 </div>
 
@@ -1224,8 +1255,10 @@ export function SessionCreator({
                 sentences={sentences.filter((s) =>
                   editingSession.sentence_ids.includes(s.id),
                 )}
+                speakingFunction={editSpeakingFunction}
                 isSaved={persistedSessionIds.has(editingSession.id)}
                 onSaved={() => setIsEditSheetOpen(false)}
+                onPatternGenerated={setEditTransformationPattern}
               />
             </div>
           )}

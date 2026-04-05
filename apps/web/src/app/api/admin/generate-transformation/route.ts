@@ -1,20 +1,13 @@
-// @MX:NOTE: [AUTO] Gemini-powered transformation exercise generation v2 (SPEC-MOBILE-011).
-// Selects the pattern most aligned with expected_takeaway and generates context-aware exercises.
+// @MX:NOTE: [AUTO] Gemini-powered transformation exercise generation v3 (backward-design).
+// Runs BEFORE session context — selects pattern from transcript, then context is built around it.
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type {
-  CommonMistake,
-  KeyVocabularyEntry,
-  Sentence,
-} from "@inputenglish/shared";
+import type { Sentence } from "@inputenglish/shared";
 
 interface GenerateTransformationRequest {
   sessionId: string;
   sentences: Sentence[];
   speakingFunction?: string;
-  expectedTakeaway?: string;
-  keyVocabulary?: (string | KeyVocabularyEntry)[];
-  commonMistakes?: CommonMistake[];
 }
 
 interface GeneratedExercise {
@@ -37,37 +30,10 @@ interface GenerateTransformationResponse {
   exercises: GeneratedExercise[];
 }
 
-function formatKeyVocab(items?: (string | KeyVocabularyEntry)[]): string {
-  if (!items || items.length === 0) return "없음";
-  return items
-    .map((item) => {
-      if (typeof item === "string") return `- ${item}`;
-      return `- ${item.expression} (예: ${item.example})`;
-    })
-    .join("\n");
-}
-
-function formatCommonMistakes(mistakes?: CommonMistake[]): string {
-  if (!mistakes || mistakes.length === 0) return "없음";
-  return mistakes
-    .map(
-      (m) =>
-        `- 실수: "${m.mistake}" → 교정: "${m.correction}" (이유: ${m.why})`,
-    )
-    .join("\n");
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as GenerateTransformationRequest;
-    const {
-      sessionId,
-      sentences,
-      speakingFunction,
-      expectedTakeaway,
-      keyVocabulary,
-      commonMistakes,
-    } = body;
+    const { sessionId, sentences, speakingFunction } = body;
 
     if (!sessionId || !Array.isArray(sentences) || sentences.length === 0) {
       return NextResponse.json(
@@ -95,29 +61,21 @@ export async function POST(request: NextRequest) {
 대상: 영어로 일하는 한국인. 원어민처럼 유창하진 않지만 기초는 되는 사람.
 목적: 하나의 패턴을 다양한 상황에서 말해보면서 체화하는 것.
 
-━━ 세션 컨텍스트 ━━
-학습 기대효과: ${expectedTakeaway ?? "없음"}
-말하기 목적: ${speakingFunction ?? "없음"}
-핵심 표현:
-${formatKeyVocab(keyVocabulary)}
-한국인 실수 패턴:
-${formatCommonMistakes(commonMistakes)}
+말하기 목적 힌트: ${speakingFunction ?? "없음"}
 
 ━━ 트랜스크립트 ━━
 "${transcript}"
 
 ━━ Step 1: 타깃 패턴 선택 ━━
-트랜스크립트의 표현들 중에서 아래 기준으로 하나의 핵심 패턴을 골라라:
-
-⚠️ 최우선 규칙: 핵심 표현(key_vocabulary) 목록에 있는 표현 중에서 골라라.
-key_vocabulary에서 고를 수 없는 경우(단어 수준이라 변형이 불가능하거나, 구조적 패턴이 아닌 경우)에만 트랜스크립트에서 자유 선택하되, pattern_rationale에 key_vocabulary에서 고르지 않은 이유를 명시해라.
+트랜스크립트의 표현들 중에서 아래 기준으로 하나의 핵심 패턴을 골라라.
+⚠️ 이 패턴이 세션 전체의 학습 초점이 된다. 이후 브리핑, 핵심 표현, 학습 기대효과가 모두 이 패턴을 중심으로 생성되므로 신중하게 골라라.
 
 선택 기준 (우선순위 순):
-1. 핵심 표현(key_vocabulary)에 포함된 것 (최우선 — 세션 브리핑과 일관성 유지)
-2. 학습 기대효과(expected_takeaway)에 가장 직결되는 표현
-3. 변형 가능성이 높은 것 — 주어, 목적어, 시제를 바꿔도 구조가 유지됨
-4. 회의실 밖 일상 상황에서도 재사용 빈도가 높은 것
-5. 한국어 직역으로는 나오기 어려운 영어다운 구조
+1. 변형 가능성이 높은 것 — 주어, 목적어, 시제를 바꿔도 구조가 유지됨
+2. 말하기 목적(speaking_function)에 가장 부합하는 표현
+3. 회의실 밖 일상 상황에서도 재사용 빈도가 높은 것
+4. 한국어 직역으로는 나오기 어려운 영어다운 구조
+5. 단어 수준("leverage")이 아니라 구조적 패턴("What we're seeing is...") 수준일 것
 
 pattern_rationale: 이 패턴을 고른 이유를 한국어로 1-2문장.
 

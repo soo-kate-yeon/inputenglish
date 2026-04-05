@@ -21,12 +21,14 @@ interface GenerateContextRequest {
   description?: string;
   speakingFunction?: SessionSpeakingFunction;
   sentences: Sentence[];
+  targetPattern?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as GenerateContextRequest;
-    const { title, description, speakingFunction, sentences } = body;
+    const { title, description, speakingFunction, sentences, targetPattern } =
+      body;
 
     if (!title || !Array.isArray(sentences) || sentences.length === 0) {
       return NextResponse.json(
@@ -70,11 +72,21 @@ ${SESSION_SPEAKING_FUNCTIONS.join(", ")}
 세션 제목: ${title}
 세션 설명: ${description ?? ""}
 speaking function 힌트: ${speakingFunction ?? ""}
+${targetPattern ? `변형연습 타깃 패턴: "${targetPattern}"` : ""}
 
 트랜스크립트:
 ${transcript}
 
-각 필드 작성 가이드와 예시:
+${
+  targetPattern
+    ? `⚠️ 핵심 규칙: 변형연습에서 "${targetPattern}" 패턴이 이미 선택되었다. 브리프 전체를 이 패턴 중심으로 작성해라:
+- key_vocabulary 첫 번째 항목은 반드시 "${targetPattern}"이어야 함
+- expected_takeaway는 이 패턴을 쓸 수 있게 되는 것을 중심으로
+- common_mistakes는 이 패턴을 쓸 때 한국인이 하는 실수
+- subtitle은 이 패턴을 포함한 완성된 한국어 문장 (아래 subtitle 가이드 참고)
+`
+    : ""
+}각 필드 작성 가이드와 예시:
 
 speaking_function — 허용 enum 중 하나.
 
@@ -111,6 +123,16 @@ expected_takeaway — 이 세션 후 학습자가 할 수 있는 것 한 문장.
   좋은 예: "처음 만난 사람한테 자기소개할 때 자연스러운 오프닝을 쓸 수 있어요"
   나쁜 예: "지표를 설명할 수 있다" (← 너무 짧고 뻔함)
 
+subtitle — 완성된 한국어 문장. 변형연습 타깃 패턴이 있으면 그 패턴을 포함할 것.
+  규칙:
+  - 완성된 한국어 문장으로 쓸 것. 명사구나 어구로 끊으면 안 됨.
+  - 영어 표현(작은따옴표로 감싸기)을 포함한 완성 문장.
+  - ~해요, ~연습해요, ~말하기를 익혀요 같은 서술어로 마무리.
+  - 구체적 상황 + 영어 표현 + 말하기 행위가 한 문장에 담기면 이상적.
+  좋은 예: "더 좋은 기회에 'said no to' 패턴으로 거절하는 말하기를 연습해요."
+  좋은 예: "숫자를 꺼낼 때 'We're seeing'으로 단정을 피하는 법을 연습해요."
+  나쁜 예: "'said no to' 패턴으로 거절하기" (← 문장 미완성)
+
 Return ONLY valid JSON:
 {
   "speaking_function": "one allowed enum",
@@ -118,7 +140,8 @@ Return ONLY valid JSON:
   "key_vocabulary": [{"expression": "string", "example": "string", "translation": "string", "pronunciation_note": "string or omit"}, ...],
   "grammar_rhetoric_note": "string",
   "common_mistakes": [{"mistake": "string", "correction": "string", "why": "string"}],
-  "expected_takeaway": "string"
+  "expected_takeaway": "string",
+  "subtitle": "string"
 }
 `;
 
@@ -199,15 +222,24 @@ Return ONLY valid JSON:
           }))
       : [];
 
+    const rawParsed = parsed as unknown as Record<string, unknown>;
+    const subtitle =
+      typeof rawParsed.subtitle === "string"
+        ? rawParsed.subtitle.trim()
+        : undefined;
+
     return NextResponse.json({
-      speaking_function: normalizedFunction,
-      reusable_scenarios: reusableScenarios,
-      key_vocabulary: keyVocabulary,
-      grammar_rhetoric_note: parsed.grammar_rhetoric_note?.trim() ?? "",
-      common_mistakes: commonMistakes.length > 0 ? commonMistakes : undefined,
-      expected_takeaway: parsed.expected_takeaway.trim(),
-      generated_by: "gemini",
-    } satisfies SessionContext);
+      context: {
+        speaking_function: normalizedFunction,
+        reusable_scenarios: reusableScenarios,
+        key_vocabulary: keyVocabulary,
+        grammar_rhetoric_note: parsed.grammar_rhetoric_note?.trim() ?? "",
+        common_mistakes: commonMistakes.length > 0 ? commonMistakes : undefined,
+        expected_takeaway: parsed.expected_takeaway.trim(),
+        generated_by: "gemini",
+      } satisfies SessionContext,
+      subtitle,
+    });
   } catch (error: any) {
     console.error("Session context generation API error:", error);
     return NextResponse.json(

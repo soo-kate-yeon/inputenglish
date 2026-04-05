@@ -16,8 +16,10 @@ interface TransformationSet {
 interface TransformationExerciseEditorProps {
   sessionId: string;
   sentences: Sentence[];
+  speakingFunction?: string;
   isSaved?: boolean;
   onSaved?: (setId: string) => void;
+  onPatternGenerated?: (pattern: string) => void;
 }
 
 function ExerciseAccordion({
@@ -297,8 +299,10 @@ function ExerciseAccordion({
 export function TransformationExerciseEditor({
   sessionId,
   sentences,
+  speakingFunction,
   isSaved = true,
   onSaved,
+  onPatternGenerated,
 }: TransformationExerciseEditorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -320,7 +324,7 @@ export function TransformationExerciseEditor({
       const response = await fetch("/api/admin/generate-transformation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, sentences }),
+        body: JSON.stringify({ sessionId, sentences, speakingFunction }),
       });
 
       if (!response.ok) {
@@ -334,6 +338,9 @@ export function TransformationExerciseEditor({
       };
       setGeneratedSet(data.set);
       setExercises(data.exercises);
+      if (data.set.target_pattern) {
+        onPatternGenerated?.(data.set.target_pattern);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
