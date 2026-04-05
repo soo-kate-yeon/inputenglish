@@ -721,6 +721,7 @@ function AdminPageContent() {
           <SessionCreator
             sentences={sentences}
             videoId={getVideoId() || ""}
+            videoTitle={title}
             onSessionsChange={setCreatedSessions}
             initialSessions={createdSessions}
             suggestedScenes={analyzedScenes}

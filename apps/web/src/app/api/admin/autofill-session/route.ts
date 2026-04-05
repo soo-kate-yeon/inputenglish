@@ -15,6 +15,7 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 interface AutofillResponse {
   title: string;
+  subtitle: string;
   description: string;
   sourceType?: SessionSourceType;
   speakingFunction?: SessionSpeakingFunction;
@@ -24,7 +25,7 @@ interface AutofillResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const { sentences } = await request.json();
+    const { sentences, videoTitle } = await request.json();
 
     if (!sentences || !Array.isArray(sentences) || sentences.length === 0) {
       return NextResponse.json(
@@ -45,53 +46,66 @@ export async function POST(request: NextRequest) {
     // Format sentences text
     const sentencesText = sentences.map((s: Sentence) => s.text).join(" ");
 
-    const prompt = `
-You are writing session copy for a professional English speaking app for Korean office workers.
+    const videoTitleLine = videoTitle ? `원본 영상 제목: "${videoTitle}"` : "";
 
-Your reader is a 3-7년차 한국 직장인 who can communicate in English but wants to sound more professional and natural.
-Write like a senior colleague giving a quick tip — not like a textbook or a marketing brochure.
+    const prompt = `
+You are writing session copy for an English speaking practice app.
+Users watch short clips from real English content and practice speaking patterns from them.
 
 Voice & tone:
 - 한국어로 작성. 구어체 허용 (~거든요, ~인데요, ~해요, ~이에요)
 - 짧고 직접적. 한 문장에 하나의 정보만.
-- 실제 업무 상황과 연결. "이 표현을 회의에서 쓸 수 있다"가 핵심.
 - 담백하고 건조하게. 감탄사, 과장, 동기부여 금지.
 
 금지 표현 (이런 단어가 나오면 다시 써라):
 - "효과적인", "전략적으로", "핵심 역량", "활용하여"
 - "~를 학습합니다", "~할 수 있습니다", "~를 익혀보세요"
 - "이 세션에서는", "함께 살펴보겠습니다", "실력을 키워보세요"
-- "커뮤니케이션 스킬", "비즈니스 영어", "글로벌 역량"
+- "커뮤니케이션 스킬", "비즈니스 영어", "글로벌 역량", "업무 영어"
+- "직장인", "오피스", "프로페셔널"
 
 Allowed enums:
 - sourceType: ${SESSION_SOURCE_TYPES.join(", ")}
 - speakingFunction: ${SESSION_SPEAKING_FUNCTIONS.join(", ")}
 - roleRelevance: ${SESSION_ROLE_RELEVANCE.join(", ")}
 
+speakingFunction 판단 기준 — 화자가 이 클립에서 실제로 하는 말하기 행위가 뭔지 보고 골라라:
+- persuade: 상대를 설득하거나 동의를 구하는 말하기
+- explain-metric: 숫자나 데이터를 설명하는 말하기
+- summarize: 핵심을 정리하거나 요약하는 말하기
+- hedge: 단정을 피하고 조심스럽게 표현하는 말하기
+- disagree: 반대 의견을 내거나 다른 시각을 제시하는 말하기
+- propose: 아이디어나 방안을 제안하는 말하기
+- answer-question: 질문에 답하거나 입장을 밝히는 말하기
+
+${videoTitleLine}
+
 Title rules:
-- 한 줄. 15자 내외.
-- 학습자가 "이거 나한테 필요한데" 싶은 느낌이어야 함.
-- 아래 패턴 중 자유롭게 선택 (하나에 고정하지 말 것):
-  a) 행동 중심: "숫자 꺼내기 전에 '왜'부터 까는 법"
-  b) 상황 중심: "반대할 때 'But'으로 시작하지 않기"
-  c) 패턴 중심: "3분 안에 프로젝트 근황 정리하는 패턴"
-  d) 표현 중심: "'We're seeing' 하나로 단정 피하기"
-  e) 자유형: "요약 잘하는 사람은 첫 문장이 다르다"
+- 원본 영상 제목을 기반으로 한국어 제목을 만들어라. 인물 이름 + 콘텐츠명/주제 형식이 좋음.
+- 한 줄. 20자 내외.
+- 영상이 뭔지 바로 알 수 있어야 함. 이게 세션의 얼굴임.
+- 같은 영상에서 여러 세션이 나올 수 있으니, 이 세션이 다루는 부분에 집중.
+
+Subtitle rules:
+- 이 세션의 핵심 표현이나 말하기 패턴을 한 줄로.
+- 영어 표현이 들어가면 좋음.
+- 20자 내외.
+- 이 세션에서 연습할 구체적인 표현/패턴이 뭔지 보여주는 역할.
 
 Description rules:
 - 최대 2문장 한국어.
-- 문장 1: 왜 이걸 연습해야 하는지 (업무 맥락 + 문제 상황)
+- 문장 1: 이 표현/패턴이 실제로 어디서 쓰이는지 (구체적 상황)
 - 문장 2: 이 클립에서 뭘 건질 수 있는지 (구체적 표현이나 구조)
 - ~거든요, ~인데요 같은 구어 연결 OK.
 
 좋은 예시:
-{"title": "숫자 꺼내기 전에 '왜'부터 까는 법", "description": "지표를 그냥 읽으면 아무도 안 듣거든요. 숫자에 맥락을 입히는 한 문장 패턴을 연습해요."}
-{"title": "반대 의견, 'But' 없이 꺼내는 세 가지 방법", "description": "회의에서 반대할 때 분위기 안 깨는 구조가 있어요. I see your point 계열의 완충 표현을 익혀요."}
-{"title": "3분 안에 프로젝트 근황 정리하는 패턴", "description": "스탠드업이나 위클리에서 바로 쓸 수 있는 요약 구조예요. 핵심-진행-다음단계 순서로 연습해요."}
+{"title": "조나단 앤더슨 The System 인터뷰", "subtitle": "변화를 위한 갈등-'this is the line'으로 선 긋기", "description": "변화가 필요한 순간에 선을 긋는 표현이 있거든요. 갈등을 회피하지 않고 분명하게 말하는 패턴을 연습해요."}
+{"title": "샘 알트만 AI 전망 발표", "subtitle": "'We're seeing' 으로 단정 피하기", "description": "숫자를 말할 때 단정 짓지 않는 게 중요하거든요. 관찰형 표현으로 자연스럽게 데이터를 전달하는 패턴을 연습해요."}
+{"title": "마크 저커버그 메타 키노트", "subtitle": "3문장으로 핵심 요약하는 구조", "description": "제한된 시간 안에 핵심만 전달해야 할 때 쓸 수 있는 요약 구조예요. 결론-근거-액션 순서로 연습해요."}
 
 나쁜 예시 (절대 이렇게 쓰지 말 것):
-{"title": "효과적인 비즈니스 커뮤니케이션 전략", "description": "이 세션에서는 비즈니스 상황에서 효과적으로 의사소통하는 방법을 학습합니다."}
-{"title": "키노트를 활용한 전략적 발표 기법", "description": "프레젠테이션에서 핵심 메시지를 전략적으로 전달하는 역량을 키울 수 있습니다."}
+{"title": "효과적인 비즈니스 커뮤니케이션 전략", "subtitle": "전략적 의사소통 역량 강화", "description": "이 세션에서는 비즈니스 상황에서 효과적으로 의사소통하는 방법을 학습합니다."}
+{"title": "리더십과 소통", "subtitle": "핵심 역량 활용", "description": "직장인이 프로페셔널하게 의견을 전달하는 스킬을 익혀보세요."}
 
 Transcript excerpt:
 "${sentencesText}"
@@ -99,6 +113,7 @@ Transcript excerpt:
 Return ONLY valid JSON:
 {
   "title": "string",
+  "subtitle": "string",
   "description": "string",
   "sourceType": "one of allowed enums",
   "speakingFunction": "one of allowed enums",
@@ -128,6 +143,8 @@ Return ONLY valid JSON:
     if (!autofillData.title || !autofillData.description) {
       throw new Error("Invalid response structure from AI");
     }
+
+    autofillData.subtitle = autofillData.subtitle?.trim() || "";
 
     autofillData.sourceType = SESSION_SOURCE_TYPES.includes(
       autofillData.sourceType as SessionSourceType,

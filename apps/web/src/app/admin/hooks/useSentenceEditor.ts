@@ -19,6 +19,8 @@ export interface UseSentenceEditorReturn {
   mergeWithPrevious: (index: number) => void;
 }
 
+const MANUAL_SYNC_GAP_SECONDS = 0.1;
+
 /**
  * Custom hook for managing sentence list CRUD operations
  */
@@ -32,9 +34,29 @@ export function useSentenceEditor(
     field: "startTime" | "endTime",
     value: number,
   ) => {
-    setSentences((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)),
-    );
+    setSentences((prev) => {
+      if (!Number.isFinite(value)) return prev;
+
+      const index = prev.findIndex((s) => s.id === id);
+      if (index < 0) return prev;
+
+      const next = [...prev];
+      const current = next[index];
+      next[index] = { ...current, [field]: value };
+
+      // When manually syncing the current sentence start, keep the previous
+      // sentence end immediately before it for continuous playback.
+      if (field === "startTime" && index > 0) {
+        const previous = next[index - 1];
+        const autoEnd = Math.max(
+          previous.startTime,
+          Number((value - MANUAL_SYNC_GAP_SECONDS).toFixed(1)),
+        );
+        next[index - 1] = { ...previous, endTime: autoEnd };
+      }
+
+      return next;
+    });
   };
 
   const updateSentenceText = (

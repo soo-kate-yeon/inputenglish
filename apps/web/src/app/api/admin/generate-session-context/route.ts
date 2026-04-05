@@ -48,10 +48,10 @@ export async function POST(request: NextRequest) {
 세션 학습 브리프를 한국어로 작성해.
 
 이 브리프는 학습자가 클립을 듣기 전에 "이 사람이 왜 이렇게 말했는지"를 이해하도록 돕는 짧은 안내문이야.
-대상: 3-7년차 한국 직장인. 영어로 일은 하지만 "프로답게" 말하고 싶은 사람.
+핵심은 말하기 목적이야 — 설득인지, 반대인지, 요약인지, 질문인지. 그 목적에 맞는 표현과 패턴을 짚어줘.
 
 톤:
-- 선배가 옆에서 짧게 설명하듯. 교과서 말투 금지.
+- 옆에서 짧게 설명하듯. 교과서 말투 금지.
 - 구어체 OK (~거든요, ~인데요, ~이에요, ~해요)
 - 한 필드에 한 가지 정보만. 짧게.
 
@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
 - "효과적으로", "전략적으로", "활용하여", "핵심 역량"
 - "~할 수 있습니다", "~를 보여준다", "~를 부여한다"
 - "학습자는", "본 세션에서는"
+- "비즈니스 영어", "업무 영어", "커뮤니케이션 스킬", "글로벌 역량"
+- "직장인", "오피스", "프로페셔널"
 - ~다 로 끝나는 문어체 종결 (→ ~이에요, ~거든요, ~해요 로 바꿀 것)
 
 허용된 speaking function:
@@ -73,22 +75,18 @@ ${transcript}
 
 각 필드 작성 가이드와 예시:
 
-strategic_intent — "이 화자가 왜 이런 표현을 골랐는지" 한 문장.
-  좋은 예: "결론을 먼저 던지고, 숫자로 뒷받침하는 순서를 쓰고 있어요"
-  좋은 예: "반대 의견을 내기 전에 상대 말을 먼저 인정하는 패턴이에요"
-  나쁜 예: "수치를 해석해 의미를 부여한다" (← 문어체, 추상적)
-
 speaking_function — 허용 enum 중 하나.
 
-reusable_scenarios — 이 패턴을 실제로 쓸 수 있는 업무 상황 2-3개. 짧은 한국어 구.
-  좋은 예: ["주간 지표 공유할 때", "스탠드업에서 진행상황 말할 때"]
+reusable_scenarios — 이 표현/패턴을 실제로 쓸 수 있는 구체적 상황 2-3개. 짧은 한국어 구.
+  일상이든 일이든 상관없이 이 패턴이 쓰이는 모든 상황을 떠올려라.
+  좋은 예: ["친구한테 근황 설명할 때", "모임에서 의견 다를 때", "발표에서 숫자 언급할 때"]
   나쁜 예: ["비즈니스 미팅", "프레젠테이션"] (← 너무 뭉뚱그림)
 
 key_vocabulary — 이 클립에서 건질 수 있는 핵심 표현 3-5개. 각 표현에 예문 + 한국어 번역을 붙일 것.
   형식: [{"expression": "영어 표현", "example": "트랜스크립트에서 가져온 예문 한 문장", "translation": "자연스러운 한국어 번역"}]
   좋은 예: [{"expression": "We're seeing", "example": "We're seeing strong momentum across all segments.", "translation": "전 부문에서 강한 성장세가 보이고 있습니다."}, {"expression": "That's a signal that", "example": "That's a signal that the market is shifting.", "translation": "시장이 움직이고 있다는 신호예요."}]
   나쁜 예: ["communication", "strategy"] (← 구조 없이 단어만, 너무 일반적)
-  번역 톤: 직역 금지. 한국 직장인이 실제로 말하듯 자연스럽게.
+  번역 톤: 직역 금지. 실제로 말하듯 자연스럽게.
   예문 규칙: 반드시 대문자로 시작할 것. (예: "We're seeing..." O, "we're seeing..." X)
 
 grammar_rhetoric_note — 문장 구조나 수사법에 대한 실용 노트 하나.
@@ -96,14 +94,14 @@ grammar_rhetoric_note — 문장 구조나 수사법에 대한 실용 노트 하
   좋은 예: "결론 → 근거 → 다음 액션 순서로 말하는 3단 구조예요"
   나쁜 예: "관찰 기반 설명을 유지한다" (← 문어체, 모호)
 
-expected_takeaway — 이 세션 후 학습자가 할 수 있는 것 한 문장.
-  좋은 예: "주간 리뷰에서 숫자를 꺼낼 때, 의미부터 말하고 수치를 붙일 수 있어요"
-  좋은 예: "회의에서 반대할 때 'I think differently' 대신 완충 표현을 쓸 수 있어요"
+expected_takeaway — 이 세션 후 학습자가 할 수 있는 것 한 문장. 구체적인 상황 + 표현을 넣어라.
+  좋은 예: "숫자를 꺼낼 때, 의미부터 말하고 수치를 붙일 수 있어요"
+  좋은 예: "반대할 때 'I think differently' 대신 완충 표현을 쓸 수 있어요"
+  좋은 예: "처음 만난 사람한테 자기소개할 때 자연스러운 오프닝을 쓸 수 있어요"
   나쁜 예: "지표를 설명할 수 있다" (← 너무 짧고 뻔함)
 
 Return ONLY valid JSON:
 {
-  "strategic_intent": "string",
   "speaking_function": "one allowed enum",
   "reusable_scenarios": ["string", "string"],
   "key_vocabulary": [{"expression": "string", "example": "string", "translation": "string"}, ...],
@@ -122,7 +120,7 @@ Return ONLY valid JSON:
 
     const parsed = JSON.parse(cleanedText) as SessionContext;
 
-    if (!parsed.strategic_intent || !parsed.expected_takeaway) {
+    if (!parsed.expected_takeaway) {
       throw new Error("Invalid context response structure");
     }
 
@@ -169,7 +167,6 @@ Return ONLY valid JSON:
       : [];
 
     return NextResponse.json({
-      strategic_intent: parsed.strategic_intent.trim(),
       speaking_function: normalizedFunction,
       reusable_scenarios: reusableScenarios,
       key_vocabulary: keyVocabulary,

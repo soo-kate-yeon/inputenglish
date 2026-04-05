@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
           : {}),
         source_video_id,
         title: s.title,
+        subtitle: s.subtitle || null,
         description: s.description,
         start_time: s.start_time,
         end_time: s.end_time,
