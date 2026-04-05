@@ -37,6 +37,11 @@ const SPEAKING_FUNCTION_LABELS: Record<SessionSpeakingFunction, string> = {
   disagree: "부드럽게 반대하기",
   propose: "제안하기",
   "answer-question": "질문 답변",
+  "buy-time": "생각할 시간 벌기",
+  clarify: "확인/되묻기",
+  recover: "말 실수 수습",
+  "build-rapport": "관계 형성/스몰토크",
+  redirect: "주제 전환",
 };
 
 function createEmptyContext(): SessionContext {

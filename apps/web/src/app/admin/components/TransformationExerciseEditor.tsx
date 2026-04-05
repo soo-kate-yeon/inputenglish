@@ -10,6 +10,7 @@ import type {
 interface TransformationSet {
   target_pattern: string;
   pattern_type: string;
+  pattern_rationale?: string;
 }
 
 interface TransformationExerciseEditorProps {
@@ -148,6 +149,34 @@ function ExerciseAccordion({
             </label>
           )}
 
+          {/* situation_text (situation-response) */}
+          {exercise.exercise_type === "situation-response" && (
+            <label
+              style={{
+                fontSize: 11,
+                color: "#525252",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              Situation
+              <textarea
+                value={exercise.situation_text ?? ""}
+                onChange={(e) =>
+                  onChange({ ...exercise, situation_text: e.target.value })
+                }
+                rows={3}
+                style={{
+                  padding: "4px 8px",
+                  border: "1px solid #e5e5e5",
+                  fontSize: 12,
+                  resize: "vertical",
+                }}
+              />
+            </label>
+          )}
+
           {/* dialog_lines (dialog-completion) */}
           {exercise.exercise_type === "dialog-completion" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -231,6 +260,33 @@ function ExerciseAccordion({
               ))}
             </div>
           )}
+
+          {/* reference_answer (all types) */}
+          <label
+            style={{
+              fontSize: 11,
+              color: "#525252",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
+          >
+            모범 답안
+            <textarea
+              value={exercise.reference_answer ?? ""}
+              onChange={(e) =>
+                onChange({ ...exercise, reference_answer: e.target.value })
+              }
+              rows={2}
+              style={{
+                padding: "4px 8px",
+                border: "1px solid #e5e5e5",
+                fontSize: 12,
+                resize: "vertical",
+                backgroundColor: "#fffbeb",
+              }}
+            />
+          </label>
         </div>
       )}
     </div>
@@ -380,12 +436,22 @@ export function TransformationExerciseEditor({
             border: "1px solid #e5e5e5",
             fontSize: 11,
             color: "#525252",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
           }}
         >
-          <strong>Pattern:</strong> {generatedSet.target_pattern}{" "}
-          <span style={{ color: "#737373" }}>
-            ({generatedSet.pattern_type})
-          </span>
+          <div>
+            <strong>Pattern:</strong> {generatedSet.target_pattern}{" "}
+            <span style={{ color: "#737373" }}>
+              ({generatedSet.pattern_type})
+            </span>
+          </div>
+          {generatedSet.pattern_rationale && (
+            <div style={{ color: "#6d28d9", fontSize: 10 }}>
+              {generatedSet.pattern_rationale}
+            </div>
+          )}
         </div>
       )}
 

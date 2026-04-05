@@ -94,6 +94,12 @@ export const SESSION_SPEAKING_FUNCTIONS = [
   "disagree",
   "propose",
   "answer-question",
+  // v2: 즉흥 대응 및 관계 형성 function
+  "buy-time",
+  "clarify",
+  "recover",
+  "build-rapport",
+  "redirect",
 ] as const;
 
 export type SessionSpeakingFunction =
@@ -125,6 +131,13 @@ export interface KeyVocabularyEntry {
   expression: string;
   example: string;
   translation?: string;
+  pronunciation_note?: string; // v2: 강세·연음 힌트
+}
+
+export interface CommonMistake {
+  mistake: string; // 한국인이 흔히 하는 실수
+  correction: string; // 자연스러운 표현
+  why: string; // 왜 틀리는지
 }
 
 export interface SessionContext {
@@ -136,6 +149,7 @@ export interface SessionContext {
   key_vocabulary: (string | KeyVocabularyEntry)[];
   grammar_rhetoric_note: string;
   expected_takeaway: string;
+  common_mistakes?: CommonMistake[]; // v2: L1 간섭 패턴
   generated_by?: string;
   updated_by?: string;
   created_at?: string;
@@ -300,8 +314,19 @@ export interface AINote {
 
 // ==================== Transformation Practice Types ====================
 
-export type ExerciseType = "kr-to-en" | "qa-response" | "dialog-completion";
-export type PatternType = "declarative" | "interrogative";
+export type ExerciseType =
+  | "kr-to-en"
+  | "qa-response"
+  | "dialog-completion"
+  | "situation-response"; // v2: 상황 설명 후 즉흥 발화
+
+export type PatternType =
+  | "declarative"
+  | "interrogative"
+  | "framing" // 맥락 먼저 깔기
+  | "hedging" // 완화/단정 피하기
+  | "transitioning" // 전환·되돌리기
+  | "responding"; // 즉흥 대응
 
 export interface DialogLine {
   speaker: string;
@@ -314,6 +339,7 @@ export interface TransformationSet {
   session_id: string;
   target_pattern: string;
   pattern_type: PatternType;
+  pattern_rationale?: string; // v2: 이 패턴을 고른 이유 (한국어)
   generated_by: "ai" | "manual";
   created_at: string;
   updated_at: string;
@@ -329,7 +355,8 @@ export interface TransformationExercise {
   source_korean?: string; // for kr-to-en
   question_text?: string; // for qa-response
   dialog_lines?: DialogLine[]; // for dialog-completion
-  reference_answer?: string; // V2, nullable
+  situation_text?: string; // v2: for situation-response
+  reference_answer?: string;
   created_at: string;
   updated_at: string;
 }

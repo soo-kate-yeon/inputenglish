@@ -26,6 +26,7 @@ import { IntroPage } from "./carousel/IntroPage";
 import { KoreanToEnglishPage } from "./carousel/KoreanToEnglishPage";
 import { QAResponsePage } from "./carousel/QAResponsePage";
 import { DialogCompletionPage } from "./carousel/DialogCompletionPage";
+import { SituationResponsePage } from "./carousel/SituationResponsePage";
 import { colors, spacing } from "../../theme";
 
 const SKIP_INTRO_KEY = "transformation_skip_intro";
@@ -47,6 +48,10 @@ function renderExercisePage(
       return <QAResponsePage exercise={exercise} onConfirm={onConfirm} />;
     case "dialog-completion":
       return <DialogCompletionPage exercise={exercise} onConfirm={onConfirm} />;
+    case "situation-response":
+      return (
+        <SituationResponsePage exercise={exercise} onConfirm={onConfirm} />
+      );
     default:
       return null;
   }

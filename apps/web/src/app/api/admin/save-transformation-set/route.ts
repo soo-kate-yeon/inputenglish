@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
         session_id: sessionId,
         target_pattern: set.target_pattern ?? "",
         pattern_type: set.pattern_type ?? "declarative",
+        pattern_rationale: set.pattern_rationale ?? null,
         generated_by: set.generated_by ?? "ai",
       })
       .select()
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
         instruction_text: ex.instruction_text ?? "",
         source_korean: ex.source_korean ?? null,
         question_text: ex.question_text ?? null,
+        situation_text: ex.situation_text ?? null,
         dialog_lines: ex.dialog_lines ?? null,
         reference_answer: ex.reference_answer ?? null,
       }));
