@@ -124,9 +124,17 @@ dialog-completion:
 - 빈칸에 타깃 패턴이 들어가야 함
 - 대화가 자연스럽고 실제처럼 느껴져야 함
 
+━━ instruction_text 작성 규칙 ━━
+- 해요체(~해 보세요, ~해 주세요, ~말해 보세요)로 쓸 것. 반말(~해봐, ~말해봐, ~해라) 절대 금지.
+- 짧고 직접적. 한 문장.
+- 유형별 instruction_text 예시:
+  kr-to-en: "아래 문장을 영어로 말해 보세요."
+  qa-response: "아래 질문에 영어로 답해 보세요."
+  situation-response: "아래 상황에서 영어로 말해 보세요."
+  dialog-completion: "빈칸에 들어갈 말을 영어로 말해 보세요."
+
 ━━ 금지사항 ━━
 - instruction_text에 "효과적으로", "전략적으로", "활용하여" 금지
-- 모든 instruction은 짧고 직접적인 한국어로 (구어체 OK)
 - source_korean이 번역투면 안 됨 — 실제 한국인이 하는 말처럼
 - "비즈니스 상황에서" 같은 프레이밍 금지. 구체적 상황을 줄 것.
 - 모든 문제에 reference_answer를 반드시 포함할 것
