@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,31 +6,31 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-} from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
+} from "react-native";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function SignupForm() {
   const { signUp } = useAuth();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignUp = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
-      setError('All fields are required.');
+      setError("All fields are required.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError("Passwords do not match.");
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError("Password must be at least 6 characters.");
       return;
     }
 
@@ -40,7 +40,11 @@ export function SignupForm() {
       await signUp(email, password, fullName);
       // Auth state change in AuthContext handles navigation redirect
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Sign up failed. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -56,7 +60,8 @@ export function SignupForm() {
 
       <TextInput
         style={styles.input}
-        placeholder="Full Name"
+        placeholder="이름"
+        placeholderTextColor="rgba(255,255,255,0.4)"
         value={fullName}
         onChangeText={setFullName}
         autoCapitalize="words"
@@ -66,7 +71,8 @@ export function SignupForm() {
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder="이메일"
+        placeholderTextColor="rgba(255,255,255,0.4)"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -78,7 +84,8 @@ export function SignupForm() {
 
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder="비밀번호"
+        placeholderTextColor="rgba(255,255,255,0.4)"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -88,7 +95,8 @@ export function SignupForm() {
 
       <TextInput
         style={styles.input}
-        placeholder="Confirm Password"
+        placeholder="비밀번호 확인"
+        placeholderTextColor="rgba(255,255,255,0.4)"
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
@@ -104,7 +112,7 @@ export function SignupForm() {
         {isSubmitting ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>Create Account</Text>
+          <Text style={styles.buttonText}>가입하기</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -113,42 +121,43 @@ export function SignupForm() {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
+    width: "100%",
     gap: 12,
   },
   errorBox: {
-    backgroundColor: '#FFF0F0',
+    backgroundColor: "rgba(255,59,48,0.15)",
     borderWidth: 1,
-    borderColor: '#FF3B30',
+    borderColor: "rgba(255,59,48,0.4)",
     borderRadius: 8,
     padding: 12,
   },
   errorText: {
-    color: '#FF3B30',
+    color: "#FF6B6B",
     fontSize: 14,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "rgba(255,255,255,0.2)",
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "rgba(255,255,255,0.1)",
+    color: "#FFFFFF",
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 8,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 4,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: 'white',
+    color: "#1A1A14",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

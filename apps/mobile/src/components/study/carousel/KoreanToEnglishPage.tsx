@@ -102,13 +102,14 @@ const styles = StyleSheet.create({
   koreanBox: {
     backgroundColor: colors.bgMuted,
     borderRadius: radius.lg,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
   koreanText: {
-    fontSize: font.size.base,
+    fontSize: font.size.md,
     fontWeight: font.weight.medium,
     color: colors.text,
-    lineHeight: font.size.base * 1.7,
+    lineHeight: font.size.md * 1.7,
   },
   hint: {
     fontSize: font.size.sm,

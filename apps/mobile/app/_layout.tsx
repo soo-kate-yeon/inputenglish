@@ -92,10 +92,7 @@ function RootLayoutNav() {
           name="study/[videoId]"
           options={{
             headerShown: false,
-            presentation: "card",
-            animation: "slide_from_bottom",
             gestureEnabled: true,
-            gestureDirection: "vertical",
           }}
         />
         <Stack.Screen

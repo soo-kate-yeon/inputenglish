@@ -40,13 +40,6 @@ export function IntroPage({ onSkip, onDismissForever }: IntroPageProps) {
       </ScrollView>
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.dismissBtn}
-          onPress={onDismissForever}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.dismissText}>다시 보지 않기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           style={styles.startBtn}
           onPress={onSkip}
           activeOpacity={0.7}
@@ -54,6 +47,13 @@ export function IntroPage({ onSkip, onDismissForever }: IntroPageProps) {
           <Text style={styles.startText}>시작하기</Text>
         </TouchableOpacity>
       </View>
+      <TouchableOpacity
+        style={styles.dismissBtn}
+        onPress={onDismissForever}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.dismissText}>다시 보지 않기</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -61,13 +61,13 @@ export function IntroPage({ onSkip, onDismissForever }: IntroPageProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingVertical: spacing.xl,
   },
   scrollArea: {
     flex: 1,
   },
   content: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     gap: spacing.lg,
   },
@@ -78,13 +78,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   title: {
-    fontSize: font.size["2xl"],
+    fontSize: font.size.lg,
     fontWeight: font.weight.bold,
     color: colors.text,
   },
   body: {
-    fontSize: font.size.md,
-    lineHeight: font.size.md * 1.7,
+    fontSize: font.size.sm,
+    lineHeight: font.size.sm * 1.7,
     color: colors.textSecondary,
   },
   steps: {
@@ -96,18 +96,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   step: {
-    fontSize: font.size.md,
+    fontSize: font.size.sm,
     color: colors.text,
     fontWeight: font.weight.medium,
-    lineHeight: font.size.md * 1.5,
+    lineHeight: font.size.sm * 1.5,
   },
   footer: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
   },
   dismissBtn: {
     alignItems: "center",
     paddingVertical: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   dismissText: {
     fontSize: font.size.sm,

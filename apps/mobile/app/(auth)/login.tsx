@@ -1,9 +1,18 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ImageBackground } from "react-native";
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ImageBackground,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
+import { LoginForm } from "@/components/auth/LoginForm";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -31,18 +40,36 @@ export default function LoginScreen() {
       </View>
 
       {/* Auth CTAs - bottom */}
-      <View
-        style={[styles.ctaContainer, { paddingBottom: insets.bottom + 24 }]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.keyboardAvoid}
       >
-        <OAuthButtons />
+        <ScrollView
+          contentContainerStyle={[
+            styles.ctaContainer,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <OAuthButtons />
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>계정이 없으신가요? </Text>
-          <Link href="/(auth)/signup">
-            <Text style={styles.footerLink}>회원가입</Text>
-          </Link>
-        </View>
-      </View>
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>또는</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <LoginForm />
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>계정이 없으신가요? </Text>
+            <Link href="/(auth)/signup">
+              <Text style={styles.footerLink}>회원가입</Text>
+            </Link>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ImageBackground>
   );
 }
@@ -75,9 +102,27 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.1,
   },
+  keyboardAvoid: {
+    maxHeight: "60%",
+  },
   ctaContainer: {
     paddingHorizontal: 24,
     gap: 12,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  dividerText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
   },
   footer: {
     flexDirection: "row",

@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   bodyText: {
-    fontSize: 17,
-    lineHeight: 28,
+    fontSize: 15,
+    lineHeight: 24,
     color: colors.text,
     paddingHorizontal: 20,
     fontWeight: font.weight.regular,
@@ -126,14 +126,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   vocabExpression: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: font.weight.bold,
-    lineHeight: 24,
+    lineHeight: 22,
     color: colors.text,
   },
   vocabExample: {
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     color: colors.textSecondary,
   },
   vocabTranslation: {

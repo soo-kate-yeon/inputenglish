@@ -115,9 +115,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   situationText: {
-    fontSize: font.size.base,
+    fontSize: font.size.md,
     color: colors.text,
-    lineHeight: font.size.base * 1.7,
+    lineHeight: font.size.md * 1.7,
   },
   hint: {
     fontSize: font.size.sm,

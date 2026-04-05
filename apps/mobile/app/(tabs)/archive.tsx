@@ -5,6 +5,8 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -250,7 +252,8 @@ export default function ArchiveScreen() {
         setComments((prev) =>
           prev.map((c) => (c.id === tempId ? persisted : c)),
         );
-      } catch {
+      } catch (err) {
+        console.error("[Archive] createCardComment error:", err);
         setComments((prev) => prev.filter((c) => c.id !== tempId));
         setErrorToast({ message: "메모 저장에 실패했습니다." });
       } finally {
@@ -277,7 +280,8 @@ export default function ArchiveScreen() {
         setComments((prev) =>
           prev.map((c) => (c.id === commentId ? persisted : c)),
         );
-      } catch {
+      } catch (err) {
+        console.error("[Archive] updateCardComment error:", err);
         if (original)
           setComments((prev) =>
             prev.map((c) => (c.id === commentId ? original : c)),
@@ -534,31 +538,40 @@ export default function ArchiveScreen() {
         })}
       </View>
 
-      {playbookLoading && isPlaybookTab ? (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="small" color={colors.textSecondary} />
-        </View>
-      ) : currentData.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>{emptyText}</Text>
-          <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={currentData as (SavedSentence | AppHighlight | PlaybookEntry)[]}
-          keyExtractor={(item) => item.id}
-          renderItem={
-            isSentencesTab
-              ? (renderSentenceItem as never)
-              : isPlaybookTab
-                ? (renderPlaybookItem as never)
-                : (renderHighlightItem as never)
-          }
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={styles.cardGap} />}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        {playbookLoading && isPlaybookTab ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          </View>
+        ) : currentData.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>{emptyText}</Text>
+            <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={
+              currentData as (SavedSentence | AppHighlight | PlaybookEntry)[]
+            }
+            keyExtractor={(item) => item.id}
+            renderItem={
+              isSentencesTab
+                ? (renderSentenceItem as never)
+                : isPlaybookTab
+                  ? (renderPlaybookItem as never)
+                  : (renderHighlightItem as never)
+            }
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={() => <View style={styles.cardGap} />}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          />
+        )}
+      </KeyboardAvoidingView>
 
       <UndoToast
         visible={pendingDelete !== null}

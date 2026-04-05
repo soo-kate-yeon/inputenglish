@@ -116,9 +116,9 @@ const styles = StyleSheet.create({
   },
   questionText: {
     flex: 1,
-    fontSize: font.size.base,
+    fontSize: font.size.md,
     color: colors.text,
-    lineHeight: font.size.base * 1.7,
+    lineHeight: font.size.md * 1.7,
   },
   hint: {
     fontSize: font.size.sm,

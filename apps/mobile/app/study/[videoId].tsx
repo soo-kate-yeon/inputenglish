@@ -705,8 +705,15 @@ export default function StudyScreen() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" />
 
-        {/* Sheet handle */}
-        <View style={styles.sheetHandle} />
+        {/* Back navigation */}
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
 
         {/* Main tabs: top of sheet */}
         {!briefExpanded ? (
@@ -951,7 +958,7 @@ export default function StudyScreen() {
             ) : null}
 
             {/* Bottom bar: brief + script icons (left) + end CTA (right) */}
-            {!isRecording ? (
+            {!isRecording && mainTab !== "transformation" ? (
               <View style={styles.bottomBar}>
                 <View style={styles.bottomLeft}>
                   <TouchableOpacity
@@ -1021,14 +1028,10 @@ export default function StudyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   safeArea: { flex: 1 },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    alignSelf: "center",
-    marginTop: 8,
-    marginBottom: 4,
+  backBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
   },
   state: {
     flex: 1,
@@ -1051,11 +1054,11 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   briefSessionTitle: {
-    fontSize: font.size["2xl"],
+    fontSize: font.size.xl,
     fontWeight: font.weight.bold,
     color: colors.text,
-    lineHeight: 36,
-    letterSpacing: -0.3,
+    lineHeight: 30,
+    letterSpacing: -0.2,
   },
   briefChannelName: {
     fontSize: font.size.md,
