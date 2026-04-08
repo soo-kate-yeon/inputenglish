@@ -11,6 +11,7 @@ interface CommentThreadProps {
   onEdit: (commentId: string, body: string) => void;
   onDelete: (commentId: string) => void;
   saving?: boolean;
+  onInputActivate?: () => void;
 }
 
 export default function CommentThread({
@@ -19,6 +20,7 @@ export default function CommentThread({
   onEdit,
   onDelete,
   saving = false,
+  onInputActivate,
 }: CommentThreadProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,7 +48,10 @@ export default function CommentThread({
                 </Text>
                 <View style={styles.commentActions}>
                   <TouchableOpacity
-                    onPress={() => setEditingId(comment.id)}
+                    onPress={() => {
+                      setEditingId(comment.id);
+                      onInputActivate?.();
+                    }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     testID={`comment-edit-${comment.id}`}
                   >
@@ -86,7 +91,10 @@ export default function CommentThread({
       ) : (
         <TouchableOpacity
           style={styles.addTrigger}
-          onPress={() => setIsAdding(true)}
+          onPress={() => {
+            setIsAdding(true);
+            onInputActivate?.();
+          }}
           activeOpacity={0.7}
           testID="comment-add-trigger"
         >

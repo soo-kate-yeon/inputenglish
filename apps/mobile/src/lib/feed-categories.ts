@@ -18,6 +18,11 @@ export const FEED_CATEGORIES: FeedCategory[] = [
     filter: (s) => s.source_type === "interview",
   },
   {
+    key: "public-speech",
+    title: "공적 말하기",
+    filter: (s) => s.source_type === "public-speech",
+  },
+  {
     key: "persuade",
     title: "설득하는 말하기",
     filter: (s) => s.speaking_function === "persuade",

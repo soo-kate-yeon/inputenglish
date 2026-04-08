@@ -1,6 +1,6 @@
 // @MX:NOTE: [AUTO] Modal-based bottom sheet for creating highlights from long-pressed script lines.
 // @MX:SPEC: SPEC-MOBILE-005 - REQ-E-007, REQ-E-008, REQ-C-001
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -18,7 +18,7 @@ interface HighlightBottomSheetProps {
   visible: boolean;
   sentence: Sentence | null;
   saving: boolean;
-  onSave: (userNote: string) => void;
+  onSave: (userNote: string, selectedText?: string) => void;
   onClose: () => void;
 }
 
@@ -30,16 +30,34 @@ export default function HighlightBottomSheet({
   onClose,
 }: HighlightBottomSheetProps): React.JSX.Element {
   const [note, setNote] = useState("");
+  const [selection, setSelection] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: 0,
+  });
+  const selectableRef = useRef<TextInput>(null);
 
-  const handleSave = () => {
-    onSave(note);
+  const fullText = sentence?.text ?? "";
+  const hasSelection = selection.start !== selection.end;
+  const selectedText = hasSelection
+    ? fullText.slice(selection.start, selection.end)
+    : "";
+
+  useEffect(() => {
+    if (visible) {
+      setNote("");
+      setSelection({ start: 0, end: 0 });
+    }
+  }, [visible]);
+
+  const handleSave = useCallback(() => {
+    onSave(note, hasSelection ? selectedText : undefined);
     setNote("");
-  };
+  }, [note, hasSelection, selectedText, onSave]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setNote("");
     onClose();
-  };
+  }, [onClose]);
 
   return (
     <Modal
@@ -59,10 +77,29 @@ export default function HighlightBottomSheet({
       >
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.label}>선택한 문장</Text>
-          <Text style={styles.sentenceText} numberOfLines={3}>
-            {sentence?.text ?? ""}
+
+          <Text style={styles.label}>
+            {hasSelection ? "선택한 부분" : "문장을 드래그해서 선택하세요"}
           </Text>
+
+          {hasSelection ? (
+            <View style={styles.selectedPreview}>
+              <Text style={styles.selectedText}>{selectedText}</Text>
+            </View>
+          ) : null}
+
+          <TextInput
+            ref={selectableRef}
+            style={styles.sentenceText}
+            value={fullText}
+            editable={false}
+            multiline
+            selectTextOnFocus={false}
+            selection={undefined}
+            onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
+            contextMenuHidden={true}
+          />
+
           <TextInput
             style={styles.input}
             placeholder="메모를 남겨보세요"
@@ -78,7 +115,11 @@ export default function HighlightBottomSheet({
             disabled={saving}
           >
             <Text style={styles.saveButtonText}>
-              {saving ? "저장 중..." : "저장"}
+              {saving
+                ? "저장 중..."
+                : hasSelection
+                  ? `"${selectedText.length > 20 ? selectedText.slice(0, 20) + "…" : selectedText}" 저장`
+                  : "전체 문장 저장"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -116,11 +157,22 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: font.weight.semibold,
   },
-  sentenceText: {
+  selectedPreview: {
+    backgroundColor: colors.warningBg,
+    padding: 10,
+    borderRadius: radius.md,
+  },
+  selectedText: {
     fontSize: 15,
     color: colors.text,
     lineHeight: 22,
-    backgroundColor: colors.warningBg,
+    fontWeight: font.weight.semibold,
+  },
+  sentenceText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    backgroundColor: colors.bgMuted,
     padding: 10,
     borderRadius: radius.md,
   },

@@ -27,7 +27,9 @@ interface ContextBriefCardProps {
 
 export default function ContextBriefCard({ context }: ContextBriefCardProps) {
   const hasContent = Boolean(
-    context?.expected_takeaway || context?.key_vocabulary?.length,
+    context?.expected_takeaway ||
+    context?.key_vocabulary?.length ||
+    context?.grammar_rhetoric_note,
   );
 
   if (!hasContent) {
@@ -46,6 +48,13 @@ export default function ContextBriefCard({ context }: ContextBriefCardProps) {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
           <Text style={styles.bodyText}>{context.expected_takeaway}</Text>
+        </View>
+      ) : null}
+
+      {context?.grammar_rhetoric_note ? (
+        <View style={styles.tipContainer}>
+          <Text style={styles.tipLabel}>TIP</Text>
+          <Text style={styles.tipText}>{context.grammar_rhetoric_note}</Text>
         </View>
       ) : null}
 
@@ -140,6 +149,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: colors.textMuted,
+  },
+
+  // Tip
+  tipContainer: {
+    marginHorizontal: 20,
+    backgroundColor: colors.bgSubtle,
+    borderRadius: radius.lg,
+    padding: 16,
+    gap: 6,
+  },
+  tipLabel: {
+    fontSize: 11,
+    fontWeight: font.weight.bold,
+    letterSpacing: 1.5,
+    color: colors.textMuted,
+  },
+  tipText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.text,
   },
 
   // Empty state

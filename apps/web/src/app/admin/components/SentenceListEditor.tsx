@@ -11,6 +11,8 @@ interface SentenceListEditorProps {
   onParseScript: () => void;
   onAnalyzeScenes: () => void;
   analyzingScenes: boolean;
+  onTranslateSelected?: (sentenceIds: string[]) => Promise<void>;
+  translating?: boolean;
   onUpdateTime: (
     id: string,
     field: "startTime" | "endTime",
@@ -37,6 +39,8 @@ export function SentenceListEditor({
   onParseScript,
   onAnalyzeScenes,
   analyzingScenes,
+  onTranslateSelected,
+  translating = false,
   onUpdateTime,
   onUpdateText,
   onDelete,
@@ -120,6 +124,51 @@ export function SentenceListEditor({
         >
           {analyzingScenes ? "분석 중..." : "AI 세션 장면 분석"}
         </button>
+        {onTranslateSelected && (
+          <button
+            onClick={() => {
+              const ids =
+                selectedSentenceIds && selectedSentenceIds.size > 0
+                  ? Array.from(selectedSentenceIds)
+                  : sentences.map((s) => s.id);
+              onTranslateSelected(ids);
+            }}
+            disabled={translating || sentences.length === 0}
+            className="text-xs uppercase tracking-wide transition-colors"
+            style={{
+              backgroundColor:
+                translating || sentences.length === 0 ? "#d4d4d4" : "#059669",
+              color: "#ffffff",
+              padding: "2px 8px",
+              border: "none",
+              cursor:
+                translating || sentences.length === 0
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+            title={
+              selectedSentenceIds && selectedSentenceIds.size > 0
+                ? `선택된 ${selectedSentenceIds.size}개 문장을 한국어로 번역`
+                : "전체 문장을 한국어로 번역"
+            }
+            onMouseEnter={(e) => {
+              if (!translating && sentences.length > 0) {
+                e.currentTarget.style.backgroundColor = "#047857";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!translating && sentences.length > 0) {
+                e.currentTarget.style.backgroundColor = "#059669";
+              }
+            }}
+          >
+            {translating
+              ? "번역 중..."
+              : selectedSentenceIds && selectedSentenceIds.size > 0
+                ? `Translate (${selectedSentenceIds.size})`
+                : "Translate All"}
+          </button>
+        )}
       </div>
       {/* Sentence list with internal scroll */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>

@@ -19,6 +19,7 @@ export const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
   podcast: "팟캐스트",
   interview: "인터뷰",
   panel: "패널 토크",
+  "public-speech": "공적 말하기",
 };
 
 export const SPEAKING_FUNCTION_LABELS: Record<SessionSpeakingFunction, string> =

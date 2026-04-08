@@ -1,7 +1,7 @@
 // @MX:ANCHOR: ArchiveScreen - saved sentences + highlights + playbook with swipe-to-delete
 // @MX:REASON: [AUTO] fan_in >= 3: tab navigator, deep links, and study flow navigation
 // @MX:SPEC: SPEC-MOBILE-005 - REQ-E-004, REQ-E-005, REQ-N-001, REQ-C-002
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -65,6 +65,7 @@ export default function ArchiveScreen() {
   const removeSavedSentence = appStore((state) => state.removeSavedSentence);
   const removeHighlight = appStore((state) => state.removeHighlight);
 
+  const flatListRef = useRef<FlatList>(null);
   const [activeTab, setActiveTab] = useState<Tab>("sentences");
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
     null,
@@ -327,8 +328,18 @@ export default function ArchiveScreen() {
     (e) => e.id !== pendingDelete?.id || pendingDelete.type !== "playbook",
   );
 
+  const scrollToIndex = useCallback((index: number) => {
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.3,
+      });
+    }, 300);
+  }, []);
+
   const renderSentenceItem = useCallback(
-    ({ item }: { item: SavedSentence }) => {
+    ({ item, index }: { item: SavedSentence; index: number }) => {
       const videoTitle = resolveVideoTitle(item.videoId);
       return (
         <View style={styles.cardShadow}>
@@ -362,6 +373,7 @@ export default function ArchiveScreen() {
                 onEdit={handleEditComment}
                 onDelete={handleDeleteComment}
                 saving={commentSaving}
+                onInputActivate={() => scrollToIndex(index)}
               />
             </View>
           </SwipeableRow>
@@ -376,11 +388,12 @@ export default function ArchiveScreen() {
       handleEditComment,
       handleDeleteComment,
       commentSaving,
+      scrollToIndex,
     ],
   );
 
   const renderHighlightItem = useCallback(
-    ({ item }: { item: AppHighlight }) => {
+    ({ item, index }: { item: AppHighlight; index: number }) => {
       const videoTitle = resolveVideoTitle(item.videoId);
       return (
         <View style={styles.cardShadow}>
@@ -415,6 +428,7 @@ export default function ArchiveScreen() {
                 onEdit={handleEditComment}
                 onDelete={handleDeleteComment}
                 saving={commentSaving}
+                onInputActivate={() => scrollToIndex(index)}
               />
             </View>
           </SwipeableRow>
@@ -429,6 +443,7 @@ export default function ArchiveScreen() {
       handleEditComment,
       handleDeleteComment,
       commentSaving,
+      scrollToIndex,
     ],
   );
 
@@ -553,6 +568,7 @@ export default function ArchiveScreen() {
           </View>
         ) : (
           <FlatList
+            ref={flatListRef}
             data={
               currentData as (SavedSentence | AppHighlight | PlaybookEntry)[]
             }
@@ -569,6 +585,15 @@ export default function ArchiveScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            onScrollToIndexFailed={(info) => {
+              setTimeout(() => {
+                flatListRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: true,
+                  viewPosition: 0.3,
+                });
+              }, 100);
+            }}
           />
         )}
       </KeyboardAvoidingView>

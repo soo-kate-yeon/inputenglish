@@ -14,6 +14,7 @@ interface ShadowingScriptLineProps {
   showTranslation?: boolean;
   onRecord: (sentenceId: string) => void;
   onSeek: (sentenceId: string) => void;
+  onLongPress?: (sentence: Sentence) => void;
   index: number;
 }
 
@@ -27,12 +28,15 @@ function ShadowingScriptLine({
   showTranslation = false,
   onRecord,
   onSeek,
+  onLongPress,
 }: ShadowingScriptLineProps) {
   return (
     <TouchableOpacity
       testID="sentence-row"
       style={styles.container}
       onPress={() => onSeek(sentence.id)}
+      onLongPress={onLongPress ? () => onLongPress(sentence) : undefined}
+      delayLongPress={400}
       activeOpacity={0.7}
     >
       <View style={styles.content}>

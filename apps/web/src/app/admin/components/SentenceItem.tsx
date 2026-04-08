@@ -37,8 +37,9 @@ export function SentenceItem({
   onSelect,
 }: SentenceItemProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const translationRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea on mount and when text changes
+  // Auto-resize textareas on mount and when text changes
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -46,6 +47,14 @@ export function SentenceItem({
         textareaRef.current.scrollHeight + "px";
     }
   }, [sentence.text]);
+
+  useEffect(() => {
+    if (translationRef.current) {
+      translationRef.current.style.height = "auto";
+      translationRef.current.style.height =
+        translationRef.current.scrollHeight + "px";
+    }
+  }, [sentence.translation]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "]") {
@@ -138,12 +147,17 @@ export function SentenceItem({
             }}
             placeholder="] to split, [ to merge"
           />
-          <input
+          <textarea
+            ref={translationRef}
             value={sentence.translation || ""}
-            onChange={(e) =>
-              onUpdateText(sentence.id, "translation", e.target.value)
-            }
-            className="w-full bg-transparent text-xs focus:outline-none"
+            onChange={(e) => {
+              onUpdateText(sentence.id, "translation", e.target.value);
+              e.currentTarget.style.height = "auto";
+              e.currentTarget.style.height =
+                e.currentTarget.scrollHeight + "px";
+            }}
+            rows={1}
+            className="w-full bg-transparent text-xs focus:outline-none resize-none overflow-hidden"
             style={{
               color: "#737373",
               borderBottom: "1px solid transparent",

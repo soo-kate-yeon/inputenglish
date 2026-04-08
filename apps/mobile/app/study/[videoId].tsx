@@ -21,6 +21,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import type {
+  AppHighlight,
   CuratedVideo,
   PracticeCoachingSummary,
   PracticeMode,
@@ -45,6 +46,7 @@ import ScriptLine from "../../src/components/listening/ScriptLine";
 import ShadowingScriptLine from "../../src/components/shadowing/ShadowingScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
 import ContextBriefCard from "../../src/components/study/ContextBriefCard";
+import HighlightBottomSheet from "../../src/components/study/HighlightBottomSheet";
 import { TransformationCarousel } from "../../src/components/study/TransformationCarousel";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import { getPronunciationScore, uploadRecording } from "../../src/lib/ai-api";
@@ -135,6 +137,12 @@ export default function StudyScreen() {
   const [recordedSentences, setRecordedSentences] = useState<
     Record<string, string>
   >({});
+
+  // Highlight state
+  const [highlightSentence, setHighlightSentence] = useState<Sentence | null>(
+    null,
+  );
+  const [highlightSaving, setHighlightSaving] = useState(false);
 
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const listRef = useRef<FlatList<Sentence>>(null);
@@ -431,6 +439,35 @@ export default function StudyScreen() {
       }
     },
     [videoId, savedSentences, addSavedSentence, removeSavedSentence],
+  );
+
+  // ── Highlight handlers ──
+
+  const addHighlight = appStore((state) => state.addHighlight);
+
+  const handleLongPress = useCallback((sentence: Sentence) => {
+    setHighlightSentence(sentence);
+  }, []);
+
+  const handleHighlightSave = useCallback(
+    async (userNote: string, selectedText?: string) => {
+      if (!highlightSentence || !videoId) return;
+      setHighlightSaving(true);
+      try {
+        await addHighlight({
+          id: Crypto.randomUUID(),
+          videoId,
+          sentenceId: highlightSentence.id,
+          originalText: selectedText || highlightSentence.text,
+          userNote: userNote || undefined,
+          createdAt: Date.now(),
+        } as AppHighlight);
+      } finally {
+        setHighlightSaving(false);
+        setHighlightSentence(null);
+      }
+    },
+    [highlightSentence, videoId, addHighlight],
   );
 
   // ── Shadowing handlers ──
@@ -894,6 +931,7 @@ export default function StudyScreen() {
                         scriptHidden={false}
                         showTranslation={translationVisible}
                         onTap={handleSentenceTap}
+                        onLongPress={handleLongPress}
                         onLoopToggle={handleLoopToggle}
                         onSaveToggle={handleSaveToggle}
                       />
@@ -924,6 +962,7 @@ export default function StudyScreen() {
                       showTranslation={translationVisible}
                       onRecord={handleRecord}
                       onSeek={handleSeek}
+                      onLongPress={handleLongPress}
                       index={index}
                     />
                   )}
@@ -1021,6 +1060,14 @@ export default function StudyScreen() {
           </>
         )}
       </SafeAreaView>
+
+      <HighlightBottomSheet
+        visible={highlightSentence !== null}
+        sentence={highlightSentence}
+        saving={highlightSaving}
+        onSave={handleHighlightSave}
+        onClose={() => setHighlightSentence(null)}
+      />
     </View>
   );
 }

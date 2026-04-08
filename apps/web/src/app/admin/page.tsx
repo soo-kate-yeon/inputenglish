@@ -105,6 +105,9 @@ function AdminPageContent() {
     });
   };
 
+  // Translation State
+  const [translating, setTranslating] = useState(false);
+
   // Scene Analysis State
   const [analyzingScenes, setAnalyzingScenes] = useState(false);
   const [analyzedScenes, setAnalyzedScenes] = useState<SceneRecommendation[]>(
@@ -311,13 +314,13 @@ function AdminPageContent() {
     }
   };
 
-  // --- Translation Logic (session-level, called from SessionCreator) ---
+  // --- Translation Logic ---
   const handleTranslateSelected = async (sentenceIds: string[]) => {
+    setTranslating(true);
     try {
       const selected = sentences.filter((s) => sentenceIds.includes(s.id));
       if (selected.length === 0) return;
       const translated = await transcriptFetch.autoTranslate(selected);
-      // Merge translations back into full sentences list
       const translationMap = new Map(
         translated.map((s) => [s.id, s.translation]),
       );
@@ -335,6 +338,8 @@ function AdminPageContent() {
         console.error(err.message);
         setErrorMessage(err.message);
       }
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -769,6 +774,8 @@ function AdminPageContent() {
             onParseScript={handleParseScript}
             onAnalyzeScenes={handleAnalyzeScenes}
             analyzingScenes={analyzingScenes}
+            onTranslateSelected={handleTranslateSelected}
+            translating={translating}
             onUpdateTime={updateSentenceTime}
             onUpdateText={updateSentenceText}
             onDelete={deleteSentence}

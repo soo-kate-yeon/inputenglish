@@ -15,6 +15,7 @@ interface ScriptLineProps {
   scriptHidden: boolean;
   showTranslation?: boolean;
   onTap: (sentence: Sentence) => void;
+  onLongPress?: (sentence: Sentence) => void;
   onLoopToggle: (sentence: Sentence) => void;
   onSaveToggle: (sentence: Sentence) => void;
 }
@@ -29,6 +30,7 @@ function ScriptLine({
   scriptHidden,
   showTranslation = false,
   onTap,
+  onLongPress,
   onLoopToggle,
   onSaveToggle,
 }: ScriptLineProps) {
@@ -36,6 +38,8 @@ function ScriptLine({
     <TouchableOpacity
       style={[styles.container, isActive && styles.containerActive]}
       onPress={() => onTap(sentence)}
+      onLongPress={onLongPress ? () => onLongPress(sentence) : undefined}
+      delayLongPress={400}
       activeOpacity={0.85}
     >
       <View style={styles.content}>

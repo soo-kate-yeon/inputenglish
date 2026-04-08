@@ -82,6 +82,7 @@ export const SESSION_SOURCE_TYPES = [
   "podcast",
   "interview",
   "panel",
+  "public-speech",
 ] as const;
 
 export type SessionSourceType = (typeof SESSION_SOURCE_TYPES)[number];
