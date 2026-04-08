@@ -10,7 +10,7 @@ import React, {
   useMemo,
   ReactNode,
 } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import { router } from "expo-router";
 import {
   User,
@@ -18,6 +18,7 @@ import {
   Session,
   Provider,
 } from "@supabase/supabase-js";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "@/lib/supabase";
 import { appStore } from "@/lib/stores";
 
@@ -34,6 +35,7 @@ interface AuthContextType {
   signInWithOAuth: (
     provider: "google" | "github" | "kakao" | "azure",
   ) => Promise<void>;
+  signInWithApple: () => Promise<void>;
   refreshUser: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -268,6 +270,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   );
 
+  const signInWithApple = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("No identity token returned from Apple");
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: credential.identityToken,
+      });
+
+      if (signInError) throw signInError;
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        err.code === "ERR_REQUEST_CANCELED"
+      ) {
+        return;
+      }
+      console.error("[AuthContext] Apple sign in error:", err);
+      setError(
+        err instanceof Error ? err : new Error("Failed to sign in with Apple"),
+      );
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const refreshUser = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     await fetchUser();
@@ -306,6 +349,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signUp,
       signOut,
       signInWithOAuth,
+      signInWithApple,
       refreshUser,
       deleteAccount,
     }),
@@ -319,6 +363,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signUp,
       signOut,
       signInWithOAuth,
+      signInWithApple,
       refreshUser,
       deleteAccount,
     ],

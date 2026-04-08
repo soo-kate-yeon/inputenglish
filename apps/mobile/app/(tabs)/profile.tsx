@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Linking,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -391,6 +392,35 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Legal links */}
+        <View style={styles.group}>
+          <Text style={styles.groupLabel}>약관 및 정책</Text>
+          <View style={styles.groupSurface}>
+            <TouchableOpacity
+              style={[rowStyles.row, rowStyles.rowBorder]}
+              onPress={() =>
+                Linking.openURL("https://inputenglish.vercel.app/terms")
+              }
+              accessibilityRole="link"
+              accessibilityLabel="이용약관"
+            >
+              <Text style={rowStyles.label}>이용약관</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={rowStyles.row}
+              onPress={() =>
+                Linking.openURL("https://inputenglish.vercel.app/privacy")
+              }
+              accessibilityRole="link"
+              accessibilityLabel="개인정보처리방침"
+            >
+              <Text style={rowStyles.label}>개인정보처리방침</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Sign out */}
         <View style={styles.group}>
           <View style={styles.groupSurface}>
@@ -552,5 +582,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: colors.error,
+  },
+  chevron: {
+    fontSize: 18,
+    color: colors.textMuted,
+    fontWeight: "300",
   },
 });

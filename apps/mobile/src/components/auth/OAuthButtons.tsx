@@ -1,5 +1,6 @@
 // @MX:NOTE: [AUTO] OAuth flow uses expo-web-browser + expo-auth-session with PKCE.
 // skipBrowserRedirect: true required so we control the redirect via WebBrowser.openAuthSessionAsync.
+// Apple Sign-In uses native expo-apple-authentication + Supabase signInWithIdToken.
 import React, { useState } from "react";
 import {
   View,
@@ -8,10 +9,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  Platform,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const googleGIcon = require("../../../assets/auth/google_g.png");
 const kakaoSymbol = require("../../../assets/auth/kakao_symbol.png");
@@ -22,6 +26,8 @@ type Provider = "google" | "kakao";
 
 export function OAuthButtons() {
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const { signInWithApple } = useAuth();
 
   const handleOAuthSignIn = async (provider: Provider) => {
     try {
@@ -62,10 +68,40 @@ export function OAuthButtons() {
     }
   };
 
-  const isDisabled = loadingProvider !== null;
+  const handleAppleSignIn = async () => {
+    try {
+      setAppleLoading(true);
+      await signInWithApple();
+    } catch (err) {
+      console.error("[OAuthButtons] Apple sign in failed:", err);
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
+  const isDisabled = loadingProvider !== null || appleLoading;
 
   return (
     <View style={styles.container}>
+      {/* Apple: Native Sign in with Apple button (iOS only) */}
+      {Platform.OS === "ios" && (
+        <TouchableOpacity
+          style={[styles.appleButton, isDisabled && styles.buttonDisabled]}
+          onPress={handleAppleSignIn}
+          disabled={isDisabled}
+          accessibilityLabel="Apple로 로그인"
+        >
+          {appleLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Text style={styles.appleLogo}>{"\uF8FF"}</Text>
+              <Text style={styles.appleText}>Apple로 계속하기</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
       {/* Google: Custom button following branding guidelines */}
       {/* https://developers.google.com/identity/branding-guidelines */}
       {/* iOS spec: 16px left, 12px after logo, 16px right, Roboto Medium 14/20, #FFFFFF fill, #747775 stroke */}
@@ -109,6 +145,27 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     gap: 10,
+  },
+  // Apple branding: black fill, white text, SF Pro
+  appleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 40,
+    borderRadius: 4,
+    backgroundColor: "#000000",
+    paddingHorizontal: 12,
+  },
+  appleLogo: {
+    fontSize: 16,
+    color: "#FFFFFF",
+    marginRight: 10,
+  },
+  appleText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 0.25,
   },
   // Google branding: white fill, #747775 1px stroke, r=4, h=40
   // Ref: .gsi-material-button CSS spec

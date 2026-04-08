@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   ImageBackground,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -305,6 +306,35 @@ export default function PaywallScreen() {
             {isRestoring ? "복원 중..." : "구매 내역 복원"}
           </Text>
         </TouchableOpacity>
+
+        {/* Legal links (required by App Store 3.1.2(c)) */}
+        <View style={styles.legalSection}>
+          <Text style={styles.legalNotice}>
+            구독은 확인 시 iTunes 계정에 청구되며, 현재 구독 기간 종료 최소
+            24시간 전에 자동 갱신을 해제하지 않으면 자동으로 갱신됩니다.
+          </Text>
+          <View style={styles.legalLinks}>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL("https://inputenglish.vercel.app/terms")
+              }
+              accessibilityRole="link"
+              accessibilityLabel="이용약관"
+            >
+              <Text style={styles.legalLinkText}>이용약관</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalDivider}>|</Text>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL("https://inputenglish.vercel.app/privacy")
+              }
+              accessibilityRole="link"
+              accessibilityLabel="개인정보처리방침"
+            >
+              <Text style={styles.legalLinkText}>개인정보처리방침</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
 
       {/* Fixed bottom CTA */}
@@ -524,6 +554,35 @@ const styles = StyleSheet.create({
     fontSize: font.size.xs + 1, // 12 — between xs(11) and sm(13)
     letterSpacing: 0.4,
     textDecorationLine: "underline",
+  },
+
+  // ── Legal ───────────────────────────────────────────
+  legalSection: {
+    alignItems: "center",
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.sm,
+  },
+  legalNotice: {
+    fontSize: 10,
+    color: C.textMuted,
+    textAlign: "center",
+    lineHeight: 15,
+    letterSpacing: 0.2,
+  },
+  legalLinks: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  legalLinkText: {
+    fontSize: font.size.xs,
+    color: C.textMuted,
+    textDecorationLine: "underline",
+  },
+  legalDivider: {
+    fontSize: font.size.xs,
+    color: C.textMuted,
   },
 
   // ── Fixed CTA ───────────────────────────────────────
