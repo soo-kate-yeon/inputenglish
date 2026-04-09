@@ -18,7 +18,6 @@ import {
   Session,
   Provider,
 } from "@supabase/supabase-js";
-import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "@/lib/supabase";
 import { appStore } from "@/lib/stores";
 
@@ -275,10 +274,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true);
       setError(null);
 
-      const credential = await AppleAuthentication.signInAsync({
+      const AppleAuth = require("expo-apple-authentication");
+      const credential = await AppleAuth.signInAsync({
         requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          AppleAuth.AppleAuthenticationScope.FULL_NAME,
+          AppleAuth.AppleAuthenticationScope.EMAIL,
         ],
       });
 
