@@ -8,9 +8,11 @@ import type {
 } from "@inputenglish/shared";
 
 interface TransformationSet {
+  id?: string;
   target_pattern: string;
   pattern_type: string;
   pattern_rationale?: string;
+  source_sentence_ids?: string[];
 }
 
 interface TransformationExerciseEditorProps {
@@ -315,6 +317,7 @@ export function TransformationExerciseEditor({
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLinkingSentence, setIsLinkingSentence] = useState(false);
 
   useEffect(() => {
     if (!isSaved) return;
@@ -368,7 +371,10 @@ export function TransformationExerciseEditor({
         set: TransformationSet;
         exercises: Partial<TransformationExercise>[];
       };
-      setGeneratedSet(data.set);
+      setGeneratedSet({
+        ...data.set,
+        source_sentence_ids: data.set.source_sentence_ids ?? [],
+      });
       setExercises(data.exercises);
       if (data.set.target_pattern) {
         onPatternGenerated?.(data.set.target_pattern);
@@ -518,6 +524,120 @@ export function TransformationExerciseEditor({
               {generatedSet.pattern_rationale}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Source sentence linking (multi-select) */}
+      {generatedSet && sentences.length > 0 && (
+        <div
+          style={{
+            padding: "8px 12px",
+            border: "1px solid #e5e5e5",
+            fontSize: 11,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <strong style={{ fontSize: 11 }}>
+            원본 문장 연결 ({(generatedSet.source_sentence_ids ?? []).length}개
+            선택)
+          </strong>
+          <div
+            style={{
+              maxHeight: 140,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            {sentences.map((s) => {
+              const selected = (
+                generatedSet.source_sentence_ids ?? []
+              ).includes(s.id);
+              return (
+                <label
+                  key={s.id}
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    alignItems: "flex-start",
+                    cursor: "pointer",
+                    padding: "2px 0",
+                    backgroundColor: selected ? "#f0f9ff" : "transparent",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => {
+                      const prev = generatedSet.source_sentence_ids ?? [];
+                      const next = selected
+                        ? prev.filter((id: string) => id !== s.id)
+                        : [...prev, s.id];
+                      setGeneratedSet({
+                        ...generatedSet,
+                        source_sentence_ids: next,
+                      });
+                    }}
+                    style={{ marginTop: 2 }}
+                  />
+                  <span style={{ fontSize: 10, lineHeight: "16px" }}>
+                    {s.text.length > 80 ? s.text.slice(0, 80) + "..." : s.text}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {/* Patch button for already-saved sets */}
+          {generatedSet.id &&
+            (generatedSet.source_sentence_ids ?? []).length > 0 && (
+              <button
+                type="button"
+                disabled={isLinkingSentence}
+                onClick={async () => {
+                  setIsLinkingSentence(true);
+                  setError(null);
+                  try {
+                    const res = await fetch(
+                      "/api/admin/save-transformation-set",
+                      {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          setId: generatedSet.id,
+                          source_sentence_ids:
+                            generatedSet.source_sentence_ids ?? [],
+                        }),
+                      },
+                    );
+                    if (!res.ok) {
+                      const body = (await res.json()) as { error?: string };
+                      throw new Error(body.error ?? "Failed to link sentences");
+                    }
+                    setSavedMessage("문장 연결 완료");
+                  } catch (err) {
+                    setError(
+                      err instanceof Error ? err.message : "Unknown error",
+                    );
+                  } finally {
+                    setIsLinkingSentence(false);
+                  }
+                }}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  border: "1px solid #171717",
+                  backgroundColor: isLinkingSentence ? "#f5f5f5" : "#ffffff",
+                  cursor: isLinkingSentence ? "not-allowed" : "pointer",
+                  alignSelf: "flex-start",
+                }}
+              >
+                {isLinkingSentence ? "연결 중..." : "문장 연결 저장"}
+              </button>
+            )}
         </div>
       )}
 

@@ -341,6 +341,7 @@ export interface TransformationSet {
   target_pattern: string;
   pattern_type: PatternType;
   pattern_rationale?: string; // v2: 이 패턴을 고른 이유 (한국어)
+  source_sentence_ids?: string[]; // v3: 타깃 패턴이 등장하는 원본 문장 ID 목록
   generated_by: "ai" | "manual";
   created_at: string;
   updated_at: string;

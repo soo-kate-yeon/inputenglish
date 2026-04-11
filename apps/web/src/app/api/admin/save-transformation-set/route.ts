@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         target_pattern: latestSet.target_pattern,
         pattern_type: latestSet.pattern_type,
         pattern_rationale: latestSet.pattern_rationale,
+        source_sentence_ids: latestSet.source_sentence_ids ?? [],
       },
       exercises,
     });
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
         target_pattern: set.target_pattern ?? "",
         pattern_type: set.pattern_type ?? "declarative",
         pattern_rationale: set.pattern_rationale ?? null,
+        source_sentence_ids: set.source_sentence_ids ?? [],
         generated_by: set.generated_by ?? "ai",
       })
       .select()
@@ -126,6 +128,47 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ setId: savedSet.id, set: savedSet });
   } catch (error) {
     console.error("[save-transformation-set] error:", error);
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+/** PATCH: update source_sentence_id on an existing transformation set */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = (await request.json()) as {
+      setId: string;
+      source_sentence_ids: string[];
+    };
+    const { setId, source_sentence_ids } = body;
+
+    if (!setId || !Array.isArray(source_sentence_ids)) {
+      return NextResponse.json(
+        { error: "setId and source_sentence_ids are required" },
+        { status: 400 },
+      );
+    }
+
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase
+      .from("transformation_sets")
+      .update({ source_sentence_ids })
+      .eq("id", setId)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ set: data });
+  } catch (error) {
+    console.error("[save-transformation-set PATCH] error:", error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Internal server error",

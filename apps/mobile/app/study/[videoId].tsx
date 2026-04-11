@@ -902,7 +902,11 @@ export default function StudyScreen() {
             <View style={styles.scriptContainer}>
               {mainTab === "transformation" ? (
                 sessionId ? (
-                  <TransformationCarousel sessionId={sessionId} />
+                  <TransformationCarousel
+                    sessionId={sessionId}
+                    sentences={studySentences}
+                    onPlaySentence={handleSentenceTap}
+                  />
                 ) : null
               ) : !scriptVisible ? (
                 <View style={styles.empty}>

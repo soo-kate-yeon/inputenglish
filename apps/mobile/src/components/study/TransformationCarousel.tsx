@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { MMKV } from "react-native-mmkv";
 import type {
+  Sentence,
   TransformationSet,
   TransformationExercise,
 } from "@inputenglish/shared";
@@ -33,6 +34,7 @@ import { KoreanToEnglishPage } from "./carousel/KoreanToEnglishPage";
 import { QAResponsePage } from "./carousel/QAResponsePage";
 import { DialogCompletionPage } from "./carousel/DialogCompletionPage";
 import { SituationResponsePage } from "./carousel/SituationResponsePage";
+import { ExpressionPage } from "./carousel/ExpressionPage";
 import { colors, spacing } from "../../theme";
 
 const SKIP_INTRO_KEY = "transformation_skip_intro";
@@ -41,6 +43,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface TransformationCarouselProps {
   sessionId: string;
+  sentences?: Sentence[];
+  onPlaySentence?: (sentence: Sentence) => void;
 }
 
 function renderExercisePage(
@@ -88,6 +92,8 @@ function renderExercisePage(
 
 export function TransformationCarousel({
   sessionId,
+  sentences: allSentences = [],
+  onPlaySentence,
 }: TransformationCarouselProps) {
   const [set, setSet] = useState<TransformationSet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -98,6 +104,17 @@ export function TransformationCarousel({
   // Check if intro should be skipped
   const skipIntro = mmkv.getString(SKIP_INTRO_KEY) === "true";
 
+  // Resolve source sentences from the fetched set's source_sentence_ids
+  const sourceSentences = useMemo(() => {
+    const ids = set?.source_sentence_ids ?? [];
+    if (ids.length === 0) return [];
+    return ids
+      .map((id) => allSentences.find((s) => s.id === id))
+      .filter((s): s is Sentence => !!s);
+  }, [set?.source_sentence_ids, allSentences]);
+  const hasExpression = sourceSentences.length > 0;
+  const firstExerciseIndex = hasExpression ? 2 : 1;
+
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
@@ -105,28 +122,43 @@ export function TransformationCarousel({
       if (!cancelled) {
         setSet(data);
         setIsLoading(false);
-        // Skip to first exercise if MMKV key set
-        if (skipIntro && data?.exercises && data.exercises.length > 0) {
-          setCurrentIndex(1);
-        }
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [sessionId, skipIntro]);
+  }, [sessionId]);
+
+  // After set loads, skip intro if MMKV flag is set
+  useEffect(() => {
+    if (!set || isLoading) return;
+    if (skipIntro && set.exercises && set.exercises.length > 0) {
+      const target = hasExpression ? 1 : firstExerciseIndex;
+      setCurrentIndex(target);
+      flatListRef.current?.scrollToIndex({ index: target, animated: false });
+    }
+  }, [set, isLoading, skipIntro, hasExpression, firstExerciseIndex]);
 
   const handleDismissForever = useCallback(() => {
     mmkv.set(SKIP_INTRO_KEY, "true");
-    // Scroll to first exercise
-    flatListRef.current?.scrollToIndex({ index: 1, animated: true });
-    setCurrentIndex(1);
-  }, []);
+    const target = hasExpression ? 1 : firstExerciseIndex;
+    flatListRef.current?.scrollToIndex({ index: target, animated: true });
+    setCurrentIndex(target);
+  }, [hasExpression, firstExerciseIndex]);
 
   const handleSkip = useCallback(() => {
-    flatListRef.current?.scrollToIndex({ index: 1, animated: true });
-    setCurrentIndex(1);
-  }, []);
+    const target = hasExpression ? 1 : firstExerciseIndex;
+    flatListRef.current?.scrollToIndex({ index: target, animated: true });
+    setCurrentIndex(target);
+  }, [hasExpression, firstExerciseIndex]);
+
+  const handleExpressionNext = useCallback(() => {
+    flatListRef.current?.scrollToIndex({
+      index: firstExerciseIndex,
+      animated: true,
+    });
+    setCurrentIndex(firstExerciseIndex);
+  }, [firstExerciseIndex]);
 
   const exercises = useMemo(
     () =>
@@ -138,17 +170,20 @@ export function TransformationCarousel({
     setIsRecording(recording);
   }, []);
 
-  // Build pages: [IntroPage, ...exercises]
+  // Build pages: [IntroPage, ExpressionPage?, ...exercises]
   const pages = useMemo(
     () => [
       { key: "intro", type: "intro" as const },
+      ...(hasExpression
+        ? [{ key: "expression", type: "expression" as const }]
+        : []),
       ...exercises.map((ex) => ({
         key: ex.id,
         type: "exercise" as const,
         exercise: ex,
       })),
     ],
-    [exercises],
+    [exercises, hasExpression],
   );
 
   const handleConfirm = useCallback(
@@ -182,8 +217,8 @@ export function TransformationCarousel({
 
         // Advance to next page if available
         const exerciseIndex = exercises.findIndex((e) => e.id === exercise.id);
-        const nextPageIndex = exerciseIndex + 2; // +1 for intro page offset
-        const totalPages = 1 + exercises.length; // intro + exercise pages
+        const nextPageIndex = exerciseIndex + firstExerciseIndex + 1;
+        const totalPages = firstExerciseIndex + exercises.length;
         if (nextPageIndex < totalPages) {
           flatListRef.current?.scrollToIndex({
             index: nextPageIndex,
@@ -195,7 +230,7 @@ export function TransformationCarousel({
         console.error("[TransformationCarousel] handleConfirm error:", err);
       }
     },
-    [exercises],
+    [exercises, firstExerciseIndex],
   );
 
   if (isLoading) {
@@ -227,7 +262,7 @@ export function TransformationCarousel({
         scrollEnabled={!isRecording}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.key}
-        initialScrollIndex={skipIntro ? 1 : 0}
+        initialScrollIndex={0}
         getItemLayout={(_data, index) => ({
           length: SCREEN_WIDTH,
           offset: SCREEN_WIDTH * index,
@@ -246,6 +281,18 @@ export function TransformationCarousel({
                 <IntroPage
                   onSkip={handleSkip}
                   onDismissForever={handleDismissForever}
+                />
+              </View>
+            );
+          }
+
+          if (item.type === "expression" && sourceSentences.length > 0) {
+            return (
+              <View style={styles.page}>
+                <ExpressionPage
+                  sentences={sourceSentences}
+                  onPlay={onPlaySentence ?? (() => {})}
+                  onNext={handleExpressionNext}
                 />
               </View>
             );

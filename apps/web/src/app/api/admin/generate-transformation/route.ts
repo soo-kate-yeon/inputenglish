@@ -26,6 +26,7 @@ interface GenerateTransformationResponse {
     target_pattern: string;
     pattern_type: string;
     pattern_rationale?: string;
+    source_sentence_ids?: string[];
   };
   exercises: GeneratedExercise[];
 }
@@ -53,7 +54,9 @@ export async function POST(request: NextRequest) {
     const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
-    const transcript = sentences.map((s) => s.text).join(" ");
+    const indexedTranscript = sentences
+      .map((s) => `[${s.id}] ${s.text}`)
+      .join("\n");
 
     const prompt = `
 아래 영어 트랜스크립트에서 변형 연습 문제 세트를 만들어.
@@ -63,8 +66,8 @@ export async function POST(request: NextRequest) {
 
 말하기 목적 힌트: ${speakingFunction ?? "없음"}
 
-━━ 트랜스크립트 ━━
-"${transcript}"
+━━ 트랜스크립트 (각 문장에 [id]가 붙어 있음) ━━
+${indexedTranscript}
 
 ━━ Step 1: 타깃 패턴 선택 ━━
 트랜스크립트의 표현들 중에서 아래 기준으로 하나의 핵심 패턴을 골라라.
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest) {
 5. 단어 수준("leverage")이 아니라 구조적 패턴("What we're seeing is...") 수준일 것
 
 pattern_rationale: 이 패턴을 고른 이유를 한국어로 1-2문장.
+source_sentence_ids: 이 패턴이 등장하는 트랜스크립트 문장들의 [id] 값 배열. 패턴이 여러 문장에 걸쳐 나타나면 모두 포함. 반드시 위 트랜스크립트에 있는 id여야 한다.
 
 pattern_type 선택:
 - declarative: 선언/서술 구조
@@ -145,7 +149,8 @@ Return ONLY valid JSON (no markdown):
   "set": {
     "target_pattern": "타깃 패턴 (영어 표현)",
     "pattern_type": "framing | hedging | transitioning | responding | declarative | interrogative",
-    "pattern_rationale": "이 패턴을 고른 이유 (한국어, 1-2문장)"
+    "pattern_rationale": "이 패턴을 고른 이유 (한국어, 1-2문장)",
+    "source_sentence_ids": ["패턴이 등장하는 문장의 id", "..."]
   },
   "exercises": [
     {

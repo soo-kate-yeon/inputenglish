@@ -90,10 +90,6 @@ const styles = StyleSheet.create({
   steps: {
     gap: spacing.md,
     paddingTop: spacing.xs,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.bgMuted,
-    borderRadius: radius.lg,
   },
   step: {
     fontSize: font.size.sm,
