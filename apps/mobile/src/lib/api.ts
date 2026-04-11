@@ -62,56 +62,147 @@ export interface SessionListItem {
   context?: SessionContext | null;
 }
 
+const SESSION_SELECT =
+  "id, source_video_id, title, subtitle, description, duration, difficulty, thumbnail_url, order_index, source_type, speaking_function, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+
+const FEED_PAGE_SIZE = 20;
+
+function mapSessionRow(
+  s: any,
+  video?: { thumbnail_url?: string; channel_name?: string } | null,
+): SessionListItem {
+  return {
+    id: s.id,
+    source_video_id: s.source_video_id,
+    title: s.title,
+    subtitle: s.subtitle || undefined,
+    description: s.description || undefined,
+    duration: Number(s.duration),
+    difficulty: s.difficulty as SessionListItem["difficulty"],
+    source_type: s.source_type as SessionListItem["source_type"],
+    speaking_function:
+      s.speaking_function as SessionListItem["speaking_function"],
+    role_relevance:
+      (s.role_relevance as SessionListItem["role_relevance"]) || [],
+    premium_required: Boolean(s.premium_required),
+    thumbnail_url:
+      s.thumbnail_url ||
+      video?.thumbnail_url ||
+      `https://img.youtube.com/vi/${s.source_video_id}/hqdefault.jpg`,
+    order_index: s.order_index,
+    channel_name: video?.channel_name || undefined,
+    expected_takeaway:
+      (Array.isArray(s.session_contexts)
+        ? s.session_contexts[0]?.expected_takeaway
+        : (s.session_contexts as { expected_takeaway?: string } | null)
+            ?.expected_takeaway) || undefined,
+  };
+}
+
+async function enrichWithVideos(
+  sessions: { source_video_id: string }[],
+): Promise<Map<string, { thumbnail_url?: string; channel_name?: string }>> {
+  const videoIds = [...new Set(sessions.map((s) => s.source_video_id))];
+  if (videoIds.length === 0) return new Map();
+  const { data: videos } = await supabase
+    .from("curated_videos")
+    .select("video_id, thumbnail_url, channel_name")
+    .in("video_id", videoIds);
+  return new Map((videos ?? []).map((v) => [v.video_id, v]));
+}
+
 export async function fetchLearningSessions(): Promise<SessionListItem[]> {
-  // Fetch sessions
   const { data: sessions, error: sessionsError } = await supabase
     .from("learning_sessions")
-    .select(
-      "id, source_video_id, title, subtitle, description, duration, difficulty, thumbnail_url, order_index, source_type, speaking_function, role_relevance, premium_required, session_contexts(expected_takeaway)",
-    )
+    .select(SESSION_SELECT)
     .order("created_at", { ascending: false });
 
   if (sessionsError) throw sessionsError;
   if (!sessions || sessions.length === 0) return [];
 
-  // Fetch source videos for thumbnails/channel names
-  const videoIds = [...new Set(sessions.map((s) => s.source_video_id))];
-  const { data: videos } = await supabase
-    .from("curated_videos")
-    .select("video_id, thumbnail_url, channel_name")
-    .in("video_id", videoIds);
+  const videoMap = await enrichWithVideos(sessions);
+  return sessions.map((s) => mapSessionRow(s, videoMap.get(s.source_video_id)));
+}
 
-  const videoMap = new Map((videos ?? []).map((v) => [v.video_id, v]));
+export interface FeedFilters {
+  sourceType?: string;
+  speakingFunction?: string;
+  difficulty?: "beginner" | "intermediate" | "advanced";
+}
 
-  return sessions.map((s) => {
-    const video = videoMap.get(s.source_video_id);
-    return {
-      id: s.id,
-      source_video_id: s.source_video_id,
-      title: s.title,
-      subtitle: s.subtitle || undefined,
-      description: s.description || undefined,
-      duration: Number(s.duration),
-      difficulty: s.difficulty as SessionListItem["difficulty"],
-      source_type: s.source_type as SessionListItem["source_type"],
-      speaking_function:
-        s.speaking_function as SessionListItem["speaking_function"],
-      role_relevance:
-        (s.role_relevance as SessionListItem["role_relevance"]) || [],
-      premium_required: Boolean(s.premium_required),
-      thumbnail_url:
-        s.thumbnail_url ||
-        video?.thumbnail_url ||
-        `https://img.youtube.com/vi/${s.source_video_id}/hqdefault.jpg`,
-      order_index: s.order_index,
-      channel_name: video?.channel_name || undefined,
-      expected_takeaway:
-        (Array.isArray(s.session_contexts)
-          ? s.session_contexts[0]?.expected_takeaway
-          : (s.session_contexts as { expected_takeaway?: string } | null)
-              ?.expected_takeaway) || undefined,
-    };
-  });
+export async function fetchLearningSessionsPaginated(
+  offset: number = 0,
+  filters?: FeedFilters,
+): Promise<{ sessions: SessionListItem[]; hasMore: boolean }> {
+  let query = supabase
+    .from("learning_sessions")
+    .select(SESSION_SELECT)
+    .order("created_at", { ascending: false });
+
+  if (filters?.sourceType) query = query.eq("source_type", filters.sourceType);
+  if (filters?.speakingFunction)
+    query = query.eq("speaking_function", filters.speakingFunction);
+  if (filters?.difficulty) query = query.eq("difficulty", filters.difficulty);
+
+  const { data: sessions, error: sessionsError } = await query.range(
+    offset,
+    offset + FEED_PAGE_SIZE - 1,
+  );
+
+  if (sessionsError) throw sessionsError;
+  if (!sessions || sessions.length === 0)
+    return { sessions: [], hasMore: false };
+
+  const videoMap = await enrichWithVideos(sessions);
+  const mapped = sessions.map((s) =>
+    mapSessionRow(s, videoMap.get(s.source_video_id)),
+  );
+
+  return { sessions: mapped, hasMore: sessions.length === FEED_PAGE_SIZE };
+}
+
+export async function fetchContinueLearning(
+  userId: string,
+): Promise<SessionListItem[]> {
+  const { data: attempts, error: attemptsError } = await supabase
+    .from("practice_attempts")
+    .select("session_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (attemptsError) throw attemptsError;
+  if (!attempts || attempts.length === 0) return [];
+
+  const seen = new Set<string>();
+  const sessionIds: string[] = [];
+  for (const a of attempts) {
+    if (!seen.has(a.session_id)) {
+      seen.add(a.session_id);
+      sessionIds.push(a.session_id);
+    }
+    if (sessionIds.length >= 10) break;
+  }
+
+  const { data: sessions, error: sessionsError } = await supabase
+    .from("learning_sessions")
+    .select(SESSION_SELECT)
+    .in("id", sessionIds);
+
+  if (sessionsError) throw sessionsError;
+  if (!sessions || sessions.length === 0) return [];
+
+  const videoMap = await enrichWithVideos(sessions);
+  const sessionMap = new Map(
+    sessions.map((s) => [
+      s.id,
+      mapSessionRow(s, videoMap.get(s.source_video_id)),
+    ]),
+  );
+
+  return sessionIds
+    .map((id) => sessionMap.get(id))
+    .filter((s): s is SessionListItem => s !== undefined);
 }
 
 export async function fetchLearningSessionDetail(
