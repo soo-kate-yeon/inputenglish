@@ -22,11 +22,19 @@ export async function fetchTransformationSet(
     `,
     )
     .eq("session_id", sessionId)
+    .order("created_at", { ascending: false })
     .order("page_order", { referencedTable: "transformation_exercises" })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.error("[transformation-api] fetchTransformationSet error:", error);
+    console.error(
+      "[transformation-api] fetchTransformationSet error:",
+      error.message,
+      error.code,
+      error.details,
+      error.hint,
+    );
     return null;
   }
 
