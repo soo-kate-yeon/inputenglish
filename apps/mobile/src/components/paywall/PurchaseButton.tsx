@@ -70,7 +70,12 @@ export default function PurchaseButton({
 
   return (
     <TouchableOpacity
-      style={[styles.button, isDisabled && styles.buttonDisabled, style]}
+      style={[
+        styles.button,
+        style,
+        isDisabled && styles.buttonDisabled,
+        isDisabled && { opacity: 0.4 },
+      ]}
       onPress={handlePress}
       disabled={isDisabled}
       accessibilityRole="button"

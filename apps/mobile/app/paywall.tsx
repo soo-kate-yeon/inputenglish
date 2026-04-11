@@ -96,11 +96,20 @@ export default function PaywallScreen() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [offeringsError, setOfferingsError] = useState(false);
+
   useEffect(() => {
     getOfferings()
       .then((offerings) => {
-        if (!offerings?.current) return;
+        if (!offerings?.current) {
+          setOfferingsError(true);
+          return;
+        }
         const packages = offerings.current.availablePackages;
+        if (packages.length === 0) {
+          setOfferingsError(true);
+          return;
+        }
         setOptions((prev) =>
           prev.map((opt, i) => {
             let matched: PurchasesPackage | null = null;
@@ -127,6 +136,7 @@ export default function PaywallScreen() {
           }),
         );
       })
+      .catch(() => setOfferingsError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -224,6 +234,11 @@ export default function PaywallScreen() {
                 style={{ marginVertical: spacing.lg }}
                 color={C.accent}
               />
+            ) : offeringsError ? (
+              <Text style={styles.errorText}>
+                상품 정보를 불러올 수 없습니다. 네트워크 연결을 확인하고 다시
+                시도해 주세요.
+              </Text>
             ) : (
               options.map((opt, i) => {
                 const selected = selectedIndex === i;
@@ -583,6 +598,15 @@ const styles = StyleSheet.create({
   legalDivider: {
     fontSize: font.size.xs,
     color: C.textMuted,
+  },
+
+  // ── Error ────────────────────────────────────────────
+  errorText: {
+    fontSize: font.size.sm,
+    color: C.textMuted,
+    textAlign: "center",
+    marginVertical: spacing.lg,
+    lineHeight: font.size.sm * 1.5,
   },
 
   // ── Fixed CTA ───────────────────────────────────────
