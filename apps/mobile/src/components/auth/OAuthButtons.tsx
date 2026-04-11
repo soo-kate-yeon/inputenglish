@@ -3,6 +3,7 @@
 // Apple Sign-In uses native expo-apple-authentication + Supabase signInWithIdToken.
 import React, { useState } from "react";
 import {
+  Alert,
   View,
   Text,
   TouchableOpacity,
@@ -15,6 +16,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { mapAuthError } from "@/lib/auth-errors";
 
 const googleGIcon = require("../../../assets/auth/google_g.png");
 const kakaoSymbol = require("../../../assets/auth/kakao_symbol.png");
@@ -62,6 +64,7 @@ export function OAuthButtons() {
       }
     } catch (err) {
       console.error(`[OAuthButtons] ${provider} sign in failed:`, err);
+      Alert.alert("로그인 오류", mapAuthError(err));
     } finally {
       setLoadingProvider(null);
     }
@@ -73,6 +76,7 @@ export function OAuthButtons() {
       await signInWithApple();
     } catch (err) {
       console.error("[OAuthButtons] Apple sign in failed:", err);
+      Alert.alert("로그인 오류", mapAuthError(err));
     } finally {
       setAppleLoading(false);
     }

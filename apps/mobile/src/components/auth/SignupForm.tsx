@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
+import { mapAuthError } from "@/lib/auth-errors";
 
 export function SignupForm() {
   const { signUp } = useAuth();
@@ -16,35 +17,42 @@ export function SignupForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignUp = async () => {
+    setError(null);
+    setSuccess(null);
+
     if (!fullName || !email || !password || !confirmPassword) {
-      setError("All fields are required.");
+      setError("모든 항목을 입력해주세요.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError("비밀번호가 일치하지 않습니다.");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError("비밀번호는 최소 6자 이상이어야 합니다.");
       return;
     }
 
     try {
-      setError(null);
       setIsSubmitting(true);
-      await signUp(email, password, fullName);
-      // Auth state change in AuthContext handles navigation redirect
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Sign up failed. Please try again.",
+      const { needsEmailConfirmation } = await signUp(
+        email,
+        password,
+        fullName,
       );
+
+      if (needsEmailConfirmation) {
+        setSuccess("인증 메일을 발송했습니다. 이메일을 확인해주세요.");
+      }
+      // If no email confirmation needed, navigation is handled by _layout.tsx
+    } catch (err) {
+      setError(mapAuthError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -55,6 +63,12 @@ export function SignupForm() {
       {error && (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {success && (
+        <View style={styles.successBox}>
+          <Text style={styles.successText}>{success}</Text>
         </View>
       )}
 
@@ -133,6 +147,17 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#FF6B6B",
+    fontSize: 14,
+  },
+  successBox: {
+    backgroundColor: "rgba(52,199,89,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(52,199,89,0.4)",
+    borderRadius: 8,
+    padding: 12,
+  },
+  successText: {
+    color: "#34C759",
     fontSize: 14,
   },
   input: {

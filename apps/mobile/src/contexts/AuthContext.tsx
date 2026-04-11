@@ -29,7 +29,11 @@ interface AuthContextType {
   isInitialized: boolean;
   error: Error | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+  ) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   signInWithOAuth: (
     provider: "google" | "github" | "kakao" | "azure",
@@ -183,15 +187,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(true);
         setError(null);
 
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
         if (signInError) {
           throw signInError;
         }
-        // Auth state change listener handles user/session state update
+
+        // Explicitly update auth state so the navigation useEffect triggers
+        // immediately, without waiting for the async onAuthStateChange.
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+          appStore.getState().loadUserData().catch(console.error);
+        }
       } catch (err) {
         console.error("[AuthContext] Sign in error:", err);
         setError(err instanceof Error ? err : new Error("Failed to sign in"));
@@ -208,12 +220,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       email: string,
       password: string,
       fullName: string,
-    ): Promise<void> => {
+    ): Promise<{ needsEmailConfirmation: boolean }> => {
       try {
         setIsLoading(true);
         setError(null);
 
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -226,6 +238,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (signUpError) {
           throw signUpError;
         }
+
+        // Session present = signed in immediately (email confirmation disabled)
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+          appStore.getState().loadUserData().catch(console.error);
+          return { needsEmailConfirmation: false };
+        }
+
+        // User created but no session = email confirmation required
+        return { needsEmailConfirmation: true };
       } catch (err) {
         console.error("[AuthContext] Sign up error:", err);
         setError(err instanceof Error ? err : new Error("Failed to sign up"));
@@ -278,23 +301,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null);
 
       const AppleAuth = require("expo-apple-authentication");
+      const ExpoCrypto = require("expo-crypto");
+
+      // Generate nonce: Apple embeds the hash in the identity token,
+      // Supabase verifies the raw nonce against it.
+      const rawNonce = Array.from(
+        ExpoCrypto.getRandomBytes(32) as Uint8Array,
+        (byte: number) => byte.toString(16).padStart(2, "0"),
+      ).join("");
+      const hashedNonce = await ExpoCrypto.digestStringAsync(
+        ExpoCrypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
       const credential = await AppleAuth.signInAsync({
         requestedScopes: [
           AppleAuth.AppleAuthenticationScope.FULL_NAME,
           AppleAuth.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
 
       if (!credential.identityToken) {
         throw new Error("No identity token returned from Apple");
       }
 
-      const { error: signInError } = await supabase.auth.signInWithIdToken({
-        provider: "apple",
-        token: credential.identityToken,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithIdToken({
+          provider: "apple",
+          token: credential.identityToken,
+          nonce: rawNonce,
+        });
 
       if (signInError) throw signInError;
+
+      // Explicitly update auth state from the response so the navigation
+      // useEffect in _layout.tsx fires immediately, without waiting for
+      // onAuthStateChange (which depends on async SecureStore persistence).
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        appStore.getState().loadUserData().catch(console.error);
+      }
     } catch (err: unknown) {
       if (
         err &&

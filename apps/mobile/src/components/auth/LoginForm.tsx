@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
+import { mapAuthError } from "@/lib/auth-errors";
 
 export function LoginForm() {
   const { signIn } = useAuth();
@@ -18,7 +19,7 @@ export function LoginForm() {
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      setError("Email and password are required.");
+      setError("이메일과 비밀번호를 입력해주세요.");
       return;
     }
 
@@ -26,13 +27,8 @@ export function LoginForm() {
       setError(null);
       setIsSubmitting(true);
       await signIn(email, password);
-      // Auth state change in AuthContext handles navigation redirect
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Sign in failed. Please try again.",
-      );
+      setError(mapAuthError(err));
     } finally {
       setIsSubmitting(false);
     }

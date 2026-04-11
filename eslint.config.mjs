@@ -18,8 +18,10 @@ const eslintConfig = [
       "**/*.test.js",
       "**/*.test.ts",
       "**/__tests__/**",
-      "node_modules/**",
-      ".next/**"
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/.expo/**",
+      "**/coverage/**"
     ],
   },
   {
