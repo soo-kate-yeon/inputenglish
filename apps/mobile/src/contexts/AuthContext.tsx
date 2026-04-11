@@ -139,7 +139,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (event === "SIGNED_IN" && newSession) {
           appStore.getState().loadUserData().catch(console.error);
-          router.replace("/(tabs)");
+          // Navigation handled declaratively in _layout.tsx via useEffect
+          // to avoid race condition where router.replace fires before React
+          // commits the setUser state update, causing TabLayout to see
+          // isAuthenticated=false and redirect back to login.
         } else if (event === "SIGNED_OUT") {
           setUser(null);
           setSession(null);

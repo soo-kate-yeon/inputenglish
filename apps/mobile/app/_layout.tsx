@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
@@ -14,6 +14,8 @@ SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
   const { isInitialized, user } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
   // Hide splash screen once auth state is resolved to prevent flash of protected content
   useEffect(() => {
@@ -21,6 +23,19 @@ function RootLayoutNav() {
       SplashScreen.hideAsync();
     }
   }, [isInitialized]);
+
+  // Declarative auth-based navigation. Runs after React commits state,
+  // preventing the race condition where router.replace fires before
+  // isAuthenticated updates in TabLayout (which would redirect back to login).
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (user && inAuthGroup) {
+      router.replace("/(tabs)");
+    }
+  }, [user, isInitialized, segments, router]);
 
   // Setup notification handler after app is mounted (avoids module-level native crash)
   useEffect(() => {
