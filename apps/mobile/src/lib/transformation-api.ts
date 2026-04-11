@@ -37,8 +37,13 @@ export async function fetchTransformationSet(
     transformation_exercises: TransformationSet["exercises"];
   };
 
+  // Ensure source_sentence_ids is always a proper array
+  const rawIds = (rest as Record<string, unknown>).source_sentence_ids;
+  const source_sentence_ids = Array.isArray(rawIds) ? rawIds : [];
+
   return {
     ...rest,
+    source_sentence_ids,
     exercises: transformation_exercises ?? [],
   } as TransformationSet;
 }

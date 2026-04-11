@@ -118,12 +118,18 @@ export function TransformationCarousel({
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    fetchTransformationSet(sessionId).then((data) => {
-      if (!cancelled) {
-        setSet(data);
-        setIsLoading(false);
-      }
-    });
+    fetchTransformationSet(sessionId)
+      .then((data) => {
+        if (!cancelled) {
+          setSet(data);
+        }
+      })
+      .catch((err) => {
+        console.error("[TransformationCarousel] fetch error:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -131,13 +137,29 @@ export function TransformationCarousel({
 
   // After set loads, skip intro if MMKV flag is set
   useEffect(() => {
-    if (!set || isLoading) return;
-    if (skipIntro && set.exercises && set.exercises.length > 0) {
+    if (!set || isLoading || exercises.length === 0) return;
+    if (skipIntro) {
       const target = hasExpression ? 1 : firstExerciseIndex;
-      setCurrentIndex(target);
-      flatListRef.current?.scrollToIndex({ index: target, animated: false });
+      if (target < pages.length) {
+        setCurrentIndex(target);
+        // Delay scroll to ensure FlatList has rendered
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: target,
+            animated: false,
+          });
+        }, 50);
+      }
     }
-  }, [set, isLoading, skipIntro, hasExpression, firstExerciseIndex]);
+  }, [
+    set,
+    isLoading,
+    skipIntro,
+    hasExpression,
+    firstExerciseIndex,
+    exercises.length,
+    pages.length,
+  ]);
 
   const handleDismissForever = useCallback(() => {
     mmkv.set(SKIP_INTRO_KEY, "true");
