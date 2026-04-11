@@ -322,8 +322,8 @@ export default function StudyScreen() {
           return;
         }
 
-        // Loop (listening only)
-        if (mainTab === "listening") {
+        // Loop (listening + transformation)
+        if (mainTab === "listening" || mainTab === "transformation") {
           const lid = loopIdRef.current;
           if (lid) {
             const ls = allSentences.find((s) => s.id === lid);
@@ -760,7 +760,11 @@ export default function StudyScreen() {
                 styles.mainTab,
                 mainTab === "listening" && styles.mainTabActive,
               ]}
-              onPress={() => setMainTab("listening")}
+              onPress={() => {
+                setMainTab("listening");
+                loopIdRef.current = null;
+                setLoopingSentenceId(null);
+              }}
             >
               <Text
                 style={[
@@ -776,7 +780,11 @@ export default function StudyScreen() {
                 styles.mainTab,
                 mainTab === "shadowing" && styles.mainTabActive,
               ]}
-              onPress={() => setMainTab("shadowing")}
+              onPress={() => {
+                setMainTab("shadowing");
+                loopIdRef.current = null;
+                setLoopingSentenceId(null);
+              }}
             >
               <Text
                 style={[
@@ -905,7 +913,14 @@ export default function StudyScreen() {
                   <TransformationCarousel
                     sessionId={sessionId}
                     sentences={studySentences}
-                    onPlaySentence={handleSentenceTap}
+                    onPlaySentence={(sentence) => {
+                      handleSentenceTap(sentence);
+                      // Auto-loop the tapped sentence segment
+                      if (sentence.endTime - sentence.startTime >= 0.5) {
+                        loopIdRef.current = sentence.id;
+                        setLoopingSentenceId(sentence.id);
+                      }
+                    }}
                   />
                 ) : null
               ) : !scriptVisible ? (
