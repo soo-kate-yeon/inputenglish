@@ -17,15 +17,24 @@ const RC_ANDROID_KEY = process.env.EXPO_PUBLIC_RC_ANDROID_KEY ?? "";
 
 // ---- SDK Lifecycle ----
 
+let rcReady: Promise<void> | null = null;
+
 export async function initRevenueCat(userId: string): Promise<void> {
-  try {
-    const apiKey = Platform.OS === "ios" ? RC_IOS_KEY : RC_ANDROID_KEY;
-    Purchases.configure({ apiKey });
-    await Purchases.logIn(userId);
-  } catch (err) {
-    // Never crash on RevenueCat init failure - log and continue
-    console.error("[RevenueCat] initRevenueCat failed:", err);
-  }
+  rcReady = (async () => {
+    try {
+      const apiKey = Platform.OS === "ios" ? RC_IOS_KEY : RC_ANDROID_KEY;
+      Purchases.configure({ apiKey });
+      await Purchases.logIn(userId);
+    } catch (err) {
+      // Never crash on RevenueCat init failure - log and continue
+      console.error("[RevenueCat] initRevenueCat failed:", err);
+    }
+  })();
+  return rcReady;
+}
+
+export function waitForRevenueCat(): Promise<void> {
+  return rcReady ?? Promise.resolve();
 }
 
 // ---- Customer Info ----

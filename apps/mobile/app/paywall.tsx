@@ -19,6 +19,7 @@ import { router } from "expo-router";
 import type { PurchasesPackage, CustomerInfo } from "react-native-purchases";
 import {
   getOfferings,
+  waitForRevenueCat,
   restorePurchases,
   getPlanFromCustomerInfo,
   syncPlanToSupabase,
@@ -99,7 +100,8 @@ export default function PaywallScreen() {
   const [offeringsError, setOfferingsError] = useState(false);
 
   useEffect(() => {
-    getOfferings()
+    waitForRevenueCat()
+      .then(() => getOfferings())
       .then((offerings) => {
         if (!offerings?.current) {
           setOfferingsError(true);
