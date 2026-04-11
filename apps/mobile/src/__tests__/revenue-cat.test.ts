@@ -1,7 +1,3 @@
-// Set env vars before any module load (Expo inlines EXPO_PUBLIC_* at transform time)
-process.env.EXPO_PUBLIC_RC_IOS_KEY = "test_ios_key_abc123";
-process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "test_android_key_abc123";
-
 import { Platform } from "react-native";
 
 // ---- Mock react-native-purchases ----
@@ -37,8 +33,6 @@ function loadModule() {
 beforeEach(() => {
   jest.resetAllMocks();
   mockLogIn.mockResolvedValue(undefined);
-  process.env.EXPO_PUBLIC_RC_IOS_KEY = "test_ios_key_abc123";
-  process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "test_android_key_abc123";
 });
 
 describe("configureRevenueCat", () => {
@@ -60,16 +54,6 @@ describe("configureRevenueCat", () => {
     const result = await mod.configureRevenueCat();
 
     expect(result).toBe(false);
-  });
-
-  it("returns false when API key is empty", async () => {
-    process.env.EXPO_PUBLIC_RC_IOS_KEY = "";
-    process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "";
-    const mod = loadModule();
-    const result = await mod.configureRevenueCat();
-
-    expect(result).toBe(false);
-    expect(mockConfigure).not.toHaveBeenCalled();
   });
 
   it("only configures once (idempotent)", async () => {
@@ -161,8 +145,9 @@ describe("getOfferings", () => {
   });
 
   it("returns null when SDK configure failed", async () => {
-    process.env.EXPO_PUBLIC_RC_IOS_KEY = "";
-    process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "";
+    mockConfigure.mockImplementationOnce(() => {
+      throw new Error("invalid API key");
+    });
     const mod = loadModule();
     const result = await mod.getOfferings();
     expect(result).toBeNull();

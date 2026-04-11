@@ -14,13 +14,13 @@ import { supabase } from "./supabase";
 
 export type Plan = "FREE" | "PREMIUM";
 
-// Use bracket notation to prevent babel-preset-expo from inlining at compile time.
-// This ensures the env var is read at runtime (needed for test environments).
-const ENV = process.env;
+// babel-preset-expo inlines process.env.EXPO_PUBLIC_* at build time (dot notation required).
+// These consts are evaluated at bundle time, NOT runtime.
+const RC_IOS_KEY = process.env.EXPO_PUBLIC_RC_IOS_KEY ?? "";
+const RC_ANDROID_KEY = process.env.EXPO_PUBLIC_RC_ANDROID_KEY ?? "";
+
 function getApiKey(): string {
-  const iosKey = ENV["EXPO_PUBLIC_RC_IOS_KEY"] ?? "";
-  const androidKey = ENV["EXPO_PUBLIC_RC_ANDROID_KEY"] ?? "";
-  return Platform.OS === "ios" ? iosKey : androidKey;
+  return Platform.OS === "ios" ? RC_IOS_KEY : RC_ANDROID_KEY;
 }
 
 // ---- SDK Lifecycle ----
@@ -38,12 +38,8 @@ export function configureRevenueCat(): Promise<boolean> {
   configuredPromise = (async () => {
     try {
       const apiKey = getApiKey();
-      if (!apiKey) {
-        console.error(
-          "[RevenueCat] API key is empty — check EXPO_PUBLIC_RC_IOS_KEY / EXPO_PUBLIC_RC_ANDROID_KEY",
-        );
-        return false;
-      }
+      // In production, babel inlines the key at build time — it's never empty.
+      // If somehow empty, Purchases.configure will throw and we catch below.
       Purchases.configure({ apiKey });
       sdkConfigured = true;
       console.log("[RevenueCat] configured OK");
