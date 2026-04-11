@@ -135,6 +135,28 @@ export function TransformationCarousel({
     };
   }, [sessionId]);
 
+  const exercises = useMemo(
+    () =>
+      [...(set?.exercises ?? [])].sort((a, b) => a.page_order - b.page_order),
+    [set?.exercises],
+  );
+
+  // Build pages: [IntroPage, ExpressionPage?, ...exercises]
+  const pages = useMemo(
+    () => [
+      { key: "intro", type: "intro" as const },
+      ...(hasExpression
+        ? [{ key: "expression", type: "expression" as const }]
+        : []),
+      ...exercises.map((ex) => ({
+        key: ex.id,
+        type: "exercise" as const,
+        exercise: ex,
+      })),
+    ],
+    [exercises, hasExpression],
+  );
+
   // After set loads, skip intro if MMKV flag is set
   useEffect(() => {
     if (!set || isLoading || exercises.length === 0) return;
@@ -182,31 +204,9 @@ export function TransformationCarousel({
     setCurrentIndex(firstExerciseIndex);
   }, [firstExerciseIndex]);
 
-  const exercises = useMemo(
-    () =>
-      [...(set?.exercises ?? [])].sort((a, b) => a.page_order - b.page_order),
-    [set?.exercises],
-  );
-
   const handleRecordingStateChange = useCallback((recording: boolean) => {
     setIsRecording(recording);
   }, []);
-
-  // Build pages: [IntroPage, ExpressionPage?, ...exercises]
-  const pages = useMemo(
-    () => [
-      { key: "intro", type: "intro" as const },
-      ...(hasExpression
-        ? [{ key: "expression", type: "expression" as const }]
-        : []),
-      ...exercises.map((ex) => ({
-        key: ex.id,
-        type: "exercise" as const,
-        exercise: ex,
-      })),
-    ],
-    [exercises, hasExpression],
-  );
 
   const handleConfirm = useCallback(
     async (
