@@ -1,5 +1,7 @@
 // @MX:NOTE: [AUTO] RevenueCat SDK wrapper for in-app purchase management.
 // Handles SDK initialization, offerings, purchases, restores, and plan syncing to Supabase.
+// @MX:WARN: configure() must be called at app startup BEFORE any other SDK call.
+// logIn() is separate and not required for getOfferings().
 // @MX:SPEC: SPEC-MOBILE-006
 
 import { Platform } from "react-native";
@@ -12,29 +14,78 @@ import { supabase } from "./supabase";
 
 export type Plan = "FREE" | "PREMIUM";
 
-const RC_IOS_KEY = process.env.EXPO_PUBLIC_RC_IOS_KEY ?? "";
-const RC_ANDROID_KEY = process.env.EXPO_PUBLIC_RC_ANDROID_KEY ?? "";
+// Use bracket notation to prevent babel-preset-expo from inlining at compile time.
+// This ensures the env var is read at runtime (needed for test environments).
+const ENV = process.env;
+function getApiKey(): string {
+  const iosKey = ENV["EXPO_PUBLIC_RC_IOS_KEY"] ?? "";
+  const androidKey = ENV["EXPO_PUBLIC_RC_ANDROID_KEY"] ?? "";
+  return Platform.OS === "ios" ? iosKey : androidKey;
+}
 
 // ---- SDK Lifecycle ----
 
-let rcReady: Promise<void> | null = null;
+let configuredPromise: Promise<boolean> | null = null;
+let sdkConfigured = false;
 
-export async function initRevenueCat(userId: string): Promise<void> {
-  rcReady = (async () => {
+/**
+ * Configure RevenueCat SDK. Call at app startup (no user needed).
+ * getOfferings() only requires configure, not logIn.
+ */
+export function configureRevenueCat(): Promise<boolean> {
+  if (configuredPromise) return configuredPromise;
+
+  configuredPromise = (async () => {
     try {
-      const apiKey = Platform.OS === "ios" ? RC_IOS_KEY : RC_ANDROID_KEY;
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        console.error(
+          "[RevenueCat] API key is empty — check EXPO_PUBLIC_RC_IOS_KEY / EXPO_PUBLIC_RC_ANDROID_KEY",
+        );
+        return false;
+      }
       Purchases.configure({ apiKey });
-      await Purchases.logIn(userId);
+      sdkConfigured = true;
+      console.log("[RevenueCat] configured OK");
+      return true;
     } catch (err) {
-      // Never crash on RevenueCat init failure - log and continue
-      console.error("[RevenueCat] initRevenueCat failed:", err);
+      console.error("[RevenueCat] configure failed:", err);
+      return false;
     }
   })();
-  return rcReady;
+
+  return configuredPromise;
 }
 
-export function waitForRevenueCat(): Promise<void> {
-  return rcReady ?? Promise.resolve();
+/**
+ * Log in a user to RevenueCat. Call after auth is confirmed.
+ * Requires configureRevenueCat() to have been called first.
+ */
+export async function logInRevenueCat(userId: string): Promise<void> {
+  try {
+    await configureRevenueCat();
+    if (!sdkConfigured) return;
+    await Purchases.logIn(userId);
+    console.log("[RevenueCat] logIn OK, userId:", userId);
+  } catch (err) {
+    console.error("[RevenueCat] logIn failed:", err);
+  }
+}
+
+/**
+ * Wait for SDK configure to complete. Returns true if configured successfully.
+ */
+export async function waitForRevenueCat(): Promise<boolean> {
+  if (!configuredPromise) {
+    return configureRevenueCat();
+  }
+  return configuredPromise;
+}
+
+/** @deprecated Use configureRevenueCat() + logInRevenueCat() instead */
+export async function initRevenueCat(userId: string): Promise<void> {
+  await configureRevenueCat();
+  await logInRevenueCat(userId);
 }
 
 // ---- Customer Info ----
@@ -45,14 +96,59 @@ export async function getCustomerInfo(): Promise<CustomerInfo> {
 
 // ---- Offerings ----
 
-export async function getOfferings(): Promise<PurchasesOfferings | null> {
-  try {
-    const offerings = await Purchases.getOfferings();
-    return offerings;
-  } catch (err) {
-    console.error("[RevenueCat] getOfferings failed:", err);
+/**
+ * Fetch offerings with retry + exponential backoff.
+ * Retries up to `maxRetries` times with delays of 1s, 2s, 4s.
+ * This handles sandbox/review environment latency gracefully.
+ */
+export async function getOfferings(
+  maxRetries = 3,
+): Promise<PurchasesOfferings | null> {
+  const configured = await waitForRevenueCat();
+  if (!configured) {
+    console.error("[RevenueCat] getOfferings aborted — SDK not configured");
     return null;
   }
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const offerings = await Purchases.getOfferings();
+      if (
+        offerings?.current &&
+        offerings.current.availablePackages.length > 0
+      ) {
+        console.log(
+          "[RevenueCat] offerings.current:",
+          offerings.current.identifier,
+        );
+        console.log(
+          "[RevenueCat] packages:",
+          offerings.current.availablePackages.map((p) => p.product.identifier),
+        );
+        return offerings;
+      }
+      // Offerings returned but empty — retry (sandbox delay)
+      console.warn(
+        `[RevenueCat] getOfferings attempt ${attempt + 1}: empty offerings, retrying...`,
+      );
+    } catch (err) {
+      lastError = err;
+      console.warn(
+        `[RevenueCat] getOfferings attempt ${attempt + 1} failed:`,
+        err,
+      );
+    }
+    // Exponential backoff: 1s, 2s, 4s
+    if (attempt < maxRetries - 1) {
+      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+    }
+  }
+  console.error(
+    "[RevenueCat] getOfferings failed after retries:",
+    lastError ?? "empty offerings",
+  );
+  return null;
 }
 
 // ---- Purchase ----

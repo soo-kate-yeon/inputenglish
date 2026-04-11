@@ -1,3 +1,7 @@
+// Set env vars before any module load (Expo inlines EXPO_PUBLIC_* at transform time)
+process.env.EXPO_PUBLIC_RC_IOS_KEY = "test_ios_key_abc123";
+process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "test_android_key_abc123";
+
 import { Platform } from "react-native";
 
 // ---- Mock react-native-purchases ----
@@ -24,18 +28,87 @@ jest.mock("../lib/supabase", () => ({
   supabase: { auth: { getSession: jest.fn() }, from: jest.fn() },
 }));
 
-// Re-import fresh module per test to reset `rcReady`
+// Re-import fresh module per test to reset module-level state
 function loadModule() {
   jest.resetModules();
   return require("../lib/revenue-cat") as typeof import("../lib/revenue-cat");
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  jest.resetAllMocks();
   mockLogIn.mockResolvedValue(undefined);
+  process.env.EXPO_PUBLIC_RC_IOS_KEY = "test_ios_key_abc123";
+  process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "test_android_key_abc123";
 });
 
-describe("initRevenueCat", () => {
+describe("configureRevenueCat", () => {
+  it("configures SDK and returns true", async () => {
+    const mod = loadModule();
+    const result = await mod.configureRevenueCat();
+
+    expect(result).toBe(true);
+    expect(mockConfigure).toHaveBeenCalledWith({
+      apiKey: expect.any(String),
+    });
+  });
+
+  it("returns false when configure throws", async () => {
+    mockConfigure.mockImplementationOnce(() => {
+      throw new Error("SDK error");
+    });
+    const mod = loadModule();
+    const result = await mod.configureRevenueCat();
+
+    expect(result).toBe(false);
+  });
+
+  it("returns false when API key is empty", async () => {
+    process.env.EXPO_PUBLIC_RC_IOS_KEY = "";
+    process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "";
+    const mod = loadModule();
+    const result = await mod.configureRevenueCat();
+
+    expect(result).toBe(false);
+    expect(mockConfigure).not.toHaveBeenCalled();
+  });
+
+  it("only configures once (idempotent)", async () => {
+    const mod = loadModule();
+    await mod.configureRevenueCat();
+    await mod.configureRevenueCat();
+
+    expect(mockConfigure).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("logInRevenueCat", () => {
+  it("calls logIn after configure", async () => {
+    const mod = loadModule();
+    await mod.logInRevenueCat("user-123");
+
+    expect(mockConfigure).toHaveBeenCalled();
+    expect(mockLogIn).toHaveBeenCalledWith("user-123");
+  });
+
+  it("does not call logIn when configure fails", async () => {
+    mockConfigure.mockImplementationOnce(() => {
+      throw new Error("fail");
+    });
+    const mod = loadModule();
+    await mod.logInRevenueCat("user-123");
+
+    expect(mockLogIn).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when logIn fails", async () => {
+    mockLogIn.mockRejectedValueOnce(new Error("network error"));
+    const mod = loadModule();
+
+    await expect(mod.logInRevenueCat("user-123")).resolves.toBeUndefined();
+  });
+});
+
+describe("initRevenueCat (deprecated)", () => {
   it("configures SDK and logs in user", async () => {
     const mod = loadModule();
     await mod.initRevenueCat("user-123");
@@ -55,98 +128,86 @@ describe("initRevenueCat", () => {
 });
 
 describe("waitForRevenueCat", () => {
-  it("resolves immediately when init was never called", async () => {
+  it("configures and returns true when called without prior configure", async () => {
     const mod = loadModule();
-    await expect(mod.waitForRevenueCat()).resolves.toBeUndefined();
+    const result = await mod.waitForRevenueCat();
+    expect(result).toBe(true);
+    expect(mockConfigure).toHaveBeenCalled();
   });
 
-  it("waits for init to complete before resolving", async () => {
-    let resolveLogIn!: () => void;
-    mockLogIn.mockReturnValueOnce(
-      new Promise<void>((r) => {
-        resolveLogIn = r;
-      }),
-    );
-
+  it("returns cached result on repeated calls", async () => {
     const mod = loadModule();
-    const initPromise = mod.initRevenueCat("user-123");
+    await mod.configureRevenueCat();
+    const result = await mod.waitForRevenueCat();
 
-    let waitResolved = false;
-    const waitPromise = mod.waitForRevenueCat().then(() => {
-      waitResolved = true;
-    });
-
-    // waitForRevenueCat should not resolve while logIn is pending
-    await Promise.resolve();
-    expect(waitResolved).toBe(false);
-
-    // Finish init
-    resolveLogIn();
-    await initPromise;
-    await waitPromise;
-    expect(waitResolved).toBe(true);
-  });
-
-  it("resolves even when init fails", async () => {
-    mockLogIn.mockRejectedValueOnce(new Error("fail"));
-    const mod = loadModule();
-    await mod.initRevenueCat("user-123");
-
-    await expect(mod.waitForRevenueCat()).resolves.toBeUndefined();
+    expect(result).toBe(true);
+    expect(mockConfigure).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("getOfferings", () => {
   it("returns offerings on success", async () => {
-    const fakeOfferings = { current: { availablePackages: [] } };
-    mockGetOfferings.mockResolvedValueOnce(fakeOfferings);
-
-    const mod = loadModule();
-    const result = await mod.getOfferings();
-    expect(result).toEqual(fakeOfferings);
-  });
-
-  it("returns null on failure", async () => {
-    mockGetOfferings.mockRejectedValueOnce(new Error("fail"));
-
-    const mod = loadModule();
-    const result = await mod.getOfferings();
-    expect(result).toBeNull();
-  });
-});
-
-describe("race condition: waitForRevenueCat -> getOfferings", () => {
-  it("getOfferings succeeds when called after waitForRevenueCat", async () => {
-    let resolveLogIn!: () => void;
-    mockLogIn.mockReturnValueOnce(
-      new Promise<void>((r) => {
-        resolveLogIn = r;
-      }),
-    );
-
     const fakeOfferings = {
       current: {
+        identifier: "default",
         availablePackages: [{ product: { identifier: "premium_monthly" } }],
       },
     };
     mockGetOfferings.mockResolvedValueOnce(fakeOfferings);
 
     const mod = loadModule();
-    mod.initRevenueCat("user-123");
-
-    // Simulate paywall pattern: wait then fetch
-    const resultPromise = mod
-      .waitForRevenueCat()
-      .then(() => mod.getOfferings());
-
-    // Init still pending — getOfferings should not have been called yet
-    expect(mockGetOfferings).not.toHaveBeenCalled();
-
-    resolveLogIn();
-    const result = await resultPromise;
-
-    expect(mockGetOfferings).toHaveBeenCalledTimes(1);
+    const result = await mod.getOfferings();
     expect(result).toEqual(fakeOfferings);
+  });
+
+  it("returns null when SDK configure failed", async () => {
+    process.env.EXPO_PUBLIC_RC_IOS_KEY = "";
+    process.env.EXPO_PUBLIC_RC_ANDROID_KEY = "";
+    const mod = loadModule();
+    const result = await mod.getOfferings();
+    expect(result).toBeNull();
+    expect(mockGetOfferings).not.toHaveBeenCalled();
+  });
+
+  it("retries on empty offerings and returns null after max retries", async () => {
+    const emptyOfferings = {
+      current: { identifier: "default", availablePackages: [] },
+    };
+    mockGetOfferings
+      .mockResolvedValueOnce(emptyOfferings)
+      .mockResolvedValueOnce(emptyOfferings)
+      .mockResolvedValueOnce(emptyOfferings);
+
+    const mod = loadModule();
+    // Use maxRetries=1 to speed up test
+    const result = await mod.getOfferings(1);
+    expect(result).toBeNull();
+  });
+
+  it("retries on error and succeeds on subsequent attempt", async () => {
+    const fakeOfferings = {
+      current: {
+        identifier: "default",
+        availablePackages: [{ product: { identifier: "premium_monthly" } }],
+      },
+    };
+    mockGetOfferings
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce(fakeOfferings);
+
+    const mod = loadModule();
+    const result = await mod.getOfferings(2);
+    expect(result).toEqual(fakeOfferings);
+    expect(mockGetOfferings).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns null after all retries exhausted", async () => {
+    mockGetOfferings.mockRejectedValue(new Error("persistent failure"));
+
+    const mod = loadModule();
+    const result = await mod.getOfferings(2);
+    expect(result).toBeNull();
+    expect(mockGetOfferings).toHaveBeenCalledTimes(2);
   });
 });
 

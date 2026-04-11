@@ -5,7 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { initRevenueCat } from "@/lib/revenue-cat";
+import { configureRevenueCat, logInRevenueCat } from "@/lib/revenue-cat";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import "react-native-url-polyfill/auto";
 import * as Notifications from "expo-notifications";
@@ -63,10 +63,15 @@ function RootLayoutNav() {
     return () => sub.remove();
   }, []);
 
-  // Initialize RevenueCat when user is available
+  // Configure RevenueCat SDK at app startup (no user needed for offerings)
+  useEffect(() => {
+    void configureRevenueCat();
+  }, []);
+
+  // Log in to RevenueCat when user is available (for purchase tracking)
   useEffect(() => {
     if (user?.id) {
-      void initRevenueCat(user.id);
+      void logInRevenueCat(user.id);
     }
   }, [user?.id]);
 

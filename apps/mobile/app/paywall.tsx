@@ -19,7 +19,6 @@ import { router } from "expo-router";
 import type { PurchasesPackage, CustomerInfo } from "react-native-purchases";
 import {
   getOfferings,
-  waitForRevenueCat,
   restorePurchases,
   getPlanFromCustomerInfo,
   syncPlanToSupabase,
@@ -99,48 +98,55 @@ export default function PaywallScreen() {
 
   const [offeringsError, setOfferingsError] = useState(false);
 
-  useEffect(() => {
-    waitForRevenueCat()
-      .then(() => getOfferings())
-      .then((offerings) => {
-        if (!offerings?.current) {
-          setOfferingsError(true);
-          return;
-        }
-        const packages = offerings.current.availablePackages;
-        if (packages.length === 0) {
-          setOfferingsError(true);
-          return;
-        }
-        setOptions((prev) =>
-          prev.map((opt, i) => {
-            let matched: PurchasesPackage | null = null;
-            for (const pkg of packages) {
-              const id = pkg.product.identifier.toLowerCase();
-              if (i === 0 && (id.includes("monthly") || id.includes("month_1")))
-                matched = pkg;
-              if (
-                i === 1 &&
-                (id.includes("quarterly") ||
-                  id.includes("month_3") ||
-                  id.includes("three_month"))
-              )
-                matched = pkg;
-              if (
-                i === 2 &&
-                (id.includes("annual") ||
-                  id.includes("yearly") ||
-                  id.includes("year_1"))
-              )
-                matched = pkg;
-            }
-            return matched ? { ...opt, pkg: matched } : opt;
-          }),
-        );
-      })
-      .catch(() => setOfferingsError(true))
-      .finally(() => setLoading(false));
+  const fetchOfferings = useCallback(async () => {
+    setLoading(true);
+    setOfferingsError(false);
+    try {
+      // getOfferings() now handles waitForRevenueCat + retry internally
+      const offerings = await getOfferings();
+      if (
+        !offerings?.current ||
+        offerings.current.availablePackages.length === 0
+      ) {
+        setOfferingsError(true);
+        return;
+      }
+      const packages = offerings.current.availablePackages;
+      setOptions((prev) =>
+        prev.map((opt, i) => {
+          let matched: PurchasesPackage | null = null;
+          for (const pkg of packages) {
+            const id = pkg.product.identifier.toLowerCase();
+            if (i === 0 && (id.includes("monthly") || id.includes("month_1")))
+              matched = pkg;
+            if (
+              i === 1 &&
+              (id.includes("quarterly") ||
+                id.includes("month_3") ||
+                id.includes("three_month"))
+            )
+              matched = pkg;
+            if (
+              i === 2 &&
+              (id.includes("annual") ||
+                id.includes("yearly") ||
+                id.includes("year_1"))
+            )
+              matched = pkg;
+          }
+          return matched ? { ...opt, pkg: matched } : opt;
+        }),
+      );
+    } catch {
+      setOfferingsError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void fetchOfferings();
+  }, [fetchOfferings]);
 
   const handlePurchaseSuccess = useCallback(
     async (info: CustomerInfo) => {
@@ -237,10 +243,20 @@ export default function PaywallScreen() {
                 color={C.accent}
               />
             ) : offeringsError ? (
-              <Text style={styles.errorText}>
-                상품 정보를 불러올 수 없습니다. 네트워크 연결을 확인하고 다시
-                시도해 주세요.
-              </Text>
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>
+                  상품 정보를 불러올 수 없습니다. 네트워크 연결을 확인하고 다시
+                  시도해 주세요.
+                </Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={fetchOfferings}
+                  accessibilityRole="button"
+                  accessibilityLabel="다시 시도"
+                >
+                  <Text style={styles.retryButtonText}>다시 시도</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               options.map((opt, i) => {
                 const selected = selectedIndex === i;
@@ -603,12 +619,28 @@ const styles = StyleSheet.create({
   },
 
   // ── Error ────────────────────────────────────────────
+  errorContainer: {
+    alignItems: "center",
+    marginVertical: spacing.lg,
+    gap: spacing.md,
+  },
   errorText: {
     fontSize: font.size.sm,
     color: C.textMuted,
     textAlign: "center",
-    marginVertical: spacing.lg,
     lineHeight: font.size.sm * 1.5,
+  },
+  retryButton: {
+    borderWidth: 1,
+    borderColor: C.accent,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+  },
+  retryButtonText: {
+    fontSize: font.size.sm,
+    fontWeight: font.weight.semibold,
+    color: C.accent,
   },
 
   // ── Fixed CTA ───────────────────────────────────────

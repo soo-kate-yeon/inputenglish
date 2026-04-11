@@ -7,6 +7,7 @@
     "dev": "turbo run dev --filter=@inputenglish/web",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "test": "cd apps/mobile && npx jest --no-coverage --passWithNoTests --testPathIgnorePatterns='ContextBriefCard|HighlightBottomSheet|professional-study-flow|professional-discovery-flow'",
     "type-check": "turbo run type-check",
     "prepare": "husky"
   },

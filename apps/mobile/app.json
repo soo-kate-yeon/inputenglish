@@ -2,7 +2,7 @@
   "expo": {
     "name": "인풋영어",
     "slug": "inputenglish",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "scheme": "inputenglish",
     "userInterfaceStyle": "automatic",
@@ -31,7 +31,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.morak.inputenglish",
-      "versionCode": 1,
+      "versionCode": 2,
       "permissions": [
         "RECORD_AUDIO",
         "android.permission.RECORD_AUDIO",
@@ -56,7 +56,7 @@
     "experiments": {
       "typedRoutes": true
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.0.1",
     "extra": {
       "router": {
         "origin": false
