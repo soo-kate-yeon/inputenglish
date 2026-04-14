@@ -62,12 +62,11 @@ const mockSessionDetail = {
   sentence_ids: ["s2", "s3"],
   order_index: 0,
   source_type: "demo" as const,
-  speaking_function: "explain-metric" as const,
+  genre: "tech" as const,
   role_relevance: ["pm"] as const,
   premium_required: true,
   context: {
     strategic_intent: "수치 변화에 의미를 부여하는 문장 선택을 보여준다.",
-    speaking_function: "explain-metric" as const,
     reusable_scenarios: ["실적 공유", "프로젝트 리뷰"],
     key_vocabulary: ["momentum", "signal"],
     grammar_rhetoric_note: "관찰 기반 설명을 유지한다.",
@@ -125,6 +124,8 @@ jest.mock("expo-crypto", () => ({
 jest.mock("../../src/lib/api", () => ({
   fetchCuratedVideo: jest.fn().mockResolvedValue(mockVideo),
   fetchLearningSessionDetail: jest.fn().mockResolvedValue(mockSessionDetail),
+  fetchPlaybookEntries: jest.fn().mockResolvedValue([]),
+  deletePlaybookEntry: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("../../src/lib/stores", () => ({
@@ -215,9 +216,9 @@ describe("StudyScreen professional context flow", () => {
   it("shows context immediately and starts playback at the session offset", async () => {
     const { findByText, getByText, queryByText } = render(<StudyScreen />);
 
-    expect(await findByText("이 세션이 길러주는 말하기")).toBeTruthy();
+    expect(await findByText("학습 후 기대 효과")).toBeTruthy();
     expect(
-      await findByText("수치 변화에 의미를 부여하는 문장 선택을 보여준다."),
+      await findByText("핵심 지표를 차분하게 설명할 수 있다."),
     ).toBeTruthy();
     expect(
       queryByText("전체 브리프는 프리미엄에서 확인할 수 있어요"),
@@ -229,7 +230,6 @@ describe("StudyScreen professional context flow", () => {
       expect(mockTrackEvent).toHaveBeenCalledWith("context_open", {
         sessionId: "session-1",
         premiumRequired: true,
-        speakingFunction: "explain-metric",
       });
     });
 
@@ -248,7 +248,6 @@ describe("StudyScreen professional context flow", () => {
     expect(mockTrackEvent).toHaveBeenCalledWith("session_start", {
       sessionId: "session-1",
       sourceType: "demo",
-      speakingFunction: "explain-metric",
     });
     expect(mockRouterPush).not.toHaveBeenCalledWith("/paywall");
   });

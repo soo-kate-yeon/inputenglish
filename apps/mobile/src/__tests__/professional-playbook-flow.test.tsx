@@ -14,7 +14,6 @@ const mockPlaybookEntries = [
     source_video_id: "video-1",
     source_sentence:
       "Revenue momentum improved significantly after the launch.",
-    speaking_function: "explain-metric" as const,
     practice_mode: "slot-in" as const,
     user_rewrite:
       "Revenue momentum improved by 18% after the launch, which raised our baseline.",
@@ -28,7 +27,6 @@ const mockPlaybookEntries = [
     session_id: "session-2",
     source_video_id: "video-2",
     source_sentence: "The main takeaway is that the rollout is on schedule.",
-    speaking_function: "summarize" as const,
     practice_mode: "role-play" as const,
     user_rewrite:
       "The rollout is on schedule, and the team is ready for launch.",

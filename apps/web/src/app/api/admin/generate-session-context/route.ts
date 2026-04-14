@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
-  SESSION_SPEAKING_FUNCTIONS,
   type CommonMistake,
   type KeyVocabularyEntry,
   type Sentence,
   type SessionContext,
-  type SessionSpeakingFunction,
 } from "@inputenglish/shared";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -19,7 +17,6 @@ function capitalize(s: string): string {
 interface GenerateContextRequest {
   title: string;
   description?: string;
-  speakingFunction?: SessionSpeakingFunction;
   sentences: Sentence[];
   targetPattern?: string;
 }
@@ -27,8 +24,7 @@ interface GenerateContextRequest {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as GenerateContextRequest;
-    const { title, description, speakingFunction, sentences, targetPattern } =
-      body;
+    const { title, description, sentences, targetPattern } = body;
 
     if (!title || !Array.isArray(sentences) || sentences.length === 0) {
       return NextResponse.json(
@@ -66,12 +62,8 @@ export async function POST(request: NextRequest) {
 - "직장인", "오피스", "프로페셔널"
 - ~다 로 끝나는 문어체 종결 (→ ~이에요, ~거든요, ~해요 로 바꿀 것)
 
-허용된 speaking function:
-${SESSION_SPEAKING_FUNCTIONS.join(", ")}
-
 세션 제목: ${title}
 세션 설명: ${description ?? ""}
-speaking function 힌트: ${speakingFunction ?? ""}
 ${targetPattern ? `변형연습 타깃 패턴: "${targetPattern}"` : ""}
 
 트랜스크립트:
@@ -87,8 +79,6 @@ ${
 `
     : ""
 }각 필드 작성 가이드와 예시:
-
-speaking_function — 허용 enum 중 하나.
 
 reusable_scenarios — 이 표현/패턴을 실제로 쓸 수 있는 구체적 상황 2-3개. 짧은 한국어 구.
   회의실 밖의 일상 상황도 포함해서 생각할 것.
@@ -135,7 +125,6 @@ subtitle — 완성된 한국어 문장. 변형연습 타깃 패턴이 있으면
 
 Return ONLY valid JSON:
 {
-  "speaking_function": "one allowed enum",
   "reusable_scenarios": ["string", "string"],
   "key_vocabulary": [{"expression": "string", "example": "string", "translation": "string", "pronunciation_note": "string or omit"}, ...],
   "grammar_rhetoric_note": "string",
@@ -158,12 +147,6 @@ Return ONLY valid JSON:
     if (!parsed.expected_takeaway) {
       throw new Error("Invalid context response structure");
     }
-
-    const normalizedFunction = SESSION_SPEAKING_FUNCTIONS.includes(
-      parsed.speaking_function as SessionSpeakingFunction,
-    )
-      ? (parsed.speaking_function as SessionSpeakingFunction)
-      : (speakingFunction ?? "summarize");
 
     const reusableScenarios = Array.isArray(parsed.reusable_scenarios)
       ? parsed.reusable_scenarios
@@ -230,7 +213,6 @@ Return ONLY valid JSON:
 
     return NextResponse.json({
       context: {
-        speaking_function: normalizedFunction,
         reusable_scenarios: reusableScenarios,
         key_vocabulary: keyVocabulary,
         grammar_rhetoric_note: parsed.grammar_rhetoric_note?.trim() ?? "",

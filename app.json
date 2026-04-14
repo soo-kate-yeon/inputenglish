@@ -1,3 +1,12 @@
 {
-  "expo": {}
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "cd7e152f-cbd6-43d3-93b6-eb94a5af2701"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.sooyeonkate.inputenglishmonorepo"
+    }
+  }
 }

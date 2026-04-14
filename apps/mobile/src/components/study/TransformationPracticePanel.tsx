@@ -12,12 +12,8 @@ import type {
   PracticeMode,
   PracticePrompt,
   Sentence,
-  SessionSpeakingFunction,
 } from "@inputenglish/shared";
-import {
-  PRACTICE_MODE_LABELS,
-  SPEAKING_FUNCTION_LABELS,
-} from "../../lib/professional-labels";
+import { PRACTICE_MODE_LABELS } from "../../lib/professional-labels";
 import { colors, radius, font } from "../../theme";
 
 interface TransformationPracticePanelProps {
@@ -26,7 +22,6 @@ interface TransformationPracticePanelProps {
   selectedMode: PracticeMode;
   selectedSentenceId: string | null;
   draftText: string;
-  speakingFunction?: SessionSpeakingFunction;
   coachingSummary: PracticeCoachingSummary | null;
   coachingLoading: boolean;
   voiceCoachingLoading: boolean;
@@ -46,7 +41,6 @@ export default function TransformationPracticePanel({
   selectedMode,
   selectedSentenceId,
   draftText,
-  speakingFunction,
   coachingSummary,
   coachingLoading,
   voiceCoachingLoading,
@@ -73,13 +67,6 @@ export default function TransformationPracticePanel({
     >
       <View style={styles.header}>
         <Text style={styles.kicker}>변형 연습</Text>
-        {speakingFunction ? (
-          <View style={styles.functionBadge}>
-            <Text style={styles.functionBadgeText}>
-              {SPEAKING_FUNCTION_LABELS[speakingFunction]}
-            </Text>
-          </View>
-        ) : null}
       </View>
 
       <View style={styles.modeRow}>

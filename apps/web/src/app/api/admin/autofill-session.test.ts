@@ -25,7 +25,7 @@ describe("POST /api/admin/autofill-session", () => {
             description:
               '제품 데모 상황에서 핵심 지표를 설명하는 흐름을 연습해요. "momentum", "signal" 표현에 주목해보세요.',
             sourceType: "demo",
-            speakingFunction: "explain-metric",
+            genre: "tech",
             roleRelevance: ["pm", "engineer", "invalid-role"],
             premiumRequired: true,
           }),
@@ -47,7 +47,7 @@ describe("POST /api/admin/autofill-session", () => {
     expect(response.status).toBe(200);
     expect(payload.title).toContain("지표 설명");
     expect(payload.sourceType).toBe("demo");
-    expect(payload.speakingFunction).toBe("explain-metric");
+    expect(payload.genre).toBe("tech");
     expect(payload.roleRelevance).toEqual(["pm", "engineer"]);
     expect(payload.premiumRequired).toBe(true);
   });
@@ -60,7 +60,7 @@ describe("POST /api/admin/autofill-session", () => {
             title: "인터뷰로 배우는 답변하는 법",
             description: "질문에 답하는 흐름을 연습해요.",
             sourceType: "invalid-source",
-            speakingFunction: "invalid-function",
+            genre: "invalid-genre",
             roleRelevance: ["invalid-role"],
             premiumRequired: false,
           }),
@@ -81,7 +81,7 @@ describe("POST /api/admin/autofill-session", () => {
 
     expect(response.status).toBe(200);
     expect(payload.sourceType).toBe("podcast");
-    expect(payload.speakingFunction).toBe("summarize");
+    expect(payload.genre).toBeUndefined();
     expect(payload.roleRelevance).toEqual(["pm"]);
     expect(payload.premiumRequired).toBe(false);
   });

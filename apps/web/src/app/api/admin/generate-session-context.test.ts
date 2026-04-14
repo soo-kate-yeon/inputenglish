@@ -21,8 +21,6 @@ describe("POST /api/admin/generate-session-context", () => {
       response: {
         text: () =>
           JSON.stringify({
-            strategic_intent: " 수치를 해석해 의미를 부여한다. ",
-            speaking_function: "invalid-function",
             reusable_scenarios: [" 주간 지표 공유 ", "", "프로젝트 리뷰"],
             key_vocabulary: [" momentum ", "signal", ""],
             grammar_rhetoric_note: " 관찰 기반 표현을 유지한다. ",
@@ -38,7 +36,6 @@ describe("POST /api/admin/generate-session-context", () => {
         body: JSON.stringify({
           title: "데모로 배우는 지표 설명하는 법",
           description: "지표 설명을 연습해요.",
-          speakingFunction: "explain-metric",
           sentences: [{ id: "s1", text: "We saw strong momentum." }],
         }),
       }) as never,
@@ -47,16 +44,14 @@ describe("POST /api/admin/generate-session-context", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.strategic_intent).toBe("수치를 해석해 의미를 부여한다.");
-    expect(payload.speaking_function).toBe("explain-metric");
-    expect(payload.reusable_scenarios).toEqual([
+    expect(payload.context.reusable_scenarios).toEqual([
       "주간 지표 공유",
       "프로젝트 리뷰",
     ]);
-    expect(payload.key_vocabulary).toEqual(["momentum", "signal"]);
-    expect(payload.expected_takeaway).toBe(
+    expect(payload.context.key_vocabulary).toEqual(["momentum", "signal"]);
+    expect(payload.context.expected_takeaway).toBe(
       "숫자 변화의 의미를 차분하게 설명할 수 있다.",
     );
-    expect(payload.generated_by).toBe("gemini");
+    expect(payload.context.generated_by).toBe("gemini");
   });
 });

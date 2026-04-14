@@ -66,12 +66,11 @@ const mockSessionDetail = {
   duration: 24,
   order_index: 0,
   source_type: "demo" as const,
-  speaking_function: "explain-metric" as const,
+  genre: "tech" as const,
   role_relevance: ["pm"] as const,
   premium_required: false,
   context: {
     strategic_intent: "Explain why the metric changed and what it means next.",
-    speaking_function: "explain-metric" as const,
     reusable_scenarios: ["weekly business review", "stakeholder update"],
     key_vocabulary: ["momentum", "conversion"],
     grammar_rhetoric_note: "Stay observational before making a claim.",
@@ -150,6 +149,8 @@ jest.mock("../../src/lib/api", () => ({
   ensurePracticePrompts: jest.fn().mockResolvedValue(mockPrompts),
   savePracticeAttempt: (...args: unknown[]) => mockSavePracticeAttempt(...args),
   savePlaybookEntry: (...args: unknown[]) => mockSavePlaybookEntry(...args),
+  fetchPlaybookEntries: jest.fn().mockResolvedValue([]),
+  deletePlaybookEntry: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("../../src/lib/stores", () => ({

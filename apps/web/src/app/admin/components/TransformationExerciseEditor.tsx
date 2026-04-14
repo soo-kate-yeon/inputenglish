@@ -18,7 +18,6 @@ interface TransformationSet {
 interface TransformationExerciseEditorProps {
   sessionId: string;
   sentences: Sentence[];
-  speakingFunction?: string;
   isSaved?: boolean;
   onSaved?: (setId: string) => void;
   onPatternGenerated?: (pattern: string) => void;
@@ -301,7 +300,6 @@ function ExerciseAccordion({
 export function TransformationExerciseEditor({
   sessionId,
   sentences,
-  speakingFunction,
   isSaved = true,
   onSaved,
   onPatternGenerated,
@@ -359,7 +357,7 @@ export function TransformationExerciseEditor({
       const response = await fetch("/api/admin/generate-transformation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, sentences, speakingFunction }),
+        body: JSON.stringify({ sessionId, sentences }),
       });
 
       if (!response.ok) {

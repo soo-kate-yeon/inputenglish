@@ -7,9 +7,9 @@ import type {
   KeyVocabularyEntry,
   SessionRoleRelevance,
   SessionSourceType,
-  SessionSpeakingFunction,
+  Genre,
 } from "@inputenglish/shared";
-import { SESSION_SOURCE_TYPES } from "@inputenglish/shared";
+import { GENRES, SESSION_SOURCE_TYPES } from "@inputenglish/shared";
 import { Plus, Trash2, Clock, Edit2, Sparkles, RefreshCw } from "lucide-react";
 import { TransformationExerciseEditor } from "./TransformationExerciseEditor";
 import {
@@ -30,19 +30,16 @@ const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
   "public-speech": "공적 말하기",
 };
 
-const SPEAKING_FUNCTION_LABELS: Record<SessionSpeakingFunction, string> = {
-  persuade: "설득하기",
-  "explain-metric": "지표 설명",
-  summarize: "핵심 요약",
-  hedge: "조심스럽게 말하기",
-  disagree: "부드럽게 반대하기",
-  propose: "제안하기",
-  "answer-question": "질문 답변",
-  "buy-time": "생각할 시간 벌기",
-  clarify: "확인/되묻기",
-  recover: "말 실수 수습",
-  "build-rapport": "관계 형성/스몰토크",
-  redirect: "주제 전환",
+const GENRE_LABELS: Record<Genre, string> = {
+  politics: "정치",
+  fashion: "패션",
+  tech: "테크",
+  economy: "경제",
+  "current-affairs": "시사",
+  news: "뉴스",
+  beauty: "뷰티",
+  art: "예술",
+  business: "업무",
 };
 
 function createEmptyContext(): SessionContext {
@@ -139,8 +136,7 @@ export function SessionCreator({
   >("intermediate");
   const [editSourceType, setEditSourceType] =
     useState<SessionSourceType>("podcast");
-  const [editSpeakingFunction, setEditSpeakingFunction] =
-    useState<SessionSpeakingFunction>("summarize");
+  const [editGenre, setEditGenre] = useState<Genre | undefined>(undefined);
   const [editRoleRelevance, setEditRoleRelevance] = useState<
     SessionRoleRelevance[]
   >(["pm"]);
@@ -316,7 +312,7 @@ export function SessionCreator({
     setEditDescription(session.description || "");
     setEditDifficulty(session.difficulty || "intermediate");
     setEditSourceType(session.source_type || "podcast");
-    setEditSpeakingFunction(session.speaking_function || "summarize");
+    setEditGenre(session.genre ?? undefined);
     setEditRoleRelevance(session.role_relevance || ["pm"]);
     setEditPremiumRequired(session.premium_required ?? true);
     setEditContext(session.context ?? createEmptyContext());
@@ -337,13 +333,10 @@ export function SessionCreator({
               description: editDescription,
               difficulty: editDifficulty,
               source_type: editSourceType,
-              speaking_function: editSpeakingFunction,
+              genre: editGenre,
               role_relevance: editRoleRelevance,
               premium_required: editPremiumRequired,
-              context: {
-                ...editContext,
-                speaking_function: editSpeakingFunction,
-              },
+              context: editContext,
             }
           : s,
       ),
@@ -367,7 +360,6 @@ export function SessionCreator({
       difficulty: "intermediate",
       order_index: createdSessions.length,
       source_type: "podcast",
-      speaking_function: "summarize",
       role_relevance: ["pm"],
       premium_required: true,
       created_at: new Date().toISOString(),
@@ -412,7 +404,7 @@ export function SessionCreator({
       setEditSubtitle(data.subtitle || "");
       setEditDescription(data.description);
       setEditSourceType(data.sourceType || "podcast");
-      setEditSpeakingFunction(data.speakingFunction || "summarize");
+      setEditGenre(data.genre ?? undefined);
       setEditRoleRelevance(data.roleRelevance || ["pm"]);
       setEditPremiumRequired(Boolean(data.premiumRequired));
     } catch (error) {
@@ -439,7 +431,6 @@ export function SessionCreator({
         body: JSON.stringify({
           title: editTitle,
           description: editDescription,
-          speakingFunction: editSpeakingFunction,
           sentences: sessionSentences,
           targetPattern: editTransformationPattern ?? undefined,
         }),
@@ -455,9 +446,6 @@ export function SessionCreator({
         subtitle?: string;
       };
       setEditContext(data.context);
-      if (data.context.speaking_function) {
-        setEditSpeakingFunction(data.context.speaking_function);
-      }
       if (data.subtitle) {
         setEditSubtitle(data.subtitle);
       }
@@ -491,7 +479,6 @@ export function SessionCreator({
         difficulty: "intermediate" as const,
         order_index: orderIndex,
         source_type: "podcast" as const,
-        speaking_function: "summarize" as const,
         role_relevance: ["pm"] as SessionRoleRelevance[],
         premium_required: true,
         created_at: new Date().toISOString(),
@@ -512,7 +499,6 @@ export function SessionCreator({
       difficulty: "intermediate" as const,
       order_index: orderIndex,
       source_type: "podcast" as const,
-      speaking_function: "summarize" as const,
       role_relevance: ["pm"] as SessionRoleRelevance[],
       premium_required: true,
       created_at: new Date().toISOString(),
@@ -738,10 +724,8 @@ export function SessionCreator({
                       {session.source_type ? (
                         <span>{SOURCE_TYPE_LABELS[session.source_type]}</span>
                       ) : null}
-                      {session.speaking_function ? (
-                        <span>
-                          {SPEAKING_FUNCTION_LABELS[session.speaking_function]}
-                        </span>
+                      {session.genre ? (
+                        <span>{GENRE_LABELS[session.genre]}</span>
                       ) : null}
                       {session.premium_required ? <span>Premium</span> : null}
                       {session.context ? <span>Context</span> : null}
@@ -961,7 +945,7 @@ export function SessionCreator({
                     backgroundColor: "#ffffff",
                   }}
                 />
-                <div className="grid grid-cols-2" style={{ gap: 12 }}>
+                <div className="grid grid-cols-3" style={{ gap: 12 }}>
                   <label className="flex flex-col" style={{ gap: 4 }}>
                     <span className="text-xs" style={{ color: "#737373" }}>
                       콘텐츠 형식
@@ -1009,6 +993,34 @@ export function SessionCreator({
                       <option value="beginner">입문</option>
                       <option value="intermediate">중급</option>
                       <option value="advanced">고급</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col" style={{ gap: 4 }}>
+                    <span className="text-xs" style={{ color: "#737373" }}>
+                      장르
+                    </span>
+                    <select
+                      value={editGenre ?? ""}
+                      onChange={(e) =>
+                        setEditGenre(
+                          e.target.value
+                            ? (e.target.value as Genre)
+                            : undefined,
+                        )
+                      }
+                      className="text-sm focus:outline-none"
+                      style={{
+                        padding: "6px 8px",
+                        border: "1px solid #e5e5e5",
+                        color: "#525252",
+                      }}
+                    >
+                      <option value="">선택 안 함</option>
+                      {GENRES.map((genre) => (
+                        <option key={genre} value={genre}>
+                          {GENRE_LABELS[genre]}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 </div>
@@ -1210,7 +1222,6 @@ export function SessionCreator({
                 sentences={sentences.filter((s) =>
                   editingSession.sentence_ids.includes(s.id),
                 )}
-                speakingFunction={editSpeakingFunction}
                 isSaved={persistedSessionIds.has(editingSession.id)}
                 onSaved={() => setEditTab("context")}
                 onPatternGenerated={setEditTransformationPattern}

@@ -44,7 +44,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 interface TransformationCarouselProps {
   sessionId: string;
   sentences?: Sentence[];
+  savedSentenceIds?: Set<string>;
   onPlaySentence?: (sentence: Sentence) => void;
+  onSaveSentence?: (sentence: Sentence) => void;
 }
 
 function renderExercisePage(
@@ -93,7 +95,9 @@ function renderExercisePage(
 export function TransformationCarousel({
   sessionId,
   sentences: allSentences = [],
+  savedSentenceIds,
   onPlaySentence,
+  onSaveSentence,
 }: TransformationCarouselProps) {
   const [set, setSet] = useState<TransformationSet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -313,7 +317,9 @@ export function TransformationCarousel({
               <View style={styles.page}>
                 <ExpressionPage
                   sentences={sourceSentences}
+                  savedSentenceIds={savedSentenceIds}
                   onPlay={onPlaySentence ?? (() => {})}
+                  onSave={onSaveSentence}
                   onNext={handleExpressionNext}
                 />
               </View>

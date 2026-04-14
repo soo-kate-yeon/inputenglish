@@ -1,9 +1,9 @@
 import type {
+  Genre,
   PlaybookMasteryStatus,
   PracticeMode,
   SessionRoleRelevance,
   SessionSourceType,
-  SessionSpeakingFunction,
 } from "@inputenglish/shared";
 
 export const DIFFICULTY_LABELS: Record<string, string> = {
@@ -22,21 +22,17 @@ export const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
   "public-speech": "공적 말하기",
 };
 
-export const SPEAKING_FUNCTION_LABELS: Record<SessionSpeakingFunction, string> =
-  {
-    persuade: "설득하기",
-    "explain-metric": "지표 설명",
-    summarize: "핵심 요약",
-    hedge: "조심스럽게 말하기",
-    disagree: "부드럽게 반대하기",
-    propose: "제안하기",
-    "answer-question": "질문 답변",
-    "buy-time": "시간 벌기",
-    clarify: "확인/되묻기",
-    recover: "말 실수 수습",
-    "build-rapport": "관계 형성",
-    redirect: "주제 전환",
-  };
+export const GENRE_LABELS: Record<Genre, string> = {
+  politics: "정치",
+  fashion: "패션",
+  tech: "테크",
+  economy: "경제",
+  "current-affairs": "시사",
+  news: "뉴스",
+  beauty: "뷰티",
+  art: "예술",
+  business: "업무",
+};
 
 export const ROLE_RELEVANCE_LABELS: Record<SessionRoleRelevance, string> = {
   engineer: "엔지니어",
@@ -50,6 +46,7 @@ export const PRACTICE_MODE_LABELS: Record<PracticeMode, string> = {
   "slot-in": "패턴 끼워 넣기",
   "role-play": "상황 응답",
   "my-briefing": "내 브리핑 만들기",
+  bookmark: "북마크",
 };
 
 export const PLAYBOOK_MASTERY_LABELS: Record<PlaybookMasteryStatus, string> = {
@@ -62,4 +59,5 @@ export const PRACTICE_MODE_BADGE_LABELS: Record<PracticeMode, string> = {
   "slot-in": "패턴",
   "role-play": "응답",
   "my-briefing": "브리핑",
+  bookmark: "북마크",
 };

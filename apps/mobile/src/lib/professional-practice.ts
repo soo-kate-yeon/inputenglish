@@ -5,18 +5,13 @@ import type {
   PracticePrompt,
   SessionContext,
   SessionRoleRelevance,
-  SessionSpeakingFunction,
 } from "@inputenglish/shared";
-import {
-  PRACTICE_MODE_LABELS,
-  SPEAKING_FUNCTION_LABELS,
-} from "./professional-labels";
+import { PRACTICE_MODE_LABELS } from "./professional-labels";
 
 interface DefaultPracticePromptInput {
   sessionId: string;
   title: string;
   description?: string;
-  speakingFunction?: SessionSpeakingFunction;
   roleRelevance?: SessionRoleRelevance[];
   context?: SessionContext | null;
   userDisplayName?: string | null;
@@ -68,7 +63,7 @@ export function buildDefaultPracticePrompts(
       session_id: input.sessionId,
       mode: "slot-in",
       title: "패턴 끼워 넣기",
-      prompt_text: `문장 골격은 유지하고 업무 정보만 바꿔 써보세요. ${input.speakingFunction ?? "명확한 설명"}에 집중하면서 원문의 리듬은 살립니다.`,
+      prompt_text: `문장 골격은 유지하고 업무 정보만 바꿔 써보세요. 명확한 설명에 집중하면서 원문의 리듬은 살립니다.`,
       guidance: [
         "문장 골조는 남기고 업무 맥락의 명사와 숫자만 바꿔보세요.",
         "톤을 완전히 바꾸기보다 원문의 전달감을 최대한 유지하세요.",
@@ -123,7 +118,6 @@ export function generateRewriteCoaching(params: {
   sourceSentence: string;
   rewrite: string;
   mode: PracticeMode;
-  speakingFunction?: SessionSpeakingFunction;
 }): PracticeCoachingSummary {
   const sourceWords = tokenize(params.sourceSentence);
   const rewriteWords = tokenize(params.rewrite);
@@ -142,7 +136,7 @@ export function generateRewriteCoaching(params: {
       : "의도는 맞지만 원문 패턴과의 연결이 약합니다. 표현 골조를 조금 더 남겨두는 편이 좋습니다.";
 
   return {
-    summary: `${PRACTICE_MODE_LABELS[params.mode]}으로 ${params.speakingFunction ? SPEAKING_FUNCTION_LABELS[params.speakingFunction] : "업무 말하기"} 패턴을 자기 문장으로 옮기고 있습니다.`,
+    summary: `${PRACTICE_MODE_LABELS[params.mode]}으로 업무 말하기 패턴을 자기 문장으로 옮기고 있습니다.`,
     clarity_feedback: clarityFeedback,
     usefulness_feedback: usefulnessFeedback,
     next_step:

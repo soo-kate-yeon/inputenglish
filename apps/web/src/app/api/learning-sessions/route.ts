@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
                 context:session_contexts (
                     session_id,
                     strategic_intent,
-                    speaking_function,
                     reusable_scenarios,
                     key_vocabulary,
                     grammar_rhetoric_note,

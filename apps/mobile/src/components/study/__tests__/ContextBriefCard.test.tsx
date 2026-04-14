@@ -9,7 +9,6 @@ describe("ContextBriefCard", () => {
         context={{
           strategic_intent:
             "이 발화는 수치를 자신감 있게 설명하는 톤을 보여준다.",
-          speaking_function: "explain-metric",
           reusable_scenarios: [
             "주간 지표 업데이트를 설명할 때",
             "성과 리뷰에서 수치 변화를 요약할 때",
@@ -23,7 +22,7 @@ describe("ContextBriefCard", () => {
     );
 
     expect(
-      getByText("이 발화는 수치를 자신감 있게 설명하는 톤을 보여준다."),
+      getByText("사용자는 프로젝트 지표 변화를 더 설득력 있게 설명할 수 있다."),
     ).toBeTruthy();
     expect(getByText("inflection point")).toBeTruthy();
     expect(getByText("momentum")).toBeTruthy();
@@ -34,7 +33,6 @@ describe("ContextBriefCard", () => {
       <ContextBriefCard
         context={{
           strategic_intent: "테스트",
-          speaking_function: "explain-metric",
           reusable_scenarios: [],
           key_vocabulary: [
             {
@@ -67,7 +65,6 @@ describe("ContextBriefCard", () => {
       <ContextBriefCard
         context={{
           strategic_intent: "잠금 상태에서도 브리프 내용은 보인다.",
-          speaking_function: "summarize",
           reusable_scenarios: [],
           key_vocabulary: [],
           grammar_rhetoric_note: "",

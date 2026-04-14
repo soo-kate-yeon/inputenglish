@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
+  GENRES,
   SESSION_ROLE_RELEVANCE,
   SESSION_SOURCE_TYPES,
-  SESSION_SPEAKING_FUNCTIONS,
+  type Genre,
   type Sentence,
   type SessionRoleRelevance,
   type SessionSourceType,
-  type SessionSpeakingFunction,
 } from "@inputenglish/shared";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -18,7 +18,7 @@ interface AutofillResponse {
   subtitle: string;
   description: string;
   sourceType?: SessionSourceType;
-  speakingFunction?: SessionSpeakingFunction;
+  genre?: Genre;
   roleRelevance?: SessionRoleRelevance[];
   premiumRequired?: boolean;
 }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 - title: 영상 제목 기반으로 하되, 이 패턴이 나오는 맥락을 반영
 - subtitle: 반드시 '${targetPattern}' 표현을 포함한 완성 문장
 - description: 이 패턴이 왜 유용한지, 어디서 쓸 수 있는지 중심으로 작성
-- speakingFunction: 이 패턴의 말하기 행위에 맞춰 선택
+- genre: 이 패턴이 나오는 콘텐츠 분야에 맞춰 선택
 - AI Scene Generation 결과는 무시하고, 이 패턴과 트랜스크립트에서 직접 판단해라.
 `
       : "";
@@ -78,22 +78,19 @@ Voice & tone:
 
 Allowed enums:
 - sourceType: ${SESSION_SOURCE_TYPES.join(", ")}
-- speakingFunction: ${SESSION_SPEAKING_FUNCTIONS.join(", ")}
+- genre: ${GENRES.join(", ")}
 - roleRelevance: ${SESSION_ROLE_RELEVANCE.join(", ")}
 
-speakingFunction 판단 기준 — 화자가 이 클립에서 실제로 하는 말하기 행위가 뭔지 보고 골라라:
-- persuade: 상대를 설득하거나 동의를 구하는 말하기
-- explain-metric: 숫자나 데이터를 설명하는 말하기
-- summarize: 핵심을 정리하거나 요약하는 말하기
-- hedge: 단정을 피하고 조심스럽게 표현하는 말하기
-- disagree: 반대 의견을 내거나 다른 시각을 제시하는 말하기
-- propose: 아이디어나 방안을 제안하는 말하기
-- answer-question: 질문에 답하거나 입장을 밝히는 말하기
-- buy-time: 즉답하지 않고 생각할 시간을 만드는 말하기 ("That's a great question, let me think...")
-- clarify: 상대 말을 확인하거나 되묻는 말하기 ("Just to make sure I'm on the same page...")
-- recover: 말 실수나 오해를 바로잡는 말하기 ("Sorry, let me rephrase that...")
-- build-rapport: 관계를 만들거나 가볍게 대화를 이어가는 말하기
-- redirect: 대화 흐름을 바꾸거나 원래 주제로 돌아오는 말하기
+genre 판단 기준 — 이 클립의 주제/분야가 뭔지 보고 골라라:
+- politics: 정치, 외교, 정부, 선거 관련
+- fashion: 패션, 스타일, 의류, 트렌드 관련
+- tech: 기술, AI, 소프트웨어, 하드웨어 관련
+- economy: 경제, 금융, 주식, 투자 관련
+- current-affairs: 시사, 사회 이슈, 뉴스 배경 관련
+- news: 뉴스, 보도, 언론 관련
+- beauty: 뷰티, 화장품, 스킨케어 관련
+- art: 예술, 문화, 창작, 디자인 관련
+- business: 비즈니스, 창업, 경영, 마케팅 관련
 
 ${videoTitleLine}
 ${targetPatternSection}
@@ -139,7 +136,7 @@ Return ONLY valid JSON:
   "subtitle": "string",
   "description": "string",
   "sourceType": "one of allowed enums",
-  "speakingFunction": "one of allowed enums",
+  "genre": "one of allowed enums",
   "roleRelevance": ["one or more allowed enums"],
   "premiumRequired": true
 }
@@ -175,11 +172,9 @@ Return ONLY valid JSON:
       ? (autofillData.sourceType as SessionSourceType)
       : "podcast";
 
-    autofillData.speakingFunction = SESSION_SPEAKING_FUNCTIONS.includes(
-      autofillData.speakingFunction as SessionSpeakingFunction,
-    )
-      ? (autofillData.speakingFunction as SessionSpeakingFunction)
-      : "summarize";
+    autofillData.genre = GENRES.includes(autofillData.genre as Genre)
+      ? (autofillData.genre as Genre)
+      : undefined;
 
     autofillData.roleRelevance = (autofillData.roleRelevance ?? []).filter(
       (role): role is SessionRoleRelevance =>

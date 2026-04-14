@@ -31,9 +31,11 @@ import type {
 } from "@inputenglish/shared";
 import { groupSentencesByMode } from "@inputenglish/shared";
 import {
+  deletePlaybookEntry,
   ensurePracticePrompts,
   fetchCuratedVideo,
   fetchLearningSessionDetail,
+  fetchPlaybookEntries,
   savePlaybookEntry,
   savePracticeAttempt,
   type SessionListItem,
@@ -57,6 +59,7 @@ import {
   generateVoiceCoachingSummary,
 } from "../../src/lib/professional-practice";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { recordSessionVisit } from "../../src/lib/recent-sessions";
 import { useSubscription } from "../../src/hooks/useSubscription";
 import { colors, radius, font } from "../../src/theme";
 
@@ -138,6 +141,14 @@ export default function StudyScreen() {
     Record<string, string>
   >({});
 
+  // Transformation bookmark state
+  // Maps sentence text → playbook entry ID for toggle/delete
+  const [bookmarkedEntryMap, setBookmarkedEntryMap] = useState<
+    Map<string, string>
+  >(new Map());
+  const bookmarkedEntryMapRef = useRef(bookmarkedEntryMap);
+  bookmarkedEntryMapRef.current = bookmarkedEntryMap;
+
   // Highlight state
   const [highlightSentence, setHighlightSentence] = useState<Sentence | null>(
     null,
@@ -204,10 +215,27 @@ export default function StudyScreen() {
         if (!sessions.find((s) => s.videoId === videoId && !s.isCompleted)) {
           createSession(videoId, v.title, initialSentences);
         }
+        if (sessionId) recordSessionVisit(sessionId, videoId);
       })
       .catch((e: Error) => setError(e.message ?? "Failed to load video"))
       .finally(() => setLoading(false));
   }, [videoId, sessionId]);
+
+  // Load existing bookmark playbook entries for this session
+  useEffect(() => {
+    if (!user?.id || !sessionId) return;
+    fetchPlaybookEntries(user.id)
+      .then((entries) => {
+        const map = new Map<string, string>();
+        for (const e of entries) {
+          if (e.session_id === sessionId && e.practice_mode === "bookmark") {
+            map.set(e.source_sentence, e.id);
+          }
+        }
+        setBookmarkedEntryMap(map);
+      })
+      .catch(() => {});
+  }, [user?.id, sessionId]);
 
   useEffect(() => {
     if (!sessionDetail) return;
@@ -220,7 +248,6 @@ export default function StudyScreen() {
     trackEvent("context_open", {
       sessionId: sessionDetail.id,
       premiumRequired: sessionDetail.premium_required,
-      speakingFunction: sessionDetail.speaking_function,
     });
   }, [sessionDetail]);
 
@@ -441,6 +468,50 @@ export default function StudyScreen() {
     [videoId, savedSentences, addSavedSentence, removeSavedSentence],
   );
 
+  const handleBookmarkToggle = useCallback(
+    (sentence: Sentence) => {
+      if (!user?.id || !sessionId || !videoId) return;
+      const existingEntryId = bookmarkedEntryMapRef.current.get(sentence.text);
+      if (existingEntryId) {
+        // Remove bookmark
+        setBookmarkedEntryMap((prev) => {
+          const next = new Map(prev);
+          next.delete(sentence.text);
+          return next;
+        });
+        deletePlaybookEntry(user.id, existingEntryId).catch(() => {});
+      } else {
+        // Optimistic update: show bookmark immediately
+        const tempId = `temp-${Date.now()}`;
+        setBookmarkedEntryMap((prev) =>
+          new Map(prev).set(sentence.text, tempId),
+        );
+        // Persist to server
+        savePlaybookEntry(user.id, {
+          sessionId,
+          sourceVideoId: videoId,
+          sourceSentence: sentence.text,
+          practiceMode: "bookmark",
+          userRewrite: "",
+        })
+          .then((entry) => {
+            setBookmarkedEntryMap((prev) =>
+              new Map(prev).set(sentence.text, entry.id),
+            );
+          })
+          .catch(() => {
+            // Rollback on failure
+            setBookmarkedEntryMap((prev) => {
+              const next = new Map(prev);
+              next.delete(sentence.text);
+              return next;
+            });
+          });
+      }
+    },
+    [user?.id, sessionId, videoId, sessionDetail],
+  );
+
   // ── Highlight handlers ──
 
   const addHighlight = appStore((state) => state.addHighlight);
@@ -570,7 +641,6 @@ export default function StudyScreen() {
       sourceSentence: sourceSentence.text,
       rewrite: practiceDraft,
       mode: practiceMode,
-      speakingFunction: sessionDetail.speaking_function,
     });
 
     setCoachingLoading(true);
@@ -583,7 +653,6 @@ export default function StudyScreen() {
           sessionId: sessionDetail.id,
           sourceVideoId: sessionDetail.source_video_id,
           sourceSentence: sourceSentence.text,
-          speakingFunction: sessionDetail.speaking_function,
           mode: practiceMode,
           responseText: practiceDraft,
           coachingSummary: summary,
@@ -638,7 +707,6 @@ export default function StudyScreen() {
           sessionId: sessionDetail.id,
           sourceVideoId: sessionDetail.source_video_id,
           sourceSentence: sourceSentence.text,
-          speakingFunction: sessionDetail.speaking_function,
           mode: practiceMode,
           responseText: practiceDraft,
           recordingUrl,
@@ -677,7 +745,6 @@ export default function StudyScreen() {
         sourceSentence: sourceSentence.text,
         rewrite: practiceDraft,
         mode: practiceMode,
-        speakingFunction: sessionDetail.speaking_function,
       });
 
     try {
@@ -685,7 +752,6 @@ export default function StudyScreen() {
         sessionId: sessionDetail.id,
         sourceVideoId: sessionDetail.source_video_id,
         sourceSentence: sourceSentence.text,
-        speakingFunction: sessionDetail.speaking_function,
         practiceMode,
         userRewrite: practiceDraft,
         attemptMetadata: {
@@ -841,13 +907,6 @@ export default function StudyScreen() {
                       {sessionDetail.channel_name}
                     </Text>
                   ) : null}
-                  {sessionDetail.speaking_function ? (
-                    <View style={styles.briefBadge}>
-                      <Text style={styles.briefBadgeText}>
-                        {sessionDetail.speaking_function}
-                      </Text>
-                    </View>
-                  ) : null}
                 </View>
               )}
 
@@ -863,7 +922,6 @@ export default function StudyScreen() {
                     trackEvent("session_start", {
                       sessionId: sessionDetail.id,
                       sourceType: sessionDetail.source_type,
-                      speakingFunction: sessionDetail.speaking_function,
                     });
                     setHasStarted(true);
                   }
@@ -913,6 +971,15 @@ export default function StudyScreen() {
                   <TransformationCarousel
                     sessionId={sessionId}
                     sentences={studySentences}
+                    savedSentenceIds={
+                      new Set(
+                        Array.from(bookmarkedEntryMap.keys()).flatMap((text) =>
+                          studySentences
+                            .filter((s) => s.text === text)
+                            .map((s) => s.id),
+                        ),
+                      )
+                    }
                     onPlaySentence={(sentence) => {
                       handleSentenceTap(sentence);
                       // Auto-loop the tapped sentence segment
@@ -921,6 +988,7 @@ export default function StudyScreen() {
                         setLoopingSentenceId(sentence.id);
                       }
                     }}
+                    onSaveSentence={handleBookmarkToggle}
                   />
                 ) : null
               ) : !scriptVisible ? (

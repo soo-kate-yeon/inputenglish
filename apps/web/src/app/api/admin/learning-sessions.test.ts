@@ -68,12 +68,11 @@ describe("POST /api/admin/learning-sessions", () => {
               difficulty: "intermediate",
               order_index: 0,
               source_type: "demo",
-              speaking_function: "explain-metric",
+              genre: "tech",
               role_relevance: ["pm", "engineer"],
               premium_required: true,
               context: {
                 strategic_intent: "수치를 해석해 의미를 부여한다.",
-                speaking_function: "explain-metric",
                 reusable_scenarios: ["주간 공유"],
                 key_vocabulary: ["momentum"],
                 grammar_rhetoric_note: "관찰 기반 설명",
@@ -94,7 +93,6 @@ describe("POST /api/admin/learning-sessions", () => {
     expect(contextUpsert).toHaveBeenCalledWith([
       expect.objectContaining({
         session_id: "11111111-1111-4111-8111-111111111111",
-        speaking_function: "explain-metric",
         reusable_scenarios: ["주간 공유"],
         key_vocabulary: ["momentum"],
       }),

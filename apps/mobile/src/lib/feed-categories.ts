@@ -23,16 +23,11 @@ export const FEED_CATEGORIES: FeedCategory[] = [
     title: "\uacf5\uc801 \ub9d0\ud558\uae30",
     filter: (s) => s.source_type === "public-speech",
   },
-  {
-    key: "persuade",
-    title: "\uc124\ub4dd\ud558\ub294 \ub9d0\ud558\uae30",
-    filter: (s) => s.speaking_function === "persuade",
-  },
 ];
 
 // --- Chip Filters (new home feed) ---
 
-export type ChipFilterType = "all" | "source_type" | "speaking_function";
+export type ChipFilterType = "all" | "source_type" | "genre";
 
 export interface FeedChip {
   key: string;
@@ -81,78 +76,60 @@ export const FEED_CHIPS: FeedChip[] = [
     type: "source_type",
     value: "earnings-call",
   },
-  // Speaking functions
+  // Genres
   {
-    key: "persuade",
-    label: "\uc124\ub4dd",
-    type: "speaking_function",
-    value: "persuade",
+    key: "politics",
+    label: "\uc815\uce58",
+    type: "genre",
+    value: "politics",
   },
   {
-    key: "explain-metric",
-    label: "\uc9c0\ud45c \uc124\uba85",
-    type: "speaking_function",
-    value: "explain-metric",
+    key: "fashion",
+    label: "\ud328\uc158",
+    type: "genre",
+    value: "fashion",
   },
   {
-    key: "summarize",
-    label: "\uc694\uc57d",
-    type: "speaking_function",
-    value: "summarize",
+    key: "tech",
+    label: "\ud14c\ud06c",
+    type: "genre",
+    value: "tech",
   },
   {
-    key: "propose",
-    label: "\uc81c\uc548",
-    type: "speaking_function",
-    value: "propose",
+    key: "economy",
+    label: "\uacbd\uc81c",
+    type: "genre",
+    value: "economy",
   },
   {
-    key: "disagree",
-    label: "\ubc18\ubc15",
-    type: "speaking_function",
-    value: "disagree",
+    key: "current-affairs",
+    label: "\uc2dc\uc0ac",
+    type: "genre",
+    value: "current-affairs",
   },
   {
-    key: "answer-question",
-    label: "\uc9c8\ubb38 \ub2f5\ubcc0",
-    type: "speaking_function",
-    value: "answer-question",
+    key: "news",
+    label: "\ub274\uc2a4",
+    type: "genre",
+    value: "news",
   },
   {
-    key: "hedge",
-    label: "\uc644\uace1 \ud45c\ud604",
-    type: "speaking_function",
-    value: "hedge",
+    key: "beauty",
+    label: "\ubdf0\ud2f0",
+    type: "genre",
+    value: "beauty",
   },
   {
-    key: "buy-time",
-    label: "\uc2dc\uac04 \ubc8c\uae30",
-    type: "speaking_function",
-    value: "buy-time",
+    key: "art",
+    label: "\uc608\uc220",
+    type: "genre",
+    value: "art",
   },
   {
-    key: "clarify",
-    label: "\uba85\ud655\ud788 \ud558\uae30",
-    type: "speaking_function",
-    value: "clarify",
-  },
-  {
-    key: "recover",
-    label: "\uc2e4\uc218 \ud68c\ubcf5",
-    type: "speaking_function",
-    value: "recover",
-  },
-  {
-    key: "build-rapport",
-    label: "\uad00\uacc4 \ud615\uc131",
-    type: "speaking_function",
-    value: "build-rapport",
-  },
-  {
-    key: "redirect",
-    label: "\ud654\uc81c \uc804\ud658",
-    type: "speaking_function",
-    value: "redirect",
+    key: "business",
+    label: "\uc5c5\ubb34",
+    type: "genre",
+    value: "business",
   },
 ];
 

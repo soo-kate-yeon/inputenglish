@@ -17,15 +17,15 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../src/contexts/AuthContext";
 import {
-  fetchContinueLearning,
   fetchLearningSessionsPaginated,
+  fetchSessionsByIds,
   FeedFilters,
   SessionListItem,
 } from "../../src/lib/api";
+import { getRecentSessionIds } from "../../src/lib/recent-sessions";
 import {
   DIFFICULTY_OPTIONS,
   DifficultyFilter,
@@ -62,8 +62,7 @@ function buildFilters(
   const chip = FEED_CHIPS.find((c) => c.key === activeChip);
   return {
     sourceType: chip?.type === "source_type" ? chip.value : undefined,
-    speakingFunction:
-      chip?.type === "speaking_function" ? chip.value : undefined,
+    genre: chip?.type === "genre" ? chip.value : undefined,
     difficulty: difficulty !== "all" ? difficulty : undefined,
   };
 }
@@ -332,18 +331,20 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const offsetRef = useRef(0);
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // -- Continue learning (load once) --
+  // -- Continue learning (from local MMKV history, refresh on tab focus) --
 
-  useEffect(() => {
-    if (user) {
-      fetchContinueLearning(user.id)
-        .then(setContinueSessions)
-        .catch(() => {});
-    }
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      const ids = getRecentSessionIds();
+      if (ids.length > 0) {
+        fetchSessionsByIds(ids.slice(0, 10))
+          .then(setContinueSessions)
+          .catch(() => {});
+      }
+    }, []),
+  );
 
   // -- Feed load --
 

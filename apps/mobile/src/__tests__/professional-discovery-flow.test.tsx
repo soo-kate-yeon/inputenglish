@@ -8,6 +8,24 @@ jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+// Mock MMKV (required by recent-sessions used in HomeScreen)
+jest.mock("react-native-mmkv", () => {
+  const store: Record<string, string> = {};
+  return {
+    MMKV: jest.fn().mockImplementation(() => ({
+      getString: (key: string) => store[key] ?? undefined,
+      set: (key: string, value: string) => {
+        store[key] = value;
+      },
+      delete: (key: string) => {
+        delete store[key];
+      },
+      contains: (key: string) => key in store,
+      getAllKeys: () => Object.keys(store),
+    })),
+  };
+});
+
 const mockRouterPush = jest.fn();
 
 const mockSessions = [
@@ -21,7 +39,7 @@ const mockSessions = [
     thumbnail_url: "",
     order_index: 0,
     source_type: "demo" as const,
-    speaking_function: "explain-metric" as const,
+    genre: "tech" as const,
     role_relevance: ["pm", "engineer"] as const,
     premium_required: true,
     channel_name: "OpenAI",
@@ -36,19 +54,33 @@ const mockSessions = [
     thumbnail_url: "",
     order_index: 1,
     source_type: "podcast" as const,
-    speaking_function: "summarize" as const,
+    genre: "business" as const,
     role_relevance: ["marketer"] as const,
     premium_required: false,
     channel_name: "Business Daily",
   },
 ];
 
-jest.mock("expo-router", () => ({
-  router: { push: (...args: unknown[]) => mockRouterPush(...args) },
-}));
+jest.mock("expo-router", () => {
+  const React = require("react");
+  return {
+    router: { push: (...args: unknown[]) => mockRouterPush(...args) },
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      React.useEffect(() => {
+        const cleanup = callback();
+        return cleanup;
+      }, [callback]);
+    },
+  };
+});
 
 jest.mock("../../src/lib/api", () => ({
   fetchLearningSessions: jest.fn().mockResolvedValue(mockSessions),
+  fetchLearningSessionsPaginated: jest.fn().mockResolvedValue({
+    sessions: mockSessions,
+    hasMore: false,
+  }),
+  fetchLearningSessionsByIds: jest.fn().mockResolvedValue([]),
 }));
 
 describe("HomeScreen professional discovery flow", () => {

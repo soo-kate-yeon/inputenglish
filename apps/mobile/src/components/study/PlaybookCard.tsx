@@ -6,13 +6,9 @@ import BottomSheet from "../common/BottomSheet";
 import type {
   PlaybookEntry,
   PlaybookMasteryStatus,
-  SessionSpeakingFunction,
 } from "@inputenglish/shared";
-import {
-  PLAYBOOK_MASTERY_LABELS,
-  SPEAKING_FUNCTION_LABELS,
-} from "../../lib/professional-labels";
-import { colors, radius, font } from "../../theme";
+import { PLAYBOOK_MASTERY_LABELS } from "../../lib/professional-labels";
+import { colors, palette, radius, font, spacing } from "../../theme";
 
 const MASTERY_OPTIONS: { key: PlaybookMasteryStatus; label: string }[] = [
   { key: "new", label: PLAYBOOK_MASTERY_LABELS.new },
@@ -32,12 +28,6 @@ export default function PlaybookCard({
   onSetMastery,
 }: PlaybookCardProps) {
   const [masteryOpen, setMasteryOpen] = useState(false);
-
-  const functionLabel = entry.speaking_function
-    ? SPEAKING_FUNCTION_LABELS[
-        entry.speaking_function as SessionSpeakingFunction
-      ]
-    : null;
 
   return (
     <View style={styles.card}>
@@ -66,17 +56,19 @@ export default function PlaybookCard({
         <Text style={styles.sourceText}>{entry.source_sentence}</Text>
       </View>
 
-      {/* User rewrite — the main content */}
-      <Text style={styles.rewriteText}>{entry.user_rewrite}</Text>
+      {/* User rewrite — the main content (hidden for bookmark-only entries) */}
+      {entry.practice_mode === "bookmark" ? (
+        <View style={styles.bookmarkBadge}>
+          <Ionicons name="bookmark" size={12} color={colors.textSecondary} />
+          <Text style={styles.bookmarkText}>북마크한 표현</Text>
+        </View>
+      ) : (
+        <Text style={styles.rewriteText}>{entry.user_rewrite}</Text>
+      )}
 
       {/* Footer: tags + mastery dropdown */}
       <View style={styles.footer}>
         <View style={styles.tagRow}>
-          {functionLabel ? (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>{functionLabel}</Text>
-            </View>
-          ) : null}
           <Text style={styles.timestamp}>
             {new Date(
               entry.updated_at ?? entry.created_at ?? Date.now(),
@@ -137,28 +129,31 @@ export default function PlaybookCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.bg,
-    padding: 16,
-    gap: 10,
+    backgroundColor: palette.white,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
 
-  // Session reference
+  // Session reference — matches archive videoTitleRow
   sessionRef: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 2,
+    gap: spacing.xs,
   },
   sessionRefText: {
-    fontSize: 10,
-    color: colors.textMuted,
-    fontWeight: font.weight.medium,
-    letterSpacing: 0.3,
+    fontSize: font.size.xs,
+    fontWeight: font.weight.semibold,
+    color: colors.textSecondary,
     flex: 1,
+    letterSpacing: 0.2,
   },
   sessionRefArrow: {
-    fontSize: 10,
+    fontSize: font.size.md,
     color: colors.textMuted,
+    lineHeight: font.size.md * 1.2,
   },
 
   // Content
@@ -171,15 +166,26 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.bold,
   },
   sourceText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.textSecondary,
+    fontSize: font.size.base,
+    lineHeight: font.size.base * 1.55,
+    color: colors.text,
+    fontWeight: font.weight.regular,
   },
   rewriteText: {
     fontSize: 15,
     lineHeight: 22,
     color: colors.text,
     fontWeight: font.weight.semibold,
+  },
+  bookmarkBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  bookmarkText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: font.weight.medium,
   },
 
   // Footer

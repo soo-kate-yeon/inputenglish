@@ -7,17 +7,22 @@ import {
   View,
 } from "react-native";
 import type { Sentence } from "@inputenglish/shared";
-import { colors, font, radius, spacing } from "../../../theme";
+import SaveToggle from "../../listening/SaveToggle";
+import { colors, font, palette, radius, spacing } from "../../../theme";
 
 interface ExpressionPageProps {
   sentences: Sentence[];
+  savedSentenceIds?: Set<string>;
   onPlay: (sentence: Sentence) => void;
+  onSave?: (sentence: Sentence) => void;
   onNext: () => void;
 }
 
 export function ExpressionPage({
   sentences,
+  savedSentenceIds,
   onPlay,
+  onSave,
   onNext,
 }: ExpressionPageProps) {
   const handlePlay = useCallback(
@@ -41,23 +46,28 @@ export function ExpressionPage({
           {"\n"}문장을 탭하면 원본 발음을 들을 수 있어요.
         </Text>
 
-        {/* Reuses ScriptLine active style: tap to play original audio */}
         {sentences.map((sentence) => (
-          <TouchableOpacity
-            key={sentence.id}
-            style={styles.scriptRow}
-            onPress={() => handlePlay(sentence)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.scriptContent}>
-              <Text style={styles.scriptText}>{sentence.text}</Text>
-              {sentence.translation ? (
-                <Text style={styles.scriptTranslation}>
-                  {sentence.translation}
-                </Text>
-              ) : null}
+          <View key={sentence.id} style={styles.cardShadow}>
+            <View style={styles.card}>
+              <TouchableOpacity
+                onPress={() => handlePlay(sentence)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.sentenceText}>{sentence.text}</Text>
+                {sentence.translation ? (
+                  <Text style={styles.translation}>{sentence.translation}</Text>
+                ) : null}
+              </TouchableOpacity>
+              {onSave && (
+                <View style={styles.cardActions}>
+                  <SaveToggle
+                    active={savedSentenceIds?.has(sentence.id) ?? false}
+                    onPress={() => onSave(sentence)}
+                  />
+                </View>
+              )}
             </View>
-          </TouchableOpacity>
+          </View>
         ))}
       </ScrollView>
 
@@ -103,27 +113,33 @@ const styles = StyleSheet.create({
     lineHeight: font.size.sm * 1.7,
     color: colors.textSecondary,
   },
-  // Mirrors ScriptLine active style
-  scriptRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+  cardShadow: {
+    borderRadius: radius.xl,
+    overflow: "hidden",
   },
-  scriptContent: {
-    flex: 1,
-    gap: 6,
+  card: {
+    backgroundColor: palette.white,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
-  scriptText: {
+  sentenceText: {
+    fontSize: font.size.base,
+    lineHeight: font.size.base * 1.55,
     color: colors.text,
-    fontWeight: font.weight.bold,
-    fontSize: font.size.lg,
-    lineHeight: 30,
+    fontWeight: font.weight.regular,
   },
-  scriptTranslation: {
+  translation: {
     fontSize: font.size.sm,
     color: colors.textSecondary,
     lineHeight: 20,
+    marginTop: spacing.xs,
+  },
+  cardActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
   footer: {
     paddingHorizontal: spacing.lg,

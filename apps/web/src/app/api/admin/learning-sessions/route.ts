@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         difficulty: s.difficulty,
         order_index: index,
         source_type: s.source_type,
-        speaking_function: s.speaking_function,
+        genre: s.genre ?? null,
         role_relevance: s.role_relevance ?? [],
         premium_required: s.premium_required ?? false,
         created_by: null,
@@ -99,8 +99,6 @@ export async function POST(request: NextRequest) {
         .map((session: LearningSession) => ({
           session_id: session.id,
           strategic_intent: session.context?.strategic_intent ?? "",
-          speaking_function:
-            session.context?.speaking_function ?? session.speaking_function,
           reusable_scenarios: session.context?.reusable_scenarios ?? [],
           key_vocabulary: session.context?.key_vocabulary ?? [],
           grammar_rhetoric_note: session.context?.grammar_rhetoric_note ?? "",

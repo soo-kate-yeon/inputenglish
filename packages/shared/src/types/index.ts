@@ -87,24 +87,19 @@ export const SESSION_SOURCE_TYPES = [
 
 export type SessionSourceType = (typeof SESSION_SOURCE_TYPES)[number];
 
-export const SESSION_SPEAKING_FUNCTIONS = [
-  "persuade",
-  "explain-metric",
-  "summarize",
-  "hedge",
-  "disagree",
-  "propose",
-  "answer-question",
-  // v2: 즉흥 대응 및 관계 형성 function
-  "buy-time",
-  "clarify",
-  "recover",
-  "build-rapport",
-  "redirect",
+export const GENRES = [
+  "politics",
+  "fashion",
+  "tech",
+  "economy",
+  "current-affairs",
+  "news",
+  "beauty",
+  "art",
+  "business",
 ] as const;
 
-export type SessionSpeakingFunction =
-  (typeof SESSION_SPEAKING_FUNCTIONS)[number];
+export type Genre = (typeof GENRES)[number];
 
 export const SESSION_ROLE_RELEVANCE = [
   "engineer",
@@ -116,7 +111,12 @@ export const SESSION_ROLE_RELEVANCE = [
 
 export type SessionRoleRelevance = (typeof SESSION_ROLE_RELEVANCE)[number];
 
-export const PRACTICE_MODES = ["slot-in", "role-play", "my-briefing"] as const;
+export const PRACTICE_MODES = [
+  "slot-in",
+  "role-play",
+  "my-briefing",
+  "bookmark",
+] as const;
 
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
@@ -145,7 +145,6 @@ export interface SessionContext {
   session_id?: string;
   /** @deprecated Use expected_takeaway instead. Kept optional for backward compat with existing DB rows. */
   strategic_intent?: string;
-  speaking_function?: SessionSpeakingFunction;
   reusable_scenarios: string[];
   key_vocabulary: (string | KeyVocabularyEntry)[];
   grammar_rhetoric_note: string;
@@ -182,7 +181,6 @@ export interface PracticeAttempt {
   session_id: string;
   source_video_id: string;
   source_sentence: string;
-  speaking_function?: SessionSpeakingFunction;
   mode: PracticeMode;
   response_text?: string;
   recording_url?: string;
@@ -196,7 +194,6 @@ export interface PlaybookEntry {
   session_id: string;
   source_video_id: string;
   source_sentence: string;
-  speaking_function?: SessionSpeakingFunction;
   practice_mode: PracticeMode;
   user_rewrite: string;
   attempt_metadata?: Record<string, unknown>;
@@ -219,7 +216,7 @@ export interface LearningSession {
   difficulty?: "beginner" | "intermediate" | "advanced";
   order_index: number;
   source_type?: SessionSourceType;
-  speaking_function?: SessionSpeakingFunction;
+  genre?: Genre;
   role_relevance?: SessionRoleRelevance[];
   premium_required?: boolean;
   created_at: string;
