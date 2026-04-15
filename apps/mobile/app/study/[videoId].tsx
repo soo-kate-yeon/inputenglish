@@ -47,6 +47,7 @@ import YouTubePlayer, {
 } from "../../src/components/player/YouTubePlayer";
 import ScriptLine from "../../src/components/listening/ScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
+import ShadowingRecordButton from "../../src/components/shadowing/ShadowingRecordButton";
 import ContextBriefCard from "../../src/components/study/ContextBriefCard";
 import HighlightBottomSheet from "../../src/components/study/HighlightBottomSheet";
 import { TransformationCarousel } from "../../src/components/study/TransformationCarousel";
@@ -527,6 +528,17 @@ export default function StudyScreen() {
     });
   }, []);
 
+  const stopVideoPlayback = useCallback(() => {
+    if (seekDebounce.current) {
+      clearTimeout(seekDebounce.current);
+      seekDebounce.current = null;
+    }
+    seekLockRef.current = false;
+    loopIdRef.current = null;
+    setLoopingSentenceId(null);
+    setPlaying(false);
+  }, []);
+
   const handleSaveToggle = useCallback(
     (sentence: Sentence) => {
       if (!videoId) return;
@@ -739,9 +751,9 @@ export default function StudyScreen() {
       return;
     }
 
-    setPlaying(false);
+    stopVideoPlayback();
     setMainTab("transformation");
-  }, [plan]);
+  }, [plan, stopVideoPlayback]);
 
   const handlePracticeModeChange = useCallback((mode: PracticeMode) => {
     setPracticeMode(mode);
@@ -1119,6 +1131,10 @@ export default function StudyScreen() {
                   <TransformationCarousel
                     sessionId={sessionId}
                     sentences={studySentences}
+                    tipText={
+                      sessionDetail?.context?.grammar_rhetoric_note ?? null
+                    }
+                    onStartExercise={stopVideoPlayback}
                     savedSentenceIds={
                       new Set(
                         Array.from(bookmarkedEntryMap.keys()).flatMap((text) =>
@@ -1128,14 +1144,6 @@ export default function StudyScreen() {
                         ),
                       )
                     }
-                    onPlaySentence={(sentence) => {
-                      handleSentenceTap(sentence);
-                      // Auto-loop the tapped sentence segment
-                      if (sentence.endTime - sentence.startTime >= 0.5) {
-                        loopIdRef.current = sentence.id;
-                        setLoopingSentenceId(sentence.id);
-                      }
-                    }}
                     onSaveSentence={handleBookmarkToggle}
                   />
                 ) : null
@@ -1273,19 +1281,15 @@ export default function StudyScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.shadowingRecordBtn}
+                  <ShadowingRecordButton
+                    style={styles.shadowingRecordButtonWrap}
+                    disabled={!currentShadowingSentence}
                     onPress={() =>
                       currentShadowingSentence
                         ? handleRecord(currentShadowingSentence.id)
                         : undefined
                     }
-                    activeOpacity={0.85}
-                    disabled={!currentShadowingSentence}
-                  >
-                    <Ionicons name="mic" size={28} color={colors.textInverse} />
-                    <Text style={styles.shadowingRecordBtnText}>녹음 시작</Text>
-                  </TouchableOpacity>
+                  />
 
                   <TouchableOpacity
                     style={[
@@ -1685,21 +1689,8 @@ const styles = StyleSheet.create({
   shadowingNavBtnTextDisabled: {
     color: colors.textMuted,
   },
-  shadowingRecordBtn: {
+  shadowingRecordButtonWrap: {
     flex: 1,
-    minHeight: 56,
-    backgroundColor: colors.bgInverse,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  shadowingRecordBtnText: {
-    fontSize: 16,
-    color: colors.textInverse,
-    fontWeight: font.weight.bold,
-    letterSpacing: 0.2,
   },
   shadowingToolsRow: {
     flexDirection: "row",

@@ -44,9 +44,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 interface TransformationCarouselProps {
   sessionId: string;
   sentences?: Sentence[];
+  tipText?: string | null;
   savedSentenceIds?: Set<string>;
-  onPlaySentence?: (sentence: Sentence) => void;
   onSaveSentence?: (sentence: Sentence) => void;
+  onStartExercise?: () => void;
 }
 
 function renderExercisePage(
@@ -95,9 +96,10 @@ function renderExercisePage(
 export function TransformationCarousel({
   sessionId,
   sentences: allSentences = [],
+  tipText,
   savedSentenceIds,
-  onPlaySentence,
   onSaveSentence,
+  onStartExercise,
 }: TransformationCarouselProps) {
   const [set, setSet] = useState<TransformationSet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -201,12 +203,13 @@ export function TransformationCarousel({
   }, [hasExpression, firstExerciseIndex]);
 
   const handleExpressionNext = useCallback(() => {
+    onStartExercise?.();
     flatListRef.current?.scrollToIndex({
       index: firstExerciseIndex,
       animated: true,
     });
     setCurrentIndex(firstExerciseIndex);
-  }, [firstExerciseIndex]);
+  }, [firstExerciseIndex, onStartExercise]);
 
   const handleRecordingStateChange = useCallback((recording: boolean) => {
     setIsRecording(recording);
@@ -317,8 +320,8 @@ export function TransformationCarousel({
               <View style={styles.page}>
                 <ExpressionPage
                   sentences={sourceSentences}
+                  tipText={tipText}
                   savedSentenceIds={savedSentenceIds}
-                  onPlay={onPlaySentence ?? (() => {})}
                   onSave={onSaveSentence}
                   onNext={handleExpressionNext}
                 />

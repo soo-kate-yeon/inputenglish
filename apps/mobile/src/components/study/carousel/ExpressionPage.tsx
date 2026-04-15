@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -12,26 +12,19 @@ import { colors, font, palette, radius, spacing } from "../../../theme";
 
 interface ExpressionPageProps {
   sentences: Sentence[];
+  tipText?: string | null;
   savedSentenceIds?: Set<string>;
-  onPlay: (sentence: Sentence) => void;
   onSave?: (sentence: Sentence) => void;
   onNext: () => void;
 }
 
 export function ExpressionPage({
   sentences,
+  tipText,
   savedSentenceIds,
-  onPlay,
   onSave,
   onNext,
 }: ExpressionPageProps) {
-  const handlePlay = useCallback(
-    (sentence: Sentence) => {
-      onPlay(sentence);
-    },
-    [onPlay],
-  );
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -39,25 +32,28 @@ export function ExpressionPage({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.label}>EXPRESSION PREVIEW</Text>
         <Text style={styles.title}>배워볼 표현</Text>
         <Text style={styles.subtitle}>
-          연습을 시작하기 전에, 핵심 표현의 발음과 뉘앙스를 먼저 들어보세요.
-          {"\n"}문장을 탭하면 원본 발음을 들을 수 있어요.
+          연습을 시작하기 전에, 핵심 표현의 의미와 구조를 먼저 익혀보세요.
+          {"\n"}이제부터는 영상과 분리된 연습 모드로 진행돼요.
         </Text>
+
+        {tipText ? (
+          <View style={styles.tipContainer}>
+            <Text style={styles.tipLabel}>TIP</Text>
+            <Text style={styles.tipText}>{tipText}</Text>
+          </View>
+        ) : null}
 
         {sentences.map((sentence) => (
           <View key={sentence.id} style={styles.cardShadow}>
             <View style={styles.card}>
-              <TouchableOpacity
-                onPress={() => handlePlay(sentence)}
-                activeOpacity={0.85}
-              >
+              <View>
                 <Text style={styles.sentenceText}>{sentence.text}</Text>
                 {sentence.translation ? (
                   <Text style={styles.translation}>{sentence.translation}</Text>
                 ) : null}
-              </TouchableOpacity>
+              </View>
               {onSave && (
                 <View style={styles.cardActions}>
                   <SaveToggle
@@ -97,12 +93,6 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
-  label: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 2.5,
-    color: colors.textSecondary,
-  },
   title: {
     fontSize: font.size.lg,
     fontWeight: font.weight.bold,
@@ -112,6 +102,23 @@ const styles = StyleSheet.create({
     fontSize: font.size.sm,
     lineHeight: font.size.sm * 1.7,
     color: colors.textSecondary,
+  },
+  tipContainer: {
+    backgroundColor: colors.bgSubtle,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  tipLabel: {
+    fontSize: font.size.xs,
+    fontWeight: font.weight.bold,
+    letterSpacing: 1.5,
+    color: colors.textMuted,
+  },
+  tipText: {
+    fontSize: font.size.sm,
+    lineHeight: 22,
+    color: colors.text,
   },
   cardShadow: {
     borderRadius: radius.xl,

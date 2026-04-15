@@ -27,6 +27,7 @@ import ShadowingHeader, {
   ShadowingMode,
 } from "../../src/components/shadowing/ShadowingHeader";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
+import ShadowingRecordButton from "../../src/components/shadowing/ShadowingRecordButton";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import { uploadRecording } from "../../src/lib/ai-api";
 import { useAuth } from "../../src/contexts/AuthContext";
@@ -392,16 +393,13 @@ export default function ShadowingScreen() {
                 </Text>
               </Pressable>
 
-              <Pressable
-                style={styles.recordButton}
+              <ShadowingRecordButton
+                style={styles.recordButtonWrap}
+                disabled={!currentSentence}
                 onPress={() =>
                   currentSentence ? handleRecord(currentSentence.id) : undefined
                 }
-                disabled={!currentSentence}
-              >
-                <Ionicons name="mic" size={28} color={colors.textInverse} />
-                <Text style={styles.recordButtonText}>녹음 시작</Text>
-              </Pressable>
+              />
 
               <Pressable
                 style={[styles.navButton, !hasNext && styles.navButtonDisabled]}
@@ -560,22 +558,8 @@ const styles = StyleSheet.create({
   navButtonTextDisabled: {
     color: colors.textMuted,
   },
-  recordButton: {
+  recordButtonWrap: {
     flex: 1,
-    minHeight: 84,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-  },
-  recordButtonText: {
-    fontSize: 16,
-    color: colors.textInverse,
-    fontWeight: font.weight.bold,
-    letterSpacing: 0.2,
   },
   scriptToggle: {
     alignSelf: "center",
