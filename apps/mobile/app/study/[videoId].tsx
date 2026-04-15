@@ -169,6 +169,9 @@ export default function StudyScreen() {
   const shadowingRestartTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const shadowingLoopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Stores
   const savedSentences = appStore((s) => s.savedSentences);
@@ -340,10 +343,21 @@ export default function StudyScreen() {
           shadowingSentences.find((item) => item.id === activeIdRef.current) ??
           studySentences.find((item) => item.id === activeIdRef.current);
         if (loopingSegment) {
+          if (shadowingLoopTimeoutRef.current) {
+            clearTimeout(shadowingLoopTimeoutRef.current);
+          }
+          seekLockRef.current = true;
+          setPlaying(false);
           playerRef.current?.seekTo(
             loopingSegment.startTime + playerBaseOffset,
           );
-          setPlaying(true);
+          shadowingLoopTimeoutRef.current = setTimeout(() => {
+            setPlaying(true);
+            shadowingLoopTimeoutRef.current = null;
+          }, 120);
+          setTimeout(() => {
+            seekLockRef.current = false;
+          }, 320);
           return;
         }
       }
@@ -410,14 +424,21 @@ export default function StudyScreen() {
             ) ?? studySentences.find((item) => item.id === activeIdRef.current);
           if (
             loopingSegment &&
-            rel >= Math.max(loopingSegment.endTime - 0.05, 0)
+            rel >= Math.max(loopingSegment.endTime - 0.18, 0)
           ) {
+            if (shadowingLoopTimeoutRef.current) {
+              clearTimeout(shadowingLoopTimeoutRef.current);
+            }
             seekLockRef.current = true;
+            setPlaying(false);
             playerRef.current?.seekTo(loopingSegment.startTime + offset);
-            setPlaying(true);
+            shadowingLoopTimeoutRef.current = setTimeout(() => {
+              setPlaying(true);
+              shadowingLoopTimeoutRef.current = null;
+            }, 120);
             setTimeout(() => {
               seekLockRef.current = false;
-            }, 300);
+            }, 320);
             return;
           }
         }
@@ -552,6 +573,10 @@ export default function StudyScreen() {
       clearTimeout(seekDebounce.current);
       seekDebounce.current = null;
     }
+    if (shadowingLoopTimeoutRef.current) {
+      clearTimeout(shadowingLoopTimeoutRef.current);
+      shadowingLoopTimeoutRef.current = null;
+    }
     seekLockRef.current = false;
     loopIdRef.current = null;
     setLoopingSentenceId(null);
@@ -662,6 +687,10 @@ export default function StudyScreen() {
         clearTimeout(shadowingRestartTimeoutRef.current);
         shadowingRestartTimeoutRef.current = null;
       }
+      if (shadowingLoopTimeoutRef.current) {
+        clearTimeout(shadowingLoopTimeoutRef.current);
+        shadowingLoopTimeoutRef.current = null;
+      }
 
       const groupedSentences = groupSentencesByMode(studySentences, mode);
       setShadowingMode(mode);
@@ -712,6 +741,10 @@ export default function StudyScreen() {
         shadowingSentences.find((s) => s.id === sentenceId) ??
         studySentences.find((s) => s.id === sentenceId);
       if (!sentence) return;
+      if (shadowingLoopTimeoutRef.current) {
+        clearTimeout(shadowingLoopTimeoutRef.current);
+        shadowingLoopTimeoutRef.current = null;
+      }
       playerRef.current?.seekTo(sentence.startTime + playerBaseOffset);
       activeIdRef.current = sentenceId;
       setActiveSentenceId(sentenceId);
