@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.morak.inputenglish",
-      "buildNumber": "33",
+      "buildNumber": "34",
       "usesAppleSignIn": true,
       "entitlements": {
         "aps-environment": "production"
