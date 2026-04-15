@@ -8,6 +8,7 @@ import {
   AppState,
   FlatList,
   Platform,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -45,7 +46,6 @@ import YouTubePlayer, {
   YouTubePlayerHandle,
 } from "../../src/components/player/YouTubePlayer";
 import ScriptLine from "../../src/components/listening/ScriptLine";
-import ShadowingScriptLine from "../../src/components/shadowing/ShadowingScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
 import ContextBriefCard from "../../src/components/study/ContextBriefCard";
 import HighlightBottomSheet from "../../src/components/study/HighlightBottomSheet";
@@ -122,7 +122,8 @@ export default function StudyScreen() {
   // Shared state
   const [mainTab, setMainTab] = useState<MainTab>("listening");
   const [playing, setPlaying] = useState(false);
-  const [scriptVisible, setScriptVisible] = useState(true);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [scriptVisible, setScriptVisible] = useState(false);
   const [translationVisible, setTranslationVisible] = useState(false);
   const [activeSentenceId, setActiveSentenceId] = useState<string | null>(null);
 
@@ -163,6 +164,10 @@ export default function StudyScreen() {
   const seekDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekLockRef = useRef(false);
   const isPollingRef = useRef(false);
+  const hasAutoStartedListeningRef = useRef(false);
+  const shadowingRestartTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   // Stores
   const savedSentences = appStore((s) => s.savedSentences);
@@ -199,6 +204,9 @@ export default function StudyScreen() {
   // ── Load video ──
   useEffect(() => {
     if (!videoId) return;
+    hasAutoStartedListeningRef.current = false;
+    setPlayerReady(false);
+    setScriptVisible(false);
     Promise.all([
       fetchCuratedVideo(videoId),
       sessionId ? fetchLearningSessionDetail(sessionId) : Promise.resolve(null),
@@ -314,10 +322,32 @@ export default function StudyScreen() {
     return () => sub.remove();
   }, [recordingState, stopRecording]);
 
-  const handleStateChange = useCallback((state: string) => {
-    if (state === "playing") setPlaying(true);
-    else if (state === "paused" || state === "ended") setPlaying(false);
-  }, []);
+  const handleStateChange = useCallback(
+    (state: string) => {
+      if (state === "playing") {
+        setPlaying(true);
+        return;
+      }
+
+      if (state === "ended" && mainTab === "shadowing" && activeIdRef.current) {
+        const loopingSegment =
+          shadowingSentences.find((item) => item.id === activeIdRef.current) ??
+          studySentences.find((item) => item.id === activeIdRef.current);
+        if (loopingSegment) {
+          playerRef.current?.seekTo(
+            loopingSegment.startTime + playerBaseOffset,
+          );
+          setPlaying(true);
+          return;
+        }
+      }
+
+      if (state === "paused" || state === "ended") {
+        setPlaying(false);
+      }
+    },
+    [mainTab, playerBaseOffset, shadowingSentences, studySentences],
+  );
 
   // ── 100ms poll: sentence sync ──
   useEffect(() => {
@@ -339,16 +369,6 @@ export default function StudyScreen() {
         if (t === undefined) return;
         const rel = Math.max(0, t - offset);
 
-        if (sessionEndTime > 0 && rel >= sessionEndTime) {
-          seekLockRef.current = true;
-          setPlaying(false);
-          playerRef.current?.seekTo(playerStartSeconds);
-          setTimeout(() => {
-            seekLockRef.current = false;
-          }, 300);
-          return;
-        }
-
         // Loop (listening + transformation)
         if (mainTab === "listening" || mainTab === "transformation") {
           const lid = loopIdRef.current;
@@ -365,6 +385,35 @@ export default function StudyScreen() {
               return;
             }
           }
+        }
+
+        if (mainTab === "shadowing" && activeIdRef.current) {
+          const loopingSegment =
+            shadowingSentences.find(
+              (item) => item.id === activeIdRef.current,
+            ) ?? studySentences.find((item) => item.id === activeIdRef.current);
+          if (
+            loopingSegment &&
+            rel >= Math.max(loopingSegment.endTime - 0.05, 0)
+          ) {
+            seekLockRef.current = true;
+            playerRef.current?.seekTo(loopingSegment.startTime + offset);
+            setPlaying(true);
+            setTimeout(() => {
+              seekLockRef.current = false;
+            }, 300);
+            return;
+          }
+        }
+
+        if (sessionEndTime > 0 && rel >= sessionEndTime) {
+          seekLockRef.current = true;
+          setPlaying(false);
+          playerRef.current?.seekTo(playerStartSeconds);
+          setTimeout(() => {
+            seekLockRef.current = false;
+          }, 300);
+          return;
         }
 
         // Active sentence — match against the DISPLAYED list (handles grouped sentences)
@@ -408,7 +457,9 @@ export default function StudyScreen() {
     playerBaseOffset,
     playerStartSeconds,
     playing,
+    sessionStartTime,
     sessionEndTime,
+    shadowingMode,
     shadowingSentences,
     studySentences,
     video,
@@ -435,6 +486,37 @@ export default function StudyScreen() {
     },
     [playerBaseOffset],
   );
+
+  const playSentenceImmediately = useCallback(
+    (sentence: Sentence) => {
+      if (seekDebounce.current) clearTimeout(seekDebounce.current);
+      seekLockRef.current = true;
+      activeIdRef.current = sentence.id;
+      setActiveSentenceId(sentence.id);
+      playerRef.current?.seekTo(sentence.startTime + playerBaseOffset);
+      setPlaying(true);
+      setTimeout(() => {
+        seekLockRef.current = false;
+      }, 500);
+    },
+    [playerBaseOffset],
+  );
+
+  useEffect(() => {
+    if (briefExpanded || mainTab !== "listening" || !playerReady) return;
+    if (hasAutoStartedListeningRef.current) return;
+    const firstSentence = studySentences[0];
+    if (!firstSentence) return;
+
+    hasAutoStartedListeningRef.current = true;
+    playSentenceImmediately(firstSentence);
+  }, [
+    briefExpanded,
+    mainTab,
+    playerReady,
+    playSentenceImmediately,
+    studySentences,
+  ]);
 
   const handleLoopToggle = useCallback((sentence: Sentence) => {
     if (sentence.endTime - sentence.startTime < 0.5) return;
@@ -543,17 +625,54 @@ export default function StudyScreen() {
 
   // ── Shadowing handlers ──
 
-  const handleShadowingModeChange = useCallback(
-    (m: ShadowingMode) => {
-      setShadowingMode(m);
-      if (studySentences.length > 0) {
-        setShadowingSentences(groupSentencesByMode(studySentences, m));
+  const restartShadowingPlayback = useCallback(
+    (mode: ShadowingMode) => {
+      if (shadowingRestartTimeoutRef.current) {
+        clearTimeout(shadowingRestartTimeoutRef.current);
+        shadowingRestartTimeoutRef.current = null;
+      }
+
+      const groupedSentences = groupSentencesByMode(studySentences, mode);
+      setShadowingMode(mode);
+      setShadowingSentences(groupedSentences);
+      loopIdRef.current = null;
+      setLoopingSentenceId(null);
+
+      const firstSegment = groupedSentences[0];
+      if (!firstSegment) {
         setActiveSentenceId(null);
         activeIdRef.current = null;
+        return;
       }
+
+      seekLockRef.current = true;
+      setPlaying(false);
+      activeIdRef.current = firstSegment.id;
+      setActiveSentenceId(firstSegment.id);
+      playerRef.current?.seekTo(firstSegment.startTime + playerBaseOffset);
+      shadowingRestartTimeoutRef.current = setTimeout(() => {
+        setPlaying(true);
+        shadowingRestartTimeoutRef.current = null;
+      }, 120);
+      setTimeout(() => {
+        seekLockRef.current = false;
+      }, 500);
     },
-    [studySentences],
+    [playerBaseOffset, studySentences],
   );
+
+  const handleShadowingModeChange = useCallback(
+    (m: ShadowingMode) => {
+      restartShadowingPlayback(m);
+    },
+    [restartShadowingPlayback],
+  );
+
+  useEffect(() => {
+    if (mainTab !== "shadowing") return;
+    if (!activeSentenceId) return;
+    activeIdRef.current = activeSentenceId;
+  }, [activeSentenceId, mainTab]);
 
   const handleSeek = useCallback(
     (sentenceId: string) => {
@@ -565,6 +684,7 @@ export default function StudyScreen() {
       playerRef.current?.seekTo(sentence.startTime + playerBaseOffset);
       activeIdRef.current = sentenceId;
       setActiveSentenceId(sentenceId);
+      setPlaying(true);
     },
     [playerBaseOffset, shadowingSentences, studySentences],
   );
@@ -573,6 +693,7 @@ export default function StudyScreen() {
     async (sentenceId: string) => {
       if (isRecorderBusy || recordingState === "recording") return;
       setPlaying(false);
+      await new Promise((resolve) => setTimeout(resolve, 120));
       const started = await startRecording();
       setCurrentRecordingSentenceId(started ? sentenceId : null);
     },
@@ -618,6 +739,7 @@ export default function StudyScreen() {
       return;
     }
 
+    setPlaying(false);
     setMainTab("transformation");
   }, [plan]);
 
@@ -779,6 +901,32 @@ export default function StudyScreen() {
     user?.id,
   ]);
 
+  const listeningData = studySentences;
+  const isRecording = recordingState !== "idle";
+  const currentShadowingIndex = Math.max(
+    shadowingSentences.findIndex((item) => item.id === activeSentenceId),
+    0,
+  );
+  const currentShadowingSentence =
+    shadowingSentences[currentShadowingIndex] ?? null;
+  const hasPrevShadowing = currentShadowingIndex > 0;
+  const hasNextShadowing =
+    currentShadowingIndex < shadowingSentences.length - 1;
+
+  const moveShadowingFocus = useCallback(
+    (direction: "prev" | "next") => {
+      if (!shadowingSentences.length) return;
+      const nextIndex =
+        direction === "prev"
+          ? Math.max(currentShadowingIndex - 1, 0)
+          : Math.min(currentShadowingIndex + 1, shadowingSentences.length - 1);
+      const nextSentence = shadowingSentences[nextIndex];
+      if (!nextSentence) return;
+      handleSeek(nextSentence.id);
+    },
+    [currentShadowingIndex, handleSeek, shadowingSentences],
+  );
+
   // ── Render ──
 
   if (loading) {
@@ -799,9 +947,6 @@ export default function StudyScreen() {
       </SafeAreaView>
     );
   }
-
-  const listeningData = studySentences;
-  const isRecording = recordingState !== "idle";
 
   return (
     <View style={styles.container}>
@@ -848,8 +993,8 @@ export default function StudyScreen() {
               ]}
               onPress={() => {
                 setMainTab("shadowing");
-                loopIdRef.current = null;
-                setLoopingSentenceId(null);
+                setScriptVisible(true);
+                restartShadowingPlayback(shadowingMode);
               }}
             >
               <Text
@@ -881,13 +1026,16 @@ export default function StudyScreen() {
         ) : null}
 
         {/* Video player */}
-        <YouTubePlayer
-          ref={playerRef}
-          videoId={video.video_id}
-          playing={playing}
-          onChangeState={handleStateChange}
-          startSeconds={playerStartSeconds}
-        />
+        {mainTab !== "transformation" ? (
+          <YouTubePlayer
+            ref={playerRef}
+            videoId={video.video_id}
+            playing={playing}
+            onReady={() => setPlayerReady(true)}
+            onChangeState={handleStateChange}
+            startSeconds={playerStartSeconds}
+          />
+        ) : null}
 
         {briefExpanded ? (
           <>
@@ -993,7 +1141,14 @@ export default function StudyScreen() {
                 ) : null
               ) : !scriptVisible ? (
                 <View style={styles.empty}>
-                  <Text style={styles.emptyText}>스크립트가 숨겨져 있어요</Text>
+                  <Text style={styles.emptyTitle}>
+                    스크립트가 숨겨져 있어요
+                  </Text>
+                  <Text style={styles.emptySubtitle}>
+                    처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나
+                    하나도 들리지 않는다면 난이도가 더 쉬운 영상으로 먼저
+                    공부하세요.
+                  </Text>
                 </View>
               ) : mainTab === "listening" ? (
                 /* ── Listening list ── */
@@ -1028,38 +1183,50 @@ export default function StudyScreen() {
                     contentContainerStyle={styles.listContent}
                   />
                 )
-              ) : /* ── Shadowing list ── */
+              ) : /* ── Shadowing focus ── */
               shadowingSentences.length === 0 ? (
                 <View style={styles.empty}>
                   <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
                 </View>
               ) : (
-                <FlatList
-                  ref={listRef}
-                  data={shadowingSentences}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item, index }) => (
-                    <ShadowingScriptLine
-                      sentence={item}
-                      isActive={item.id === activeSentenceId}
-                      hasRecording={!!recordedSentences[item.id]}
-                      isCurrentRecording={
-                        item.id === currentRecordingSentenceId
-                      }
-                      showTranslation={translationVisible}
-                      onRecord={handleRecord}
-                      onSeek={handleSeek}
-                      onLongPress={handleLongPress}
-                      index={index}
-                    />
+                <View style={styles.shadowingFocus}>
+                  <View style={styles.shadowingMetaRow}>
+                    <Text style={styles.shadowingMetaLabel}>
+                      {shadowingMode === "sentence"
+                        ? "문장 집중"
+                        : shadowingMode === "paragraph"
+                          ? "문단 집중"
+                          : "전체 따라 말하기"}
+                    </Text>
+                    <Text style={styles.shadowingMetaCount}>
+                      {currentShadowingIndex + 1} / {shadowingSentences.length}
+                    </Text>
+                  </View>
+
+                  {currentShadowingSentence ? (
+                    <Pressable
+                      style={styles.shadowingTextBlock}
+                      onPress={() => handleSeek(currentShadowingSentence.id)}
+                    >
+                      <Text style={styles.shadowingPrimaryText}>
+                        {currentShadowingSentence.text}
+                      </Text>
+                      {translationVisible &&
+                      currentShadowingSentence.translation ? (
+                        <Text style={styles.shadowingTranslationText}>
+                          {currentShadowingSentence.translation}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  ) : (
+                    <View style={styles.empty}>
+                      <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
+                    </View>
                   )}
-                  onScrollToIndexFailed={() => {}}
-                  style={styles.list}
-                  contentContainerStyle={styles.listContent}
-                />
+                </View>
               )}
 
-              {mainTab !== "transformation" && (
+              {mainTab === "listening" && (
                 <LinearGradient
                   colors={["rgba(255,255,255,0)", colors.bg]}
                   style={styles.scriptGradient}
@@ -1084,55 +1251,131 @@ export default function StudyScreen() {
             ) : null}
 
             {/* Bottom bar: brief + script icons (left) + end CTA (right) */}
-            {!isRecording && mainTab !== "transformation" ? (
-              <View style={styles.bottomBar}>
-                <View style={styles.bottomLeft}>
+            {!isRecording && mainTab === "shadowing" ? (
+              <View style={styles.shadowingBottomBar}>
+                <View style={styles.shadowingNavRow}>
                   <TouchableOpacity
-                    style={styles.iconBtn}
-                    onPress={() => setBriefExpanded(true)}
+                    style={[
+                      styles.shadowingNavBtn,
+                      !hasPrevShadowing && styles.shadowingNavBtnDisabled,
+                    ]}
+                    onPress={() => moveShadowingFocus("prev")}
                     activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    disabled={!hasPrevShadowing}
                   >
-                    <Ionicons
-                      name="reader-outline"
-                      size={20}
-                      color={colors.text}
-                    />
+                    <Text
+                      style={[
+                        styles.shadowingNavBtnText,
+                        !hasPrevShadowing && styles.shadowingNavBtnTextDisabled,
+                      ]}
+                    >
+                      이전
+                    </Text>
                   </TouchableOpacity>
-                  {mainTab !== "transformation" ? (
-                    <>
-                      <TouchableOpacity
-                        style={styles.iconBtn}
-                        onPress={() => setScriptVisible((v) => !v)}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons
-                          name={
-                            scriptVisible
-                              ? "chatbox-ellipses"
-                              : "chatbox-ellipses-outline"
-                          }
-                          size={20}
-                          color={colors.text}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.iconBtn}
-                        onPress={() => setTranslationVisible((v) => !v)}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons
-                          name={translationVisible ? "globe" : "globe-outline"}
-                          size={20}
-                          color={
-                            translationVisible ? colors.text : colors.textMuted
-                          }
-                        />
-                      </TouchableOpacity>
-                    </>
-                  ) : null}
+
+                  <TouchableOpacity
+                    style={styles.shadowingRecordBtn}
+                    onPress={() =>
+                      currentShadowingSentence
+                        ? handleRecord(currentShadowingSentence.id)
+                        : undefined
+                    }
+                    activeOpacity={0.85}
+                    disabled={!currentShadowingSentence}
+                  >
+                    <Ionicons name="mic" size={28} color={colors.textInverse} />
+                    <Text style={styles.shadowingRecordBtnText}>녹음 시작</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.shadowingNavBtn,
+                      !hasNextShadowing && styles.shadowingNavBtnDisabled,
+                    ]}
+                    onPress={() => moveShadowingFocus("next")}
+                    activeOpacity={0.7}
+                    disabled={!hasNextShadowing}
+                  >
+                    <Text
+                      style={[
+                        styles.shadowingNavBtnText,
+                        !hasNextShadowing && styles.shadowingNavBtnTextDisabled,
+                      ]}
+                    >
+                      다음
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.shadowingToolsRow}>
+                  <TouchableOpacity
+                    style={styles.shadowingToolBtn}
+                    onPress={() => setScriptVisible((v) => !v)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.shadowingToolText}>
+                      {scriptVisible ? "스크립트 숨기기" : "스크립트 보기"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.shadowingToolBtn}
+                    onPress={() => setTranslationVisible((v) => !v)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.shadowingToolText}>
+                      {translationVisible ? "해석 숨기기" : "해석 보기"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : !isRecording && mainTab !== "transformation" ? (
+              <View style={styles.bottomBar}>
+                <View style={styles.bottomMeta}>
+                  <View style={styles.bottomLeft}>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      onPress={() => setBriefExpanded(true)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name="reader-outline"
+                        size={20}
+                        color={colors.text}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      onPress={() => setScriptVisible((v) => !v)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={
+                          scriptVisible
+                            ? "chatbox-ellipses"
+                            : "chatbox-ellipses-outline"
+                        }
+                        size={20}
+                        color={colors.text}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      onPress={() => setTranslationVisible((v) => !v)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={translationVisible ? "globe" : "globe-outline"}
+                        size={20}
+                        color={
+                          translationVisible ? colors.text : colors.textMuted
+                        }
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <TouchableOpacity
@@ -1298,12 +1541,72 @@ const styles = StyleSheet.create({
   },
   list: { flex: 1 },
   listContent: { paddingTop: 8, paddingBottom: 16 },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center" },
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    lineHeight: 26,
+    letterSpacing: -0.2,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 22,
+    color: colors.textMuted,
+    textAlign: "center",
+  },
   emptyText: {
     fontSize: 13,
     letterSpacing: 2,
     color: colors.textMuted,
     fontWeight: font.weight.semibold,
+  },
+  shadowingFocus: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 20,
+  },
+  shadowingMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  shadowingMetaLabel: {
+    fontSize: 11,
+    letterSpacing: 2,
+    color: colors.textMuted,
+    fontWeight: font.weight.semibold,
+  },
+  shadowingMetaCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: font.weight.medium,
+  },
+  shadowingTextBlock: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  shadowingPrimaryText: {
+    fontSize: font.size.lg,
+    lineHeight: 30,
+    color: colors.text,
+    fontWeight: font.weight.bold,
+    letterSpacing: 0,
+  },
+  shadowingTranslationText: {
+    marginTop: 20,
+    fontSize: font.size.sm,
+    lineHeight: 20,
+    color: colors.textSecondary,
   },
 
   // Bottom bar
@@ -1315,6 +1618,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === "ios" ? 28 : 12,
     backgroundColor: colors.bg,
+  },
+  bottomMeta: {
+    flex: 1,
+    gap: 0,
   },
   bottomLeft: {
     flexDirection: "row",
@@ -1342,5 +1649,71 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     fontWeight: font.weight.semibold,
     color: colors.text,
+  },
+  shadowingBottomBar: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "ios" ? 28 : 14,
+    backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderStrong,
+    gap: 12,
+  },
+  shadowingNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  shadowingNavBtn: {
+    minWidth: 72,
+    paddingHorizontal: 14,
+    minHeight: 56,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shadowingNavBtnDisabled: {
+    borderColor: colors.border,
+  },
+  shadowingNavBtnText: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+  },
+  shadowingNavBtnTextDisabled: {
+    color: colors.textMuted,
+  },
+  shadowingRecordBtn: {
+    flex: 1,
+    minHeight: 56,
+    backgroundColor: colors.bgInverse,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  shadowingRecordBtnText: {
+    fontSize: 16,
+    color: colors.textInverse,
+    fontWeight: font.weight.bold,
+    letterSpacing: 0.2,
+  },
+  shadowingToolsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  shadowingToolBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  shadowingToolText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: font.weight.semibold,
   },
 });

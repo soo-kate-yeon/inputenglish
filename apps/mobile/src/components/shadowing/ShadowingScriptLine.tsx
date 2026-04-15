@@ -104,8 +104,6 @@ const styles = StyleSheet.create({
   textActive: {
     color: colors.text,
     fontWeight: font.weight.bold,
-    fontSize: font.size.lg,
-    lineHeight: 30,
   },
   translation: {
     fontSize: font.size.sm,

@@ -4,6 +4,7 @@
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
 } from "react";
@@ -102,11 +103,9 @@ function stopTimer(){if(timerId){clearInterval(timerId);timerId=null;}}
 
 function post(o){window.ReactNativeWebView.postMessage(JSON.stringify(o));}
 
-document.addEventListener('message',handleMsg);
-window.addEventListener('message',handleMsg);
-function handleMsg(e){
+function handleCommand(raw){
   try{
-    var c=JSON.parse(e.data);
+    var c=typeof raw==='string'?JSON.parse(raw):raw;
     if(!player)return;
     if(c.t==='play')player.playVideo();
     if(c.t==='pause')player.pauseVideo();
@@ -114,6 +113,9 @@ function handleMsg(e){
     if(c.t==='speed')player.setPlaybackRate(c.r);
   }catch(ex){}
 }
+window.__INPUT_ENGLISH_DISPATCH=handleCommand;
+document.addEventListener('message',function(e){handleCommand(e.data);});
+window.addEventListener('message',function(e){handleCommand(e.data);});
 </script>
 </body></html>`;
 }
@@ -126,7 +128,12 @@ const StudyPlayer = forwardRef<StudyPlayerHandle, StudyPlayerProps>(
     const webViewRef = useRef<WebView>(null);
 
     const send = useCallback((msg: object) => {
-      webViewRef.current?.postMessage(JSON.stringify(msg));
+      const payload = JSON.stringify(msg)
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'");
+      webViewRef.current?.injectJavaScript(
+        `window.__INPUT_ENGLISH_DISPATCH && window.__INPUT_ENGLISH_DISPATCH('${payload}'); true;`,
+      );
     }, []);
 
     useImperativeHandle(ref, () => ({
@@ -135,6 +142,10 @@ const StudyPlayer = forwardRef<StudyPlayerHandle, StudyPlayerProps>(
       seekTo: (s: number) => send({ t: "seek", s }),
       setSpeed: (r: number) => send({ t: "speed", r }),
     }));
+
+    useEffect(() => {
+      send({ t: "seek", s: startSeconds });
+    }, [send, startSeconds, videoId]);
 
     const handleMessage = useCallback(
       (e: WebViewMessageEvent) => {

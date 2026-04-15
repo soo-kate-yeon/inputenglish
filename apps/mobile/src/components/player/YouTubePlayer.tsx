@@ -64,7 +64,11 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           onChangeState={onChangeState}
           initialPlayerParams={{
             start: startSeconds,
-            controls: true,
+            controls: false,
+            rel: false,
+            iv_load_policy: 3,
+            preventFullScreen: true,
+            showClosedCaptions: false,
           }}
           webViewStyle={styles.webview}
         />

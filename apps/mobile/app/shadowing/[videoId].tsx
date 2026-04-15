@@ -7,33 +7,30 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
-  FlatList,
+  Pressable,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as Crypto from "expo-crypto";
 import type { Sentence, CuratedVideo } from "@inputenglish/shared";
 import { groupSentencesByMode } from "@inputenglish/shared";
 import { fetchCuratedVideo } from "../../src/lib/api";
-import { studyStore, appStore } from "../../src/lib/stores";
+import { studyStore } from "../../src/lib/stores";
 import YouTubePlayer, {
   YouTubePlayerHandle,
 } from "../../src/components/player/YouTubePlayer";
 import ShadowingHeader, {
   ShadowingMode,
 } from "../../src/components/shadowing/ShadowingHeader";
-import ShadowingScriptLine from "../../src/components/shadowing/ShadowingScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import { uploadRecording } from "../../src/lib/ai-api";
 import { useAuth } from "../../src/contexts/AuthContext";
-import { colors, radius, font } from "../../src/theme";
+import { colors, font, radius, spacing } from "../../src/theme";
 
 export default function ShadowingScreen() {
   const { videoId } = useLocalSearchParams<{ videoId: string }>();
@@ -55,7 +52,6 @@ export default function ShadowingScreen() {
   const [sentences, setSentences] = useState<Sentence[]>([]);
 
   const playerRef = useRef<YouTubePlayerHandle>(null);
-  const flatListRef = useRef<FlatList<Sentence>>(null);
   const activeIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -74,7 +70,6 @@ export default function ShadowingScreen() {
     resetRecording,
   } = useAudioRecorder();
 
-  const currentSession = studyStore((s) => s.currentSession);
   const { user } = useAuth();
 
   // Load video
@@ -82,8 +77,15 @@ export default function ShadowingScreen() {
     if (!videoId) return;
     fetchCuratedVideo(videoId)
       .then((v) => {
+        const groupedSentences = groupSentencesByMode(
+          v.transcript ?? [],
+          "sentence",
+        );
         setVideo(v);
-        setSentences(groupSentencesByMode(v.transcript ?? [], "sentence"));
+        setSentences(groupedSentences);
+        const firstSentence = groupedSentences[0] ?? null;
+        setActiveSentenceId(firstSentence?.id ?? null);
+        activeIdRef.current = firstSentence?.id ?? null;
       })
       .catch((e: Error) => setError(e.message ?? "Failed to load video"))
       .finally(() => setLoading(false));
@@ -106,11 +108,10 @@ export default function ShadowingScreen() {
 
   // 100ms poll: sentence sync
   useEffect(() => {
-    if (!playing || !video?.transcript?.length) {
+    if (!playing || !sentences.length || !video) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
-    const allSentences = video.transcript;
     const offset = video.snippet_start_time ?? 0;
 
     pollRef.current = setInterval(async () => {
@@ -118,44 +119,84 @@ export default function ShadowingScreen() {
       if (t === undefined) return;
       const rel = t - offset;
 
-      let active: (typeof allSentences)[0] | undefined;
-      for (let i = allSentences.length - 1; i >= 0; i--) {
-        if (allSentences[i].startTime <= rel) {
-          active = allSentences[i];
+      if (mode !== "total" && activeIdRef.current) {
+        const loopingSegment = sentences.find(
+          (item) => item.id === activeIdRef.current,
+        );
+        if (
+          loopingSegment &&
+          rel >= Math.max(loopingSegment.endTime - 0.05, 0)
+        ) {
+          playerRef.current?.seekTo(loopingSegment.startTime + offset);
+          return;
+        }
+      }
+
+      let activeSegment: Sentence | undefined;
+      for (let i = sentences.length - 1; i >= 0; i--) {
+        if (sentences[i].startTime <= rel) {
+          activeSegment = sentences[i];
           break;
         }
       }
-      if (active && active.id !== activeIdRef.current) {
-        activeIdRef.current = active.id;
-        setActiveSentenceId(active.id);
-        const idx = sentences.indexOf(active);
-        if (idx >= 0) {
-          flatListRef.current?.scrollToIndex({
-            index: idx,
-            animated: true,
-            viewOffset: 60,
-          });
-        }
+      if (activeSegment && activeSegment.id !== activeIdRef.current) {
+        activeIdRef.current = activeSegment.id;
+        setActiveSentenceId(activeSegment.id);
       }
     }, 100);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [playing, video, sentences]);
+  }, [mode, playing, video, sentences]);
 
-  const handleStateChange = useCallback((state: string) => {
-    if (state === "playing") setPlaying(true);
-    else if (state === "paused" || state === "ended") setPlaying(false);
-  }, []);
+  const handleStateChange = useCallback(
+    (state: string) => {
+      if (state === "playing") {
+        setPlaying(true);
+        return;
+      }
+
+      if (
+        state === "ended" &&
+        mode !== "total" &&
+        activeIdRef.current &&
+        video
+      ) {
+        const loopingSegment = sentences.find(
+          (item) => item.id === activeIdRef.current,
+        );
+        if (loopingSegment) {
+          const offset = video.snippet_start_time ?? 0;
+          playerRef.current?.seekTo(loopingSegment.startTime + offset);
+          setPlaying(true);
+          return;
+        }
+      }
+
+      if (state === "paused" || state === "ended") {
+        setPlaying(false);
+      }
+    },
+    [mode, sentences, video],
+  );
 
   const handleModeChange = useCallback(
     (newMode: ShadowingMode) => {
+      if (!video?.transcript) return;
+      const groupedSentences = groupSentencesByMode(video.transcript, newMode);
+      const firstSentence = groupedSentences[0] ?? null;
+      const offset = video.snippet_start_time ?? 0;
+
       setMode(newMode);
-      if (video?.transcript) {
-        setSentences(groupSentencesByMode(video.transcript, newMode));
-        setActiveSentenceId(null);
-        activeIdRef.current = null;
+      setSentences(groupedSentences);
+      setCurrentRecordingSentenceId(null);
+      setActiveSentenceId(firstSentence?.id ?? null);
+      activeIdRef.current = firstSentence?.id ?? null;
+
+      if (firstSentence) {
+        playerRef.current?.seekTo(firstSentence.startTime + offset);
+        setPlaying(true);
       }
     },
     [video],
@@ -210,14 +251,39 @@ export default function ShadowingScreen() {
   const handleSeek = useCallback(
     (sentenceId: string) => {
       if (!video) return;
-      const sentence = video.transcript?.find((s) => s.id === sentenceId);
+      const sentence =
+        sentences.find((item) => item.id === sentenceId) ??
+        video.transcript?.find((item) => item.id === sentenceId);
       if (!sentence) return;
       const offset = video.snippet_start_time ?? 0;
       playerRef.current?.seekTo(sentence.startTime + offset);
       activeIdRef.current = sentenceId;
       setActiveSentenceId(sentenceId);
+      setPlaying(true);
     },
-    [video],
+    [sentences, video],
+  );
+
+  const currentIndex = Math.max(
+    sentences.findIndex((item) => item.id === activeSentenceId),
+    0,
+  );
+  const currentSentence = sentences[currentIndex] ?? null;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < sentences.length - 1;
+
+  const moveToAdjacent = useCallback(
+    (direction: "prev" | "next") => {
+      if (!sentences.length) return;
+      const nextIndex =
+        direction === "prev"
+          ? Math.max(currentIndex - 1, 0)
+          : Math.min(currentIndex + 1, sentences.length - 1);
+      const nextSentence = sentences[nextIndex];
+      if (!nextSentence) return;
+      handleSeek(nextSentence.id);
+    },
+    [currentIndex, handleSeek, sentences],
   );
 
   // --- Render ---
@@ -246,16 +312,16 @@ export default function ShadowingScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
-      {/* Video player */}
-      <YouTubePlayer
-        ref={playerRef}
-        videoId={video.video_id}
-        playing={playing}
-        onChangeState={handleStateChange}
-        startSeconds={video.snippet_start_time}
-      />
+      <View style={styles.hiddenPlayer}>
+        <YouTubePlayer
+          ref={playerRef}
+          videoId={video.video_id}
+          playing={playing}
+          onChangeState={handleStateChange}
+          startSeconds={video.snippet_start_time}
+        />
+      </View>
 
-      {/* Mode tabs */}
       <ShadowingHeader
         title={video.title}
         mode={mode}
@@ -263,69 +329,119 @@ export default function ShadowingScreen() {
         onExit={() => router.back()}
       />
 
-      {/* Script area */}
-      {!scriptVisible ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>SCRIPT HIDDEN</Text>
-        </View>
-      ) : sentences.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={sentences}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <ShadowingScriptLine
-              sentence={item}
-              isActive={item.id === activeSentenceId}
-              hasRecording={!!recordedSentences[item.id]}
-              isCurrentRecording={item.id === currentRecordingSentenceId}
-              onRecord={handleRecord}
-              onSeek={handleSeek}
-              index={index}
-            />
-          )}
-          onScrollToIndexFailed={() => {}}
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-        />
-      )}
-
-      {/* Recording bar */}
-      <RecordingBar
-        recordingState={recordingState}
-        duration={duration}
-        isPlaying={isPlayingRecording}
-        playbackProgress={playbackProgress}
-        onStop={handleStop}
-        onPlay={playRecording}
-        onPause={pauseRecording}
-        onReRecord={handleReRecord}
-        onConfirm={handleConfirm}
-      />
-
-      {/* Bottom bar — script toggle */}
-      {recordingState === "idle" ? (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.scriptToggle}
-            onPress={() => setScriptVisible((v) => !v)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={scriptVisible ? "document-text" : "document-text-outline"}
-              size={18}
-              color={colors.text}
-            />
-            <Text style={styles.scriptToggleText}>
-              {scriptVisible ? "HIDE SCRIPT" : "SHOW SCRIPT"}
+      <View style={styles.content}>
+        {!scriptVisible ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>스크립트가 숨겨져 있어요</Text>
+            <Text style={styles.emptySubtitle}>
+              소리만 듣고 따라 말해보세요. 필요할 때만 스크립트를 열어서
+              확인하면 더 집중하기 쉬워요.
             </Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
+          </View>
+        ) : !currentSentence ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>스크립트가 없어요</Text>
+            <Text style={styles.emptySubtitle}>
+              이 영상에는 쉐도잉에 사용할 스크립트가 아직 준비되지 않았어요.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.focusBody}>
+            <View style={styles.focusMetaRow}>
+              <Text style={styles.focusMeta}>
+                {mode === "sentence"
+                  ? "문장 집중"
+                  : mode === "paragraph"
+                    ? "문단 집중"
+                    : "전체 따라 말하기"}
+              </Text>
+              <Text style={styles.focusCount}>
+                {currentIndex + 1} / {sentences.length}
+              </Text>
+            </View>
+
+            <Pressable
+              style={styles.scriptBlock}
+              onPress={() => handleSeek(currentSentence.id)}
+            >
+              <Text style={styles.scriptText}>{currentSentence.text}</Text>
+              {currentSentence.translation ? (
+                <Text style={styles.translationText}>
+                  {currentSentence.translation}
+                </Text>
+              ) : null}
+            </Pressable>
+          </View>
+        )}
+
+        {recordingState === "idle" ? (
+          <View style={styles.idleFooter}>
+            <View style={styles.navRow}>
+              <Pressable
+                style={[styles.navButton, !hasPrev && styles.navButtonDisabled]}
+                onPress={() => moveToAdjacent("prev")}
+                disabled={!hasPrev}
+              >
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    !hasPrev && styles.navButtonTextDisabled,
+                  ]}
+                >
+                  이전
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.recordButton}
+                onPress={() =>
+                  currentSentence ? handleRecord(currentSentence.id) : undefined
+                }
+                disabled={!currentSentence}
+              >
+                <Ionicons name="mic" size={28} color={colors.textInverse} />
+                <Text style={styles.recordButtonText}>녹음 시작</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.navButton, !hasNext && styles.navButtonDisabled]}
+                onPress={() => moveToAdjacent("next")}
+                disabled={!hasNext}
+              >
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    !hasNext && styles.navButtonTextDisabled,
+                  ]}
+                >
+                  다음
+                </Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={styles.scriptToggle}
+              onPress={() => setScriptVisible((v) => !v)}
+            >
+              <Text style={styles.scriptToggleText}>
+                {scriptVisible ? "스크립트 숨기기" : "스크립트 보기"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <RecordingBar
+            recordingState={recordingState}
+            duration={duration}
+            isPlaying={isPlayingRecording}
+            playbackProgress={playbackProgress}
+            onStop={handleStop}
+            onPlay={playRecording}
+            onPause={pauseRecording}
+            onReRecord={handleReRecord}
+            onConfirm={handleConfirm}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -340,43 +456,135 @@ const styles = StyleSheet.create({
   },
   stateText: { fontSize: 13, letterSpacing: 1, color: colors.textMuted },
 
-  list: { flex: 1 },
-  listContent: { paddingBottom: 16 },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyText: {
+  hiddenPlayer: {
+    position: "absolute",
+    left: -9999,
+    top: 0,
+    opacity: 0.01,
+  },
+  content: {
+    flex: 1,
+  },
+  focusBody: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: font.size.lg,
+    lineHeight: 28,
+    color: colors.text,
+    fontWeight: font.weight.bold,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: font.size.sm,
+    lineHeight: 21,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  focusMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.lg,
+  },
+  focusMeta: {
     fontSize: 11,
-    letterSpacing: 3,
+    letterSpacing: 2,
     color: colors.textMuted,
     fontWeight: font.weight.semibold,
   },
-
-  aiPanel: {
-    backgroundColor: colors.bgSubtle,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingVertical: 8,
+  focusCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: font.weight.medium,
   },
-
-  bottomBar: {
+  scriptBlock: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  scriptText: {
+    fontSize: 30,
+    lineHeight: 42,
+    color: colors.text,
+    fontWeight: font.weight.bold,
+    letterSpacing: -0.4,
+  },
+  translationText: {
+    marginTop: spacing.lg,
+    fontSize: font.size.base,
+    lineHeight: 28,
+    color: colors.textSecondary,
+  },
+  idleFooter: {
     borderTopWidth: 1,
     borderTopColor: colors.borderStrong,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
     backgroundColor: colors.bg,
-    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 28,
+    gap: spacing.md,
   },
-  scriptToggle: {
+  navRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  navButton: {
+    minWidth: 72,
     borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navButtonDisabled: {
+    borderColor: colors.border,
+  },
+  navButtonText: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+  },
+  navButtonTextDisabled: {
+    color: colors.textMuted,
+  },
+  recordButton: {
+    flex: 1,
+    minHeight: 84,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+  },
+  recordButtonText: {
+    fontSize: 16,
+    color: colors.textInverse,
+    fontWeight: font.weight.bold,
+    letterSpacing: 0.2,
+  },
+  scriptToggle: {
+    alignSelf: "center",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   scriptToggleText: {
-    fontSize: 10,
-    letterSpacing: 2,
+    fontSize: 12,
+    color: colors.textSecondary,
     fontWeight: font.weight.semibold,
-    color: colors.text,
   },
 });
