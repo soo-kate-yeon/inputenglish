@@ -111,13 +111,27 @@ function RootLayoutNav() {
         <Stack.Screen
           name="study/[videoId]"
           options={{
-            headerShown: false,
+            headerShown: true,
+            headerTitle: "",
+            headerShadowVisible: false,
+            headerBackButtonDisplayMode: "minimal",
             gestureEnabled: true,
           }}
         />
         <Stack.Screen
           name="shadowing/[videoId]"
-          options={{ headerShown: true, title: "Shadowing" }}
+          options={{
+            headerShown: true,
+            title: "Shadowing",
+            headerBackButtonDisplayMode: "minimal",
+          }}
+        />
+        <Stack.Screen
+          name="speaker/[slug]"
+          options={{
+            headerShown: true,
+            headerBackButtonDisplayMode: "minimal",
+          }}
         />
         <Stack.Screen
           name="paywall"

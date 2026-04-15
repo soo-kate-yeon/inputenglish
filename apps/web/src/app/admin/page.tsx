@@ -526,6 +526,10 @@ function AdminPageContent() {
       }
 
       if (createdSessions.length > 0) {
+        const primarySpeakerSession = createdSessions.find(
+          (session) =>
+            session.primary_speaker_id || session.primary_speaker_name,
+        );
         const sessionsResponse = await fetch("/api/admin/learning-sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -533,6 +537,13 @@ function AdminPageContent() {
           body: JSON.stringify({
             source_video_id: videoId,
             sessions: createdSessions,
+            primarySpeakerId: primarySpeakerSession?.primary_speaker_id ?? null,
+            primarySpeakerName:
+              primarySpeakerSession?.primary_speaker_name ?? "",
+            primarySpeakerDescription:
+              primarySpeakerSession?.primary_speaker_description ?? "",
+            primarySpeakerAvatarUrl:
+              primarySpeakerSession?.primary_speaker_avatar_url ?? "",
           }),
         });
 

@@ -5,10 +5,161 @@ import type { LearningSession } from "@inputenglish/shared";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function slugifySpeakerName(input: string): string {
+  return (
+    input
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "speaker"
+  );
+}
+
+async function resolvePrimarySpeaker(
+  supabase: ReturnType<typeof createAdminClient>,
+  primarySpeakerId?: string | null,
+  primarySpeakerName?: string | null,
+  primarySpeakerDescription?: string | null,
+  primarySpeakerAvatarUrl?: string | null,
+) {
+  const normalizedAvatarUrl = primarySpeakerAvatarUrl?.trim() || null;
+
+  if (primarySpeakerId && UUID_PATTERN.test(primarySpeakerId)) {
+    const { data: speakerById, error: speakerByIdError } = await supabase
+      .from("speakers")
+      .select("id, slug, name, description_long, avatar_url")
+      .eq("id", primarySpeakerId)
+      .maybeSingle();
+
+    if (speakerByIdError) throw speakerByIdError;
+    if (speakerById) {
+      const trimmedDescription = primarySpeakerDescription?.trim();
+      if (
+        trimmedDescription &&
+        trimmedDescription !== speakerById.description_long
+      ) {
+        const updates: Record<string, unknown> = {
+          description_long: trimmedDescription,
+        };
+
+        if (normalizedAvatarUrl !== speakerById.avatar_url) {
+          updates.avatar_url = normalizedAvatarUrl;
+        }
+
+        const { error: speakerDescriptionError } = await supabase
+          .from("speakers")
+          .update(updates)
+          .eq("id", speakerById.id);
+
+        if (speakerDescriptionError) throw speakerDescriptionError;
+      } else if (normalizedAvatarUrl !== speakerById.avatar_url) {
+        const { error: speakerAvatarError } = await supabase
+          .from("speakers")
+          .update({ avatar_url: normalizedAvatarUrl })
+          .eq("id", speakerById.id);
+
+        if (speakerAvatarError) throw speakerAvatarError;
+      }
+
+      return {
+        id: speakerById.id,
+        slug: speakerById.slug,
+        name: speakerById.name,
+      };
+    }
+  }
+
+  const trimmedName = primarySpeakerName?.trim();
+  if (!trimmedName) return null;
+
+  const { data: existingSpeaker, error: existingSpeakerError } = await supabase
+    .from("speakers")
+    .select("id, slug, name, is_featured, description_long, avatar_url")
+    .ilike("name", trimmedName)
+    .maybeSingle();
+
+  if (existingSpeakerError) throw existingSpeakerError;
+  if (existingSpeaker) {
+    const trimmedDescription = primarySpeakerDescription?.trim();
+    const updates: Record<string, unknown> = {};
+
+    if (!existingSpeaker.is_featured) {
+      updates.is_featured = true;
+    }
+
+    if (
+      trimmedDescription &&
+      trimmedDescription !== existingSpeaker.description_long
+    ) {
+      updates.description_long = trimmedDescription;
+    }
+
+    if (normalizedAvatarUrl !== existingSpeaker.avatar_url) {
+      updates.avatar_url = normalizedAvatarUrl;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { error: promoteSpeakerError } = await supabase
+        .from("speakers")
+        .update(updates)
+        .eq("id", existingSpeaker.id);
+
+      if (promoteSpeakerError) throw promoteSpeakerError;
+    }
+
+    return {
+      id: existingSpeaker.id,
+      slug: existingSpeaker.slug,
+      name: existingSpeaker.name,
+    };
+  }
+
+  const baseSlug = slugifySpeakerName(trimmedName);
+  let slug = baseSlug;
+  let suffix = 1;
+
+  while (true) {
+    const { data: slugCollision, error: slugError } = await supabase
+      .from("speakers")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (slugError) throw slugError;
+    if (!slugCollision) break;
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  const { data: insertedSpeaker, error: insertSpeakerError } = await supabase
+    .from("speakers")
+    .insert({
+      slug,
+      name: trimmedName,
+      is_featured: true,
+      description_long: primarySpeakerDescription?.trim() || null,
+      avatar_url: normalizedAvatarUrl,
+    })
+    .select("id, slug, name")
+    .single();
+
+  if (insertSpeakerError) throw insertSpeakerError;
+  return insertedSpeaker;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { source_video_id, sessions } = body;
+    const {
+      source_video_id,
+      sessions,
+      primarySpeakerId,
+      primarySpeakerName,
+      primarySpeakerDescription,
+      primarySpeakerAvatarUrl,
+    } = body;
 
     if (!source_video_id || !Array.isArray(sessions)) {
       return NextResponse.json(
@@ -148,6 +299,46 @@ export async function POST(request: NextRequest) {
             contextsToUpsert,
           });
           throw contextError;
+        }
+      }
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(body, "primarySpeakerId") ||
+      Object.prototype.hasOwnProperty.call(body, "primarySpeakerName")
+    ) {
+      const resolvedSpeaker = await resolvePrimarySpeaker(
+        supabase,
+        primarySpeakerId,
+        primarySpeakerName,
+        primarySpeakerDescription,
+        primarySpeakerAvatarUrl,
+      );
+
+      const { error: demoteError } = await supabase
+        .from("video_speakers")
+        .update({ is_primary: false })
+        .eq("video_id", source_video_id);
+
+      if (demoteError) {
+        throw demoteError;
+      }
+
+      if (resolvedSpeaker) {
+        const { error: speakerLinkError } = await supabase
+          .from("video_speakers")
+          .upsert(
+            {
+              video_id: source_video_id,
+              speaker_id: resolvedSpeaker.id,
+              is_primary: true,
+              admin_verified: true,
+            },
+            { onConflict: "video_id,speaker_id" },
+          );
+
+        if (speakerLinkError) {
+          throw speakerLinkError;
         }
       }
     }

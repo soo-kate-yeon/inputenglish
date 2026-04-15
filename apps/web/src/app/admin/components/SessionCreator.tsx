@@ -8,6 +8,7 @@ import type {
   SessionRoleRelevance,
   SessionSourceType,
   Genre,
+  Speaker,
 } from "@inputenglish/shared";
 import { GENRES, SESSION_SOURCE_TYPES } from "@inputenglish/shared";
 import { Plus, Trash2, Clock, Edit2, Sparkles, RefreshCw } from "lucide-react";
@@ -91,6 +92,41 @@ function multilineToVocab(value: string): (string | KeyVocabularyEntry)[] {
     });
 }
 
+function resolveSpeakerChoice(
+  rawValue: string,
+  options: Speaker[],
+): {
+  id: string | null;
+  name: string | null;
+  slug: string | null;
+  avatar_url: string | null;
+} {
+  const trimmed = rawValue.trim();
+  if (!trimmed) {
+    return { id: null, name: null, slug: null, avatar_url: null };
+  }
+
+  const exactMatch = options.find(
+    (speaker) => speaker.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+
+  if (exactMatch) {
+    return {
+      id: exactMatch.id,
+      name: exactMatch.name,
+      slug: exactMatch.slug,
+      avatar_url: exactMatch.avatar_url || null,
+    };
+  }
+
+  return {
+    id: null,
+    name: trimmed,
+    slug: null,
+    avatar_url: null,
+  };
+}
+
 interface SessionCreatorProps {
   sentences: Sentence[];
   videoId: string;
@@ -141,6 +177,17 @@ export function SessionCreator({
     SessionRoleRelevance[]
   >(["pm"]);
   const [editPremiumRequired, setEditPremiumRequired] = useState(true);
+  const [editPrimarySpeakerName, setEditPrimarySpeakerName] = useState("");
+  const [editPrimarySpeakerId, setEditPrimarySpeakerId] = useState<
+    string | null
+  >(null);
+  const [editPrimarySpeakerSlug, setEditPrimarySpeakerSlug] = useState<
+    string | null
+  >(null);
+  const [editPrimarySpeakerDescription, setEditPrimarySpeakerDescription] =
+    useState("");
+  const [editPrimarySpeakerAvatarUrl, setEditPrimarySpeakerAvatarUrl] =
+    useState("");
   const [editContext, setEditContext] =
     useState<SessionContext>(createEmptyContext());
   const [isEditGeneratingContext, setIsEditGeneratingContext] = useState(false);
@@ -148,6 +195,7 @@ export function SessionCreator({
   const [editTransformationPattern, setEditTransformationPattern] = useState<
     string | null
   >(null);
+  const [speakerOptions, setSpeakerOptions] = useState<Speaker[]>([]);
 
   // List State
   const [createdSessions, setCreatedSessions] =
@@ -173,6 +221,63 @@ export function SessionCreator({
       setIsSuggestionModalOpen(true);
     }
   }, [suggestedScenes.length]);
+
+  useEffect(() => {
+    if (!videoId) return;
+
+    let cancelled = false;
+
+    fetch(`/api/admin/speakers?videoId=${encodeURIComponent(videoId)}`, {
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.error || "Failed to load speakers");
+        }
+        return response.json() as Promise<{
+          speakers: Speaker[];
+          currentPrimarySpeaker?: Speaker | null;
+        }>;
+      })
+      .then((payload) => {
+        if (cancelled) return;
+
+        setSpeakerOptions(payload.speakers ?? []);
+
+        if (payload.currentPrimarySpeaker) {
+          const current = payload.currentPrimarySpeaker;
+          setEditPrimarySpeakerName((prev) => prev || current.name);
+          setEditPrimarySpeakerId((prev) => prev ?? current.id);
+          setEditPrimarySpeakerSlug((prev) => prev ?? current.slug);
+          setEditPrimarySpeakerDescription(
+            (prev) => prev || current.description_long || "",
+          );
+          setEditPrimarySpeakerAvatarUrl(
+            (prev) => prev || current.avatar_url || "",
+          );
+          setCreatedSessions((prev) =>
+            prev.map((session) => ({
+              ...session,
+              primary_speaker_id: current.id,
+              primary_speaker_name: current.name,
+              primary_speaker_slug: current.slug,
+              primary_speaker_description: current.description_long || null,
+              primary_speaker_avatar_url: current.avatar_url || null,
+            })),
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSpeakerOptions([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
 
   // Notify parent about highlighted sentence IDs when checked sessions change
   useEffect(() => {
@@ -315,6 +420,23 @@ export function SessionCreator({
     setEditGenre(session.genre ?? undefined);
     setEditRoleRelevance(session.role_relevance || ["pm"]);
     setEditPremiumRequired(session.premium_required ?? true);
+    setEditPrimarySpeakerName(
+      session.primary_speaker_name || editPrimarySpeakerName || "",
+    );
+    setEditPrimarySpeakerId(
+      session.primary_speaker_id || editPrimarySpeakerId || null,
+    );
+    setEditPrimarySpeakerSlug(
+      session.primary_speaker_slug || editPrimarySpeakerSlug || null,
+    );
+    setEditPrimarySpeakerDescription(
+      session.primary_speaker_description ||
+        editPrimarySpeakerDescription ||
+        "",
+    );
+    setEditPrimarySpeakerAvatarUrl(
+      session.primary_speaker_avatar_url || editPrimarySpeakerAvatarUrl || "",
+    );
     setEditContext(session.context ?? createEmptyContext());
     setEditTransformationPattern(null);
     setEditTab(tab);
@@ -323,6 +445,13 @@ export function SessionCreator({
 
   const handleSaveEditSession = () => {
     if (!editingSession) return;
+    const speakerChoice = resolveSpeakerChoice(
+      editPrimarySpeakerName,
+      speakerOptions,
+    );
+    setEditPrimarySpeakerName(speakerChoice.name || "");
+    setEditPrimarySpeakerId(speakerChoice.id);
+    setEditPrimarySpeakerSlug(speakerChoice.slug);
     setCreatedSessions((prev) =>
       prev.map((s) =>
         s.id === editingSession.id
@@ -337,8 +466,24 @@ export function SessionCreator({
               role_relevance: editRoleRelevance,
               premium_required: editPremiumRequired,
               context: editContext,
+              primary_speaker_id: speakerChoice.id,
+              primary_speaker_name: speakerChoice.name,
+              primary_speaker_slug: speakerChoice.slug,
+              primary_speaker_description:
+                editPrimarySpeakerDescription.trim() || null,
+              primary_speaker_avatar_url:
+                editPrimarySpeakerAvatarUrl.trim() || null,
             }
-          : s,
+          : {
+              ...s,
+              primary_speaker_id: speakerChoice.id,
+              primary_speaker_name: speakerChoice.name,
+              primary_speaker_slug: speakerChoice.slug,
+              primary_speaker_description:
+                editPrimarySpeakerDescription.trim() || null,
+              primary_speaker_avatar_url:
+                editPrimarySpeakerAvatarUrl.trim() || null,
+            },
       ),
     );
     setIsEditSheetOpen(false);
@@ -361,6 +506,11 @@ export function SessionCreator({
       order_index: createdSessions.length,
       source_type: "podcast",
       role_relevance: ["pm"],
+      primary_speaker_id: editPrimarySpeakerId,
+      primary_speaker_name: editPrimarySpeakerName.trim() || null,
+      primary_speaker_slug: editPrimarySpeakerSlug,
+      primary_speaker_description: editPrimarySpeakerDescription.trim() || null,
+      primary_speaker_avatar_url: editPrimarySpeakerAvatarUrl.trim() || null,
       premium_required: true,
       created_at: new Date().toISOString(),
       sentences: sortedSelectedSentences,
@@ -480,6 +630,12 @@ export function SessionCreator({
         order_index: orderIndex,
         source_type: "podcast" as const,
         role_relevance: ["pm"] as SessionRoleRelevance[],
+        primary_speaker_id: editPrimarySpeakerId,
+        primary_speaker_name: editPrimarySpeakerName.trim() || null,
+        primary_speaker_slug: editPrimarySpeakerSlug,
+        primary_speaker_description:
+          editPrimarySpeakerDescription.trim() || null,
+        primary_speaker_avatar_url: editPrimarySpeakerAvatarUrl.trim() || null,
         premium_required: true,
         created_at: new Date().toISOString(),
         sentences: [],
@@ -500,6 +656,11 @@ export function SessionCreator({
       order_index: orderIndex,
       source_type: "podcast" as const,
       role_relevance: ["pm"] as SessionRoleRelevance[],
+      primary_speaker_id: editPrimarySpeakerId,
+      primary_speaker_name: editPrimarySpeakerName.trim() || null,
+      primary_speaker_slug: editPrimarySpeakerSlug,
+      primary_speaker_description: editPrimarySpeakerDescription.trim() || null,
+      primary_speaker_avatar_url: editPrimarySpeakerAvatarUrl.trim() || null,
       premium_required: true,
       created_at: new Date().toISOString(),
       sentences: sceneSentences,
@@ -726,6 +887,9 @@ export function SessionCreator({
                       ) : null}
                       {session.genre ? (
                         <span>{GENRE_LABELS[session.genre]}</span>
+                      ) : null}
+                      {session.primary_speaker_name ? (
+                        <span>{session.primary_speaker_name}</span>
                       ) : null}
                       {session.premium_required ? <span>Premium</span> : null}
                       {session.context ? <span>Context</span> : null}
@@ -1023,6 +1187,96 @@ export function SessionCreator({
                       ))}
                     </select>
                   </label>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    padding: "10px 12px",
+                    border: "1px solid #e5e5e5",
+                    backgroundColor: "#ffffff",
+                  }}
+                >
+                  <label className="flex flex-col" style={{ gap: 4 }}>
+                    <span className="text-xs" style={{ color: "#737373" }}>
+                      Key speaker
+                    </span>
+                    <input
+                      type="text"
+                      value={editPrimarySpeakerName}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setEditPrimarySpeakerName(nextValue);
+                        const matchedSpeaker = resolveSpeakerChoice(
+                          nextValue,
+                          speakerOptions,
+                        );
+                        setEditPrimarySpeakerId(matchedSpeaker.id);
+                        setEditPrimarySpeakerSlug(matchedSpeaker.slug);
+                        if (matchedSpeaker.id) {
+                          setEditPrimarySpeakerAvatarUrl(
+                            matchedSpeaker.avatar_url || "",
+                          );
+                        }
+                      }}
+                      list="speaker-options"
+                      placeholder="예: Simon Sinek"
+                      className="w-full text-sm focus:outline-none"
+                      style={{
+                        padding: "6px 8px",
+                        border: "1px solid #e5e5e5",
+                        color: "#525252",
+                        backgroundColor: "#ffffff",
+                      }}
+                    />
+                    <datalist id="speaker-options">
+                      {speakerOptions.map((speaker) => (
+                        <option key={speaker.id} value={speaker.name}>
+                          {speaker.headline || speaker.organization || ""}
+                        </option>
+                      ))}
+                    </datalist>
+                  </label>
+                  <span
+                    className="text-[11px]"
+                    style={{ color: "#737373", lineHeight: 1.5 }}
+                  >
+                    이 값은 세션 단위가 아니라 현재 영상 전체의 대표 speaker로
+                    저장됩니다. 기존 speaker가 없으면 저장 시 자동으로
+                    생성합니다.
+                  </span>
+                  <textarea
+                    value={editPrimarySpeakerDescription}
+                    onChange={(e) =>
+                      setEditPrimarySpeakerDescription(e.target.value)
+                    }
+                    placeholder="이 인물의 말하기 특징이나, 이 사람을 통해 뭘 배울 수 있는지 적어주세요."
+                    rows={3}
+                    className="w-full text-sm focus:outline-none resize-none"
+                    style={{
+                      padding: "8px 10px",
+                      border: "1px solid #e5e5e5",
+                      color: "#525252",
+                      backgroundColor: "#fafafa",
+                      lineHeight: 1.6,
+                    }}
+                  />
+                  <input
+                    type="url"
+                    value={editPrimarySpeakerAvatarUrl}
+                    onChange={(e) =>
+                      setEditPrimarySpeakerAvatarUrl(e.target.value)
+                    }
+                    placeholder="https://... speaker thumbnail URL"
+                    className="w-full text-sm focus:outline-none"
+                    style={{
+                      padding: "8px 10px",
+                      border: "1px solid #e5e5e5",
+                      color: "#525252",
+                      backgroundColor: "#fafafa",
+                    }}
+                  />
                 </div>
                 <label
                   className="flex items-center justify-between text-sm"

@@ -75,6 +75,35 @@ export interface CuratedVideo {
   created_by?: string;
 }
 
+export interface Speaker {
+  id: string;
+  slug: string;
+  name: string;
+  name_ko?: string | null;
+  headline?: string | null;
+  bio_short?: string | null;
+  description_long?: string | null;
+  speaking_focus?: string | null;
+  avatar_url?: string | null;
+  organization?: string | null;
+  role_title?: string | null;
+  is_featured: boolean;
+  sort_order: number;
+  status: "active" | "hidden";
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FeaturedSpeaker {
+  id: string;
+  slug: string;
+  name: string;
+  headline?: string | null;
+  image_url?: string | null;
+  video_count: number;
+  session_count: number;
+}
+
 export const SESSION_SOURCE_TYPES = [
   "keynote",
   "demo",
@@ -218,6 +247,11 @@ export interface LearningSession {
   source_type?: SessionSourceType;
   genre?: Genre;
   role_relevance?: SessionRoleRelevance[];
+  primary_speaker_id?: string | null;
+  primary_speaker_name?: string | null;
+  primary_speaker_slug?: string | null;
+  primary_speaker_description?: string | null;
+  primary_speaker_avatar_url?: string | null;
   premium_required?: boolean;
   created_at: string;
   created_by?: string;

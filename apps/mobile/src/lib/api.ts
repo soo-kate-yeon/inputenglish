@@ -6,6 +6,7 @@ import type {
   CardComment,
   CardCommentTargetType,
   CuratedVideo,
+  FeaturedSpeaker,
   Genre,
   PlaybookEntry,
   PlaybookMasteryStatus,
@@ -16,6 +17,7 @@ import type {
   SessionContext,
   SessionRoleRelevance,
   SessionSourceType,
+  Speaker,
 } from "@inputenglish/shared";
 import { buildDefaultPracticePrompts } from "./professional-practice";
 
@@ -127,6 +129,16 @@ export interface FeedFilters {
   sourceType?: string;
   genre?: string;
   difficulty?: "beginner" | "intermediate" | "advanced";
+}
+
+export interface FeaturedSpeakerItem extends FeaturedSpeaker {
+  image_url?: string | null;
+}
+
+export interface SpeakerDetail extends Speaker {
+  image_url?: string | null;
+  video_count: number;
+  session_count: number;
 }
 
 export async function fetchLearningSessionsPaginated(
@@ -322,6 +334,168 @@ export async function fetchCuratedVideo(
 
   if (error) throw error;
   return data as CuratedVideo;
+}
+
+export async function fetchFeaturedSpeakers(): Promise<FeaturedSpeakerItem[]> {
+  const { data, error } = await supabase
+    .from("speaker_library_items")
+    .select(
+      "speaker_id, speaker_slug, speaker_name, speaker_headline, speaker_avatar_url, speaker_sort_order, video_id, video_thumbnail_url, session_id",
+    )
+    .eq("speaker_is_featured", true)
+    .order("speaker_sort_order", { ascending: true });
+
+  if (error) throw error;
+
+  const speakerMap = new Map<
+    string,
+    FeaturedSpeakerItem & {
+      sort_order: number;
+      _videoIds: Set<string>;
+      _sessionIds: Set<string>;
+    }
+  >();
+
+  for (const row of data ?? []) {
+    if (!row.speaker_id || !row.speaker_slug || !row.speaker_name) continue;
+
+    const existing = speakerMap.get(row.speaker_id);
+    if (existing) {
+      if (row.video_id) existing._videoIds.add(row.video_id);
+      if (row.session_id) existing._sessionIds.add(row.session_id);
+      if (!existing.image_url && row.video_thumbnail_url) {
+        existing.image_url = row.video_thumbnail_url;
+      }
+      continue;
+    }
+
+    const nextSpeaker = {
+      id: row.speaker_id,
+      slug: row.speaker_slug,
+      name: row.speaker_name,
+      headline: row.speaker_headline || null,
+      image_url: row.speaker_avatar_url || row.video_thumbnail_url || null,
+      video_count: row.video_id ? 1 : 0,
+      session_count: row.session_id ? 1 : 0,
+      sort_order: Number(row.speaker_sort_order ?? 0),
+      _videoIds: new Set(row.video_id ? [row.video_id] : []),
+      _sessionIds: new Set(row.session_id ? [row.session_id] : []),
+    };
+    speakerMap.set(row.speaker_id, nextSpeaker);
+  }
+
+  return Array.from(speakerMap.values())
+    .map((speaker) => ({
+      id: speaker.id,
+      slug: speaker.slug,
+      name: speaker.name,
+      headline: speaker.headline,
+      image_url: speaker.image_url,
+      video_count: speaker._videoIds.size,
+      session_count: speaker._sessionIds.size,
+      sort_order: speaker.sort_order,
+    }))
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ sort_order: _sortOrder, ...speaker }) => speaker);
+}
+
+export async function fetchSpeakerDetail(slug: string): Promise<SpeakerDetail> {
+  const [
+    { data: speaker, error: speakerError },
+    { data: items, error: itemsError },
+  ] = await Promise.all([
+    supabase
+      .from("speakers")
+      .select("*")
+      .eq("slug", slug)
+      .eq("status", "active")
+      .maybeSingle(),
+    supabase
+      .from("speaker_library_items")
+      .select("video_id, video_thumbnail_url, session_id")
+      .eq("speaker_slug", slug),
+  ]);
+
+  if (speakerError) throw speakerError;
+  if (itemsError) throw itemsError;
+  if (!speaker) {
+    throw new Error("Speaker not found");
+  }
+
+  const videoIds = new Set<string>();
+  const sessionIds = new Set<string>();
+  let fallbackImage: string | null = null;
+
+  for (const item of items ?? []) {
+    if (item.video_id) videoIds.add(item.video_id);
+    if (item.session_id) sessionIds.add(item.session_id);
+    if (!fallbackImage && item.video_thumbnail_url) {
+      fallbackImage = item.video_thumbnail_url;
+    }
+  }
+
+  return {
+    ...(speaker as Speaker),
+    image_url: speaker.avatar_url || fallbackImage,
+    video_count: videoIds.size,
+    session_count: sessionIds.size,
+  };
+}
+
+export async function fetchSpeakerSessions(
+  slug: string,
+): Promise<SessionListItem[]> {
+  const { data, error } = await supabase
+    .from("speaker_library_items")
+    .select(
+      `
+        session_id,
+        session_title,
+        session_subtitle,
+        session_description,
+        session_duration,
+        session_order_index,
+        session_difficulty,
+        session_source_type,
+        session_genre,
+        session_premium_required,
+        video_id,
+        video_thumbnail_url,
+        channel_name
+      `,
+    )
+    .eq("speaker_slug", slug)
+    .not("session_id", "is", null)
+    .order("session_order_index", { ascending: true });
+
+  if (error) throw error;
+
+  const sessionMap = new Map<string, SessionListItem>();
+
+  for (const row of data ?? []) {
+    if (!row.session_id || sessionMap.has(row.session_id)) continue;
+
+    sessionMap.set(row.session_id, {
+      id: row.session_id,
+      source_video_id: row.video_id,
+      title: row.session_title,
+      subtitle: row.session_subtitle || undefined,
+      description: row.session_description || undefined,
+      duration: Number(row.session_duration),
+      difficulty: row.session_difficulty as SessionListItem["difficulty"],
+      thumbnail_url:
+        row.video_thumbnail_url ||
+        `https://img.youtube.com/vi/${row.video_id}/hqdefault.jpg`,
+      order_index: Number(row.session_order_index ?? 0),
+      channel_name: row.channel_name || undefined,
+      source_type: row.session_source_type as SessionListItem["source_type"],
+      genre: row.session_genre as SessionListItem["genre"],
+      premium_required: Boolean(row.session_premium_required),
+      role_relevance: [],
+    });
+  }
+
+  return Array.from(sessionMap.values());
 }
 
 export async function ensurePracticePrompts(

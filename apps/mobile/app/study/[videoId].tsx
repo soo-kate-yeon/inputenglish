@@ -965,16 +965,6 @@ export default function StudyScreen() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" />
 
-        {/* Back navigation */}
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-
         {/* Main tabs: top of sheet */}
         {!briefExpanded ? (
           <View style={styles.mainTabs}>
@@ -1409,11 +1399,6 @@ export default function StudyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   safeArea: { flex: 1 },
-  backBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignSelf: "flex-start",
-  },
   state: {
     flex: 1,
     backgroundColor: colors.bg,

@@ -20,11 +20,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  fetchFeaturedSpeakers,
   fetchLearningSessionsPaginated,
   fetchSessionsByIds,
   FeedFilters,
+  FeaturedSpeakerItem,
   SessionListItem,
 } from "../../src/lib/api";
+import SpeakerStackCard from "../../src/components/home/SpeakerStackCard";
 import { getRecentSessionIds } from "../../src/lib/recent-sessions";
 import {
   DIFFICULTY_OPTIONS,
@@ -320,6 +323,9 @@ export default function HomeScreen() {
   const [continueSessions, setContinueSessions] = useState<SessionListItem[]>(
     [],
   );
+  const [featuredSpeakers, setFeaturedSpeakers] = useState<
+    FeaturedSpeakerItem[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -338,11 +344,23 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       const ids = getRecentSessionIds();
+
       if (ids.length > 0) {
         fetchSessionsByIds(ids.slice(0, 10))
           .then(setContinueSessions)
-          .catch(() => {});
+          .catch((error) => {
+            console.warn("[Home] Failed to load continue sessions", error);
+          });
+      } else {
+        setContinueSessions([]);
       }
+
+      fetchFeaturedSpeakers()
+        .then(setFeaturedSpeakers)
+        .catch((error) => {
+          console.warn("[Home] Failed to load featured speakers", error);
+          setFeaturedSpeakers([]);
+        });
     }, []),
   );
 
@@ -409,7 +427,9 @@ export default function HomeScreen() {
         setHasMore(result.hasMore);
         offsetRef.current += result.sessions.length;
       })
-      .catch(() => {})
+      .catch((error) => {
+        console.warn("[Home] Failed to load more sessions", error);
+      })
       .finally(() => setLoadingMore(false));
   }, [loadingMore, hasMore, loading, activeChip, difficulty]);
 
@@ -458,9 +478,11 @@ export default function HomeScreen() {
         {/* Continue Learning */}
         {continueSessions.length > 0 && (
           <View style={styles.continueSection}>
-            <Text style={styles.sectionTitle}>
-              {"\uc774\uc5b4\uc11c \ud559\uc2b5\ud558\uae30"}
-            </Text>
+            <View style={styles.sectionHeaderInset}>
+              <Text style={styles.sectionTitle}>
+                {"\uc774\uc5b4\uc11c \ud559\uc2b5\ud558\uae30"}
+              </Text>
+            </View>
             <FlatList
               horizontal
               data={continueSessions}
@@ -473,6 +495,29 @@ export default function HomeScreen() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.continueList}
+              ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            />
+          </View>
+        )}
+
+        {featuredSpeakers.length > 0 && (
+          <View style={styles.speakerSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>인물 큐레이션</Text>
+              <Text style={styles.sectionMetaText}>인물별 영상 모아보기</Text>
+            </View>
+            <FlatList
+              horizontal
+              data={featuredSpeakers}
+              keyExtractor={(item) => `speaker-${item.id}`}
+              renderItem={({ item }) => (
+                <SpeakerStackCard
+                  item={item}
+                  onPress={() => router.push(`/speaker/${item.slug}`)}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.speakerList}
               ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
             />
           </View>
@@ -609,6 +654,8 @@ const styles = StyleSheet.create({
     fontSize: font.size.xl,
     fontWeight: font.weight.bold,
     color: colors.text,
+  },
+  sectionHeaderInset: {
     paddingHorizontal: spacing.md,
   },
   continueList: {
@@ -629,6 +676,27 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.semibold,
     color: colors.text,
     lineHeight: 19,
+  },
+
+  // -- Key Speakers --
+  speakerSection: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    gap: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+  },
+  sectionMetaText: {
+    fontSize: font.size.sm,
+    color: colors.textSecondary,
+  },
+  speakerList: {
+    paddingHorizontal: spacing.md,
+    paddingTop: 2,
   },
 
   // -- Chip Row --
