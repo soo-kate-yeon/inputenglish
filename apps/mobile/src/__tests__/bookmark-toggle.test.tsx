@@ -268,15 +268,12 @@ describe("Bookmark toggle in transformation practice", () => {
       ).toBeGreaterThanOrEqual(1);
     });
 
-    // Find the bookmark buttons (SaveToggle renders Ionicons mock as Text)
-    // Index 0 is the header back button; bookmark buttons start from index 1
-    const allIonicons = getAllByTestId("Ionicons");
-    const bookmarkIcons = allIonicons.slice(1); // skip header back button
-    expect(bookmarkIcons.length).toBeGreaterThanOrEqual(1);
+    const bookmarkButtons = getAllByTestId("save-toggle");
+    expect(bookmarkButtons.length).toBeGreaterThanOrEqual(1);
 
     // Tap the first bookmark button (sentence 1)
     await act(async () => {
-      fireEvent.press(bookmarkIcons[0]);
+      fireEvent.press(bookmarkButtons[0]);
     });
 
     // Verify savePlaybookEntry was called with correct params
@@ -305,11 +302,11 @@ describe("Bookmark toggle in transformation practice", () => {
       ).toBeGreaterThanOrEqual(1);
     });
 
-    const bookmarkIcons = getAllByTestId("Ionicons").slice(1);
+    const bookmarkButtons = getAllByTestId("save-toggle");
 
     // Tap bookmark
     await act(async () => {
-      fireEvent.press(bookmarkIcons[0]);
+      fireEvent.press(bookmarkButtons[0]);
     });
 
     // Wait for async save to complete
@@ -322,7 +319,7 @@ describe("Bookmark toggle in transformation practice", () => {
     // After successful save, the map should contain the entry
     // Tapping again should trigger DELETE (proving state persisted)
     await act(async () => {
-      fireEvent.press(bookmarkIcons[0]);
+      fireEvent.press(bookmarkButtons[0]);
     });
 
     // Second tap should call deletePlaybookEntry (proving first bookmark persisted)
@@ -349,11 +346,11 @@ describe("Bookmark toggle in transformation practice", () => {
       ).toBeGreaterThanOrEqual(1);
     });
 
-    const bookmarkIcons = getAllByTestId("Ionicons").slice(1);
+    const bookmarkButtons = getAllByTestId("save-toggle");
 
     // Tap bookmark - optimistic update should show active
     await act(async () => {
-      fireEvent.press(bookmarkIcons[0]);
+      fireEvent.press(bookmarkButtons[0]);
     });
 
     // Wait for the rejected promise to settle and trigger rollback
@@ -364,7 +361,7 @@ describe("Bookmark toggle in transformation practice", () => {
     // After failure, tapping again should attempt to SAVE again (not delete)
     // because the rollback removed the entry from bookmarkedEntryMap
     await act(async () => {
-      fireEvent.press(bookmarkIcons[0]);
+      fireEvent.press(bookmarkButtons[0]);
     });
 
     // Should call savePlaybookEntry again (not deletePlaybookEntry)

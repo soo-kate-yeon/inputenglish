@@ -17,6 +17,7 @@ export default function SaveToggle({
 }: SaveToggleProps) {
   return (
     <TouchableOpacity
+      testID="save-toggle"
       style={[
         styles.button,
         tinted ? styles.buttonTinted : styles.buttonDefault,

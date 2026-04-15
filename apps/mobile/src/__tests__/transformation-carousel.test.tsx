@@ -333,7 +333,7 @@ describe("TransformationCarousel", () => {
 });
 
 describe("ExerciseRecordingBar", () => {
-  it("renders Start Recording button when recordingState is idle", async () => {
+  it("renders the idle recording CTA when recordingState is idle", async () => {
     const {
       ExerciseRecordingBar,
     } = require("../../src/components/study/carousel/ExerciseRecordingBar");
@@ -351,7 +351,7 @@ describe("ExerciseRecordingBar", () => {
       />,
     );
 
-    expect(await findByText("Start Recording")).toBeTruthy();
+    expect(await findByText("녹음 시작")).toBeTruthy();
   });
 
   it("renders null container for idle but delegates to RecordingBar when recording", async () => {

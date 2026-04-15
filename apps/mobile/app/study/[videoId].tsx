@@ -330,7 +330,12 @@ export default function StudyScreen() {
         return;
       }
 
-      if (state === "ended" && mainTab === "shadowing" && activeIdRef.current) {
+      if (
+        state === "ended" &&
+        mainTab === "shadowing" &&
+        shadowingMode !== "total" &&
+        activeIdRef.current
+      ) {
         const loopingSegment =
           shadowingSentences.find((item) => item.id === activeIdRef.current) ??
           studySentences.find((item) => item.id === activeIdRef.current);
@@ -347,7 +352,13 @@ export default function StudyScreen() {
         setPlaying(false);
       }
     },
-    [mainTab, playerBaseOffset, shadowingSentences, studySentences],
+    [
+      mainTab,
+      playerBaseOffset,
+      shadowingMode,
+      shadowingSentences,
+      studySentences,
+    ],
   );
 
   // ── 100ms poll: sentence sync ──
@@ -388,7 +399,11 @@ export default function StudyScreen() {
           }
         }
 
-        if (mainTab === "shadowing" && activeIdRef.current) {
+        if (
+          mainTab === "shadowing" &&
+          shadowingMode !== "total" &&
+          activeIdRef.current
+        ) {
           const loopingSegment =
             shadowingSentences.find(
               (item) => item.id === activeIdRef.current,
@@ -414,6 +429,10 @@ export default function StudyScreen() {
           setTimeout(() => {
             seekLockRef.current = false;
           }, 300);
+          return;
+        }
+
+        if (mainTab === "shadowing") {
           return;
         }
 
@@ -915,6 +934,12 @@ export default function StudyScreen() {
 
   const listeningData = studySentences;
   const isRecording = recordingState !== "idle";
+  const currentListeningIndex = Math.max(
+    listeningData.findIndex((item) => item.id === activeSentenceId),
+    0,
+  );
+  const hasPrevListening = currentListeningIndex > 0;
+  const hasNextListening = currentListeningIndex < listeningData.length - 1;
   const currentShadowingIndex = Math.max(
     shadowingSentences.findIndex((item) => item.id === activeSentenceId),
     0,
@@ -937,6 +962,20 @@ export default function StudyScreen() {
       handleSeek(nextSentence.id);
     },
     [currentShadowingIndex, handleSeek, shadowingSentences],
+  );
+
+  const moveListeningFocus = useCallback(
+    (direction: "prev" | "next") => {
+      if (!listeningData.length) return;
+      const nextIndex =
+        direction === "prev"
+          ? Math.max(currentListeningIndex - 1, 0)
+          : Math.min(currentListeningIndex + 1, listeningData.length - 1);
+      const nextSentence = listeningData[nextIndex];
+      if (!nextSentence) return;
+      handleSentenceTap(nextSentence);
+    },
+    [currentListeningIndex, handleSentenceTap, listeningData],
   );
 
   // ── Render ──
@@ -1142,11 +1181,74 @@ export default function StudyScreen() {
                   <Text style={styles.emptyTitle}>
                     스크립트가 숨겨져 있어요
                   </Text>
-                  <Text style={styles.emptySubtitle}>
-                    처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나
-                    하나도 들리지 않는다면 난이도가 더 쉬운 영상으로 먼저
-                    공부하세요.
-                  </Text>
+                  {mainTab === "listening" ? (
+                    <>
+                      <Text style={styles.emptySubtitle}>
+                        처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나
+                        하나도 들리지 않는다면 난이도가 더 쉬운 영상으로 먼저
+                        공부하세요.
+                      </Text>
+                      <View style={styles.hiddenListeningNavBar}>
+                        <TouchableOpacity
+                          style={styles.hiddenListeningNavAction}
+                          onPress={() => moveListeningFocus("prev")}
+                          activeOpacity={0.7}
+                          disabled={!hasPrevListening}
+                        >
+                          <View style={styles.hiddenListeningNavContent}>
+                            <Ionicons
+                              name="arrow-back"
+                              size={14}
+                              color={
+                                hasPrevListening
+                                  ? colors.text
+                                  : colors.textMuted
+                              }
+                            />
+                            <Text
+                              style={[
+                                styles.hiddenListeningNavActionText,
+                                !hasPrevListening &&
+                                  styles.hiddenListeningNavActionTextDisabled,
+                              ]}
+                            >
+                              이전 문장
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        <View style={styles.hiddenListeningNavDivider} />
+
+                        <TouchableOpacity
+                          style={styles.hiddenListeningNavAction}
+                          onPress={() => moveListeningFocus("next")}
+                          activeOpacity={0.7}
+                          disabled={!hasNextListening}
+                        >
+                          <View style={styles.hiddenListeningNavContent}>
+                            <Text
+                              style={[
+                                styles.hiddenListeningNavActionText,
+                                !hasNextListening &&
+                                  styles.hiddenListeningNavActionTextDisabled,
+                              ]}
+                            >
+                              다음 문장
+                            </Text>
+                            <Ionicons
+                              name="arrow-forward"
+                              size={14}
+                              color={
+                                hasNextListening
+                                  ? colors.text
+                                  : colors.textMuted
+                              }
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : null}
                 </View>
               ) : mainTab === "listening" ? (
                 /* ── Listening list ── */
@@ -1202,20 +1304,26 @@ export default function StudyScreen() {
                   </View>
 
                   {currentShadowingSentence ? (
-                    <Pressable
-                      style={styles.shadowingTextBlock}
-                      onPress={() => handleSeek(currentShadowingSentence.id)}
+                    <ScrollView
+                      style={styles.shadowingScroll}
+                      contentContainerStyle={styles.shadowingScrollContent}
+                      showsVerticalScrollIndicator={false}
                     >
-                      <Text style={styles.shadowingPrimaryText}>
-                        {currentShadowingSentence.text}
-                      </Text>
-                      {translationVisible &&
-                      currentShadowingSentence.translation ? (
-                        <Text style={styles.shadowingTranslationText}>
-                          {currentShadowingSentence.translation}
+                      <Pressable
+                        style={styles.shadowingTextBlock}
+                        onPress={() => handleSeek(currentShadowingSentence.id)}
+                      >
+                        <Text style={styles.shadowingPrimaryText}>
+                          {currentShadowingSentence.text}
                         </Text>
-                      ) : null}
-                    </Pressable>
+                        {translationVisible &&
+                        currentShadowingSentence.translation ? (
+                          <Text style={styles.shadowingTranslationText}>
+                            {currentShadowingSentence.translation}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    </ScrollView>
                   ) : (
                     <View style={styles.empty}>
                       <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
@@ -1561,7 +1669,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 28,
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
   shadowingMetaRow: {
     flexDirection: "row",
@@ -1580,9 +1688,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: font.weight.medium,
   },
-  shadowingTextBlock: {
+  shadowingScroll: {
     flex: 1,
-    justifyContent: "center",
+  },
+  shadowingScrollContent: {
+    paddingBottom: 12,
+  },
+  shadowingTextBlock: {
+    alignSelf: "stretch",
   },
   shadowingPrimaryText: {
     fontSize: font.size.lg,
@@ -1590,12 +1703,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: font.weight.bold,
     letterSpacing: 0,
+    textAlign: "left",
   },
   shadowingTranslationText: {
     marginTop: 20,
     fontSize: font.size.sm,
     lineHeight: 20,
     color: colors.textSecondary,
+    textAlign: "left",
   },
 
   // Bottom bar
@@ -1640,23 +1755,23 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   shadowingBottomBar: {
-    paddingVertical: 14,
+    paddingTop: 10,
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 28 : 14,
+    paddingBottom: Platform.OS === "ios" ? 18 : 10,
     backgroundColor: colors.bg,
     borderTopWidth: 1,
     borderTopColor: colors.borderStrong,
-    gap: 12,
+    gap: 8,
   },
   shadowingNavRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   shadowingNavBtn: {
     minWidth: 72,
     paddingHorizontal: 14,
-    minHeight: 56,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     borderRadius: radius.pill,
@@ -1676,20 +1791,56 @@ const styles = StyleSheet.create({
   },
   shadowingRecordButtonWrap: {
     flex: 1,
+    minHeight: 48,
   },
   shadowingToolsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 6,
   },
   shadowingToolBtn: {
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 12,
   },
   shadowingToolText: {
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: font.weight.semibold,
+  },
+  hiddenListeningNavBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 20,
+    marginTop: 18,
+  },
+  hiddenListeningNavAction: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hiddenListeningNavContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  hiddenListeningNavDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: colors.border,
+  },
+  hiddenListeningNavActionText: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+  },
+  hiddenListeningNavActionTextDisabled: {
+    color: colors.textMuted,
   },
 });
