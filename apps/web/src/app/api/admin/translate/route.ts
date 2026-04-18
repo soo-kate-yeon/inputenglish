@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { sentences } = await request.json();
 
@@ -67,11 +71,8 @@ ${JSON.stringify(sentences)}
     return NextResponse.json({
       translations,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Translation API error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to translate" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to translate" }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   type CommonMistake,
@@ -22,6 +23,9 @@ interface GenerateContextRequest {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = (await request.json()) as GenerateContextRequest;
     const { title, description, sentences, targetPattern } = body;
@@ -222,10 +226,10 @@ Return ONLY valid JSON:
       } satisfies SessionContext,
       subtitle,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Session context generation API error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate session context" },
+      { error: "Failed to generate session context" },
       { status: 500 },
     );
   }

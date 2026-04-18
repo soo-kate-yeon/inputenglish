@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   GENRES,
@@ -23,9 +24,82 @@ interface AutofillResponse {
   premiumRequired?: boolean;
 }
 
+const COPY_FEW_SHOTS = [
+  {
+    title: "샘 알트만 AI 전망 발표",
+    subtitle: "숫자를 말할 때 'We're seeing'으로 단정 피하는 연습이에요.",
+    description:
+      "지표를 꺼낼 때 너무 세게 말하면 부담스럽게 들릴 때가 있거든요. 관찰형 표현으로 숫자를 부드럽게 설명하는 흐름을 가져가요.",
+  },
+  {
+    title: "코난 오브라이언 팟캐스트",
+    subtitle:
+      "처음 만난 사람한테 'So tell me about...'으로 자연스럽게 말을 꺼내봐요.",
+    description:
+      "대화를 시작해야 하는데 어색할 때가 있거든요. 상대가 편하게 이어서 말하게 만드는 오프닝 패턴을 건져가요.",
+  },
+  {
+    title: "조나단 앤더슨 인터뷰",
+    subtitle: "선을 그어야 할 때 'this is the line'으로 분명하게 말해봐요.",
+    description:
+      "기준을 분명히 해야 하는 순간이 꼭 생기거든요. 부드럽지만 물러서지 않는 말투를 이 장면에서 가져가요.",
+  },
+  {
+    title: "엔비디아 실적 발표",
+    subtitle:
+      "좋은 흐름을 짚을 때 'continued strength'로 자신감 있게 말해봐요.",
+    description:
+      "실적이나 성장 흐름을 설명할 때 톤이 흔들리면 메시지가 약해지거든요. 짧고 단단하게 상승세를 묶는 표현을 익혀가요.",
+  },
+  {
+    title: "제이미 다이먼 인터뷰",
+    subtitle: "우려를 남길 때 'the risk is that...'으로 차분하게 짚어봐요.",
+    description:
+      "낙관만 하면 설득력이 떨어질 때가 있거든요. 리스크를 빼지 않고 말에 균형을 주는 구조를 이 클립에서 가져가요.",
+  },
+  {
+    title: "마크 저커버그 메타 키노트",
+    subtitle: "다음 변화를 말할 때 'the next step is...'로 흐름을 넘겨봐요.",
+    description:
+      "발표에서 다음 장면으로 넘어갈 때 말이 끊기기 쉽거든요. 지금 설명에서 다음 액션으로 자연스럽게 넘기는 연결 표현이에요.",
+  },
+  {
+    title: "젠데이아 Vogue 인터뷰",
+    subtitle: "생각을 고를 때 'I think for me...'로 내 쪽 얘기를 열어봐요.",
+    description:
+      "개인적인 생각을 말할 때 너무 단정적으로 들릴 수 있거든요. 자기 관점으로 톤을 부드럽게 여는 방식을 건져가요.",
+  },
+  {
+    title: "버락 오바마 대담",
+    subtitle: "쟁점을 넓힐 때 'the broader point is...'로 시야를 바꿔봐요.",
+    description:
+      "한 포인트에만 머물면 말이 작아 보일 때가 있거든요. 지금 얘기에서 한 단계 큰 맥락으로 옮겨가는 흐름을 익혀가요.",
+  },
+  {
+    title: "세포라 CEO 인터뷰",
+    subtitle: "고객 반응을 짚을 때 'what we heard was...'로 근거를 붙여봐요.",
+    description:
+      "사용자 반응을 말할 때 출처가 흐리면 힘이 빠지거든요. 들은 내용을 근거처럼 붙이는 말하기 리듬을 가져가요.",
+  },
+  {
+    title: "루이 비통 아틀리에 다큐",
+    subtitle: "집중 포인트를 짚을 때 'what matters is...'로 중심을 세워봐요.",
+    description:
+      "설명이 길어질수록 뭐가 중요한지 흐려지기 쉽거든요. 여러 정보 중 핵심만 다시 세우는 표현을 이 장면에서 익혀가요.",
+  },
+];
+
+function formatFewShotExamples() {
+  return COPY_FEW_SHOTS.map((example) => JSON.stringify(example)).join("\n");
+}
+
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
-    const { sentences, videoTitle, targetPattern } = await request.json();
+    const { sentences, videoTitle, targetPattern, primarySpeakerName } =
+      await request.json();
 
     if (!sentences || !Array.isArray(sentences) || sentences.length === 0) {
       return NextResponse.json(
@@ -47,6 +121,9 @@ export async function POST(request: NextRequest) {
     const sentencesText = sentences.map((s: Sentence) => s.text).join(" ");
 
     const videoTitleLine = videoTitle ? `원본 영상 제목: "${videoTitle}"` : "";
+    const primarySpeakerLine = primarySpeakerName
+      ? `대표 화자 이름: "${String(primarySpeakerName).trim()}"`
+      : "";
 
     const targetPatternSection = targetPattern
       ? `
@@ -93,13 +170,17 @@ genre 판단 기준 — 이 클립의 주제/분야가 뭔지 보고 골라라:
 - business: 비즈니스, 창업, 경영, 마케팅 관련
 
 ${videoTitleLine}
+${primarySpeakerLine}
 ${targetPatternSection}
 
 Title rules:
-- 원본 영상 제목을 기반으로 한국어 제목을 만들어라. 인물 이름 + 콘텐츠명/주제 형식이 좋음.
-- 한 줄. 20자 내외.
-- 영상이 뭔지 바로 알 수 있어야 함. 이게 세션의 얼굴임.
-- 같은 영상에서 여러 세션이 나올 수 있으니, 이 세션이 다루는 부분에 집중.
+- 제목은 영상의 정체가 바로 보여야 한다.
+- 가능하면 "인물 이름 + 콘텐츠명/주제" 구조로 쓴다.
+- 대표 화자 이름이 있으면 어색하지 않을 때 제목 앞에 자연스럽게 넣는다.
+- 길이는 16~22자 정도로 짧게 쓴다.
+- 같은 영상에서 여러 세션이 나올 수 있으니, 이 세션 구간의 포인트가 드러나야 한다.
+- "배우는 법", "소통", "전략", "표현 익히기", "영어", "말하기" 같은 뭉툭한 제목은 쓰지 마라.
+- 제목만 봐도 어떤 영상인지 상상돼야 한다.
 
 Subtitle rules:
 - 완성된 한국어 문장으로 쓸 것. 명사구나 어구로 끊으면 안 됨.
@@ -118,10 +199,8 @@ Description rules:
 - 문장 2: 이 클립에서 뭘 건질 수 있는지 (구체적 표현이나 구조)
 - ~거든요, ~인데요 같은 구어 연결 OK.
 
-좋은 예시:
-{"title": "조나단 앤더슨 The System 인터뷰", "subtitle": "'this is the line'으로 분명하게 선 긋기", "description": "변화가 필요한 순간에 선을 긋는 표현이 있거든요. 갈등을 회피하지 않고 분명하게 말하는 패턴을 연습해요."}
-{"title": "샘 알트만 AI 전망 발표", "subtitle": "'We're seeing' 으로 단정 피하기", "description": "숫자를 말할 때 단정 짓지 않는 게 중요하거든요. 관찰형 표현으로 자연스럽게 데이터를 전달하는 패턴을 연습해요."}
-{"title": "코난 오브라이언 팟캐스트", "subtitle": "'So tell me about...'으로 자연스럽게 말 꺼내기", "description": "처음 만난 사람한테 뭘 물어봐야 할지 막막할 때가 있거든요. 상대가 말하게 만드는 자연스러운 오프닝 패턴이에요."}
+좋은 예시 (이 톤과 밀도로 맞춰라):
+${formatFewShotExamples()}
 
 나쁜 예시 (절대 이렇게 쓰지 말 것):
 {"title": "효과적인 비즈니스 커뮤니케이션 전략", "subtitle": "전략적 의사소통 역량 강화", "description": "이 세션에서는 비즈니스 상황에서 효과적으로 의사소통하는 방법을 학습합니다."}
@@ -188,10 +267,10 @@ Return ONLY valid JSON:
     autofillData.premiumRequired = Boolean(autofillData.premiumRequired);
 
     return NextResponse.json(autofillData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Session autofill API error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to autofill session details" },
+      { error: "Failed to autofill session details" },
       { status: 500 },
     );
   }

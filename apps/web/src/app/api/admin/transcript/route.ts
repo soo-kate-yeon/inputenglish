@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { writeFile, readFile, unlink } from "fs/promises";
@@ -83,6 +84,9 @@ async function fetchTranscriptViaYtDlp(
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   const searchParams = request.nextUrl.searchParams;
   const videoId = searchParams.get("videoId");
   const lang = searchParams.get("lang") ?? "en";
@@ -121,9 +125,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ transcript });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch transcript";
-    console.error("Transcript fetch error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Transcript fetch error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch transcript" },
+      { status: 500 },
+    );
   }
 }

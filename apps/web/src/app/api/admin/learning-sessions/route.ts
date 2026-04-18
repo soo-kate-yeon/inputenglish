@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { createAdminClient } from "@/utils/supabase/server";
 import type { LearningSession } from "@inputenglish/shared";
 
@@ -150,6 +151,9 @@ async function resolvePrimarySpeaker(
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await request.json();
     const {
@@ -230,10 +234,8 @@ export async function POST(request: NextRequest) {
         .select("id");
 
       if (error) {
-        console.error("❌ [API] Upsert error:", {
+        console.error("[API] Upsert error:", {
           message: error.message,
-          details: error.details,
-          hint: error.hint,
           code: error.code,
           sessionsToUpsert,
         });
@@ -344,10 +346,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("❌ [API] Session creation error:", error);
+  } catch (error: unknown) {
+    console.error("[API] Session creation error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

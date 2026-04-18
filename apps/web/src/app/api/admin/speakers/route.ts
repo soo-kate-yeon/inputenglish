@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { createAdminClient } from "@/utils/supabase/server";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const videoId = request.nextUrl.searchParams.get("videoId");
     const supabase = createAdminClient();
@@ -44,9 +48,9 @@ export async function GET(request: NextRequest) {
       speakers: speakers ?? [],
       currentPrimarySpeaker,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: error.message || "Failed to load speakers" },
+      { error: "Failed to load speakers" },
       { status: 500 },
     );
   }

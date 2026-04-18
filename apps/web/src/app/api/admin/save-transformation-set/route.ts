@@ -1,6 +1,7 @@
 // @MX:NOTE: [AUTO] Saves AI-generated (or manually edited) transformation set to Supabase (SPEC-MOBILE-011).
 // Uses service role key to bypass RLS for admin writes.
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { createAdminClient } from "@/utils/supabase/server";
 import type {
   TransformationSet,
@@ -14,6 +15,9 @@ interface SaveTransformationSetRequest {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const sessionId = request.nextUrl.searchParams.get("sessionId");
     if (!sessionId) {
@@ -33,7 +37,11 @@ export async function GET(request: NextRequest) {
       .limit(1);
 
     if (setError) {
-      return NextResponse.json({ error: setError.message }, { status: 500 });
+      console.error("[save-transformation-set GET] DB error:", setError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
 
     if (!sets || sets.length === 0) {
@@ -60,7 +68,7 @@ export async function GET(request: NextRequest) {
     console.error("[save-transformation-set GET] error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
       },
       { status: 500 },
     );
@@ -68,6 +76,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = (await request.json()) as SaveTransformationSetRequest;
     const { sessionId, set, exercises } = body;
@@ -96,7 +107,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (setError) {
-      return NextResponse.json({ error: setError.message }, { status: 500 });
+      console.error("[save-transformation-set POST] DB error:", setError);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
 
     // Insert exercises linked to the new set
@@ -130,7 +145,7 @@ export async function POST(request: NextRequest) {
     console.error("[save-transformation-set] error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
       },
       { status: 500 },
     );
@@ -139,6 +154,9 @@ export async function POST(request: NextRequest) {
 
 /** PATCH: update source_sentence_id on an existing transformation set */
 export async function PATCH(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = (await request.json()) as {
       setId: string;
@@ -163,7 +181,11 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[save-transformation-set PATCH] DB error:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ set: data });
@@ -171,7 +193,7 @@ export async function PATCH(request: NextRequest) {
     console.error("[save-transformation-set PATCH] error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
       },
       { status: 500 },
     );

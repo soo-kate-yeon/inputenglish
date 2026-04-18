@@ -1,6 +1,7 @@
 // @MX:NOTE: [AUTO] Gemini-powered transformation exercise generation v3 (backward-design).
 // Runs BEFORE session context — selects pattern from transcript, then context is built around it.
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Sentence } from "@inputenglish/shared";
 
@@ -32,6 +33,9 @@ interface GenerateTransformationResponse {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = (await request.json()) as GenerateTransformationRequest;
     const { sessionId, sentences, speakingFunction } = body;
@@ -194,7 +198,7 @@ Return ONLY valid JSON (no markdown):
     console.error("[generate-transformation] error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
       },
       { status: 500 },
     );

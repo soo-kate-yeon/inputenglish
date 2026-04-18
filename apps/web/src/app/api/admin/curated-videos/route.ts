@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import {
   parseTranscriptToSentences,
   extractVideoId,
 } from "@inputenglish/shared";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await request.json();
     const {
@@ -119,14 +123,6 @@ export async function POST(request: NextRequest) {
     const title = `Video ${video_id}`;
     const thumbnail_url = `https://img.youtube.com/vi/${video_id}/hqdefault.jpg`;
 
-    console.log(
-      "🔑 [Admin API] SERVICE_ROLE_KEY exists:",
-      !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    );
-    console.log(
-      "🔑 [Admin API] SERVICE_ROLE_KEY prefix:",
-      process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20),
-    );
     const supabase = createAdminClient();
 
     // Check for duplicates
@@ -171,10 +167,10 @@ export async function POST(request: NextRequest) {
       message: "Video added successfully",
       video: data,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Admin API error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

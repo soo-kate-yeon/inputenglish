@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Sentence, SceneAnalysisResponse } from "@inputenglish/shared";
 
@@ -6,6 +7,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { sentences } = await request.json();
 
@@ -173,10 +177,10 @@ Requirements:
     }
 
     return NextResponse.json(analysisResult);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Scene analysis API error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to analyze scenes" },
+      { error: "Failed to analyze scenes" },
       { status: 500 },
     );
   }
