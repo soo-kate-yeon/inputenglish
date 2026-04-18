@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import {
+  Stack,
+  useGlobalSearchParams,
+  useRouter,
+  useSegments,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
@@ -15,6 +20,7 @@ SplashScreen.preventAutoHideAsync();
 export function RootLayoutNav() {
   const { isInitialized, isProfileLoading, learningProfile, user } = useAuth();
   const segments = useSegments();
+  const { edit } = useGlobalSearchParams<{ edit?: string }>();
   const router = useRouter();
 
   // Hide splash screen once auth state is resolved to prevent flash of protected content
@@ -33,6 +39,7 @@ export function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === "(auth)";
     const inOnboarding = segments[0] === "onboarding";
+    const isOnboardingEditMode = edit === "1";
     const hasCompletedOnboarding = Boolean(
       learningProfile?.onboarding_completed_at,
     );
@@ -42,7 +49,11 @@ export function RootLayoutNav() {
       return;
     }
 
-    if (user && hasCompletedOnboarding && (inAuthGroup || inOnboarding)) {
+    if (
+      user &&
+      hasCompletedOnboarding &&
+      (inAuthGroup || (inOnboarding && !isOnboardingEditMode))
+    ) {
       router.replace("/(tabs)");
     }
   }, [
@@ -51,6 +62,7 @@ export function RootLayoutNav() {
     isProfileLoading,
     learningProfile,
     segments,
+    edit,
     router,
   ]);
 

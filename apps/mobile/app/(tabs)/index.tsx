@@ -1370,8 +1370,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sentenceText: {
-    fontSize: 24,
-    lineHeight: 34,
+    fontSize: 20,
+    lineHeight: 30,
     color: colors.text,
     fontWeight: font.weight.semibold,
   },
