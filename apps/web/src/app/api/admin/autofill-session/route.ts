@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   GENRES,
@@ -94,9 +93,6 @@ function formatFewShotExamples() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   try {
     const { sentences, videoTitle, targetPattern, primarySpeakerName } =
       await request.json();

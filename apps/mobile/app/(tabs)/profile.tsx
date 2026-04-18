@@ -202,7 +202,8 @@ const bannerStyles = StyleSheet.create({
 // -- Main screen --
 
 export default function ProfileScreen() {
-  const { user, signOut, deleteAccount, isAuthenticated } = useAuth();
+  const { user, learningProfile, signOut, deleteAccount, isAuthenticated } =
+    useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [renewalDate, setRenewalDate] = useState<string | null>(null);
 
@@ -321,6 +322,60 @@ export default function ProfileScreen() {
           renewalDate={renewalDate}
           onUpgrade={() => router.push("/paywall")}
         />
+
+        <View style={styles.group}>
+          <Text style={styles.groupLabel}>학습 설정</Text>
+          <View style={styles.groupSurface}>
+            <SettingRow
+              label="현재 목표"
+              right={
+                <Text style={styles.settingValue}>
+                  {learningProfile?.goal_mode === "pronunciation"
+                    ? "발음/억양 훔치기"
+                    : learningProfile?.goal_mode === "expression"
+                      ? "표현 훔치기"
+                      : "아직 설정 안됨"}
+                </Text>
+              }
+            />
+            <SettingRow
+              label="현재 수준"
+              right={
+                <Text style={styles.settingValue}>
+                  {learningProfile?.level_band === "beginner"
+                    ? "거의 한마디도 못한다"
+                    : learningProfile?.level_band === "basic"
+                      ? "간단한 의사표현 가능"
+                      : learningProfile?.level_band === "conversation"
+                        ? "일상 회화 가능"
+                        : learningProfile?.level_band === "professional"
+                          ? "영어로 업무 소통 가능"
+                          : "아직 설정 안됨"}
+                </Text>
+              }
+            />
+            <SettingRow
+              label="선호 포커스"
+              last
+              right={
+                <Text style={styles.settingValue} numberOfLines={2}>
+                  {learningProfile?.focus_tags?.length
+                    ? learningProfile.focus_tags.join(", ")
+                    : "아직 설정 안됨"}
+                </Text>
+              }
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.learningSettingsButton}
+            onPress={() => router.push("/onboarding?edit=1" as never)}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.learningSettingsButtonText}>
+              학습 설정 다시 하기
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Stats block */}
         <View style={styles.group}>
@@ -533,6 +588,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgSubtle,
     borderRadius: radius.lg,
     overflow: "hidden",
+  },
+  settingValue: {
+    maxWidth: 180,
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "right",
+  },
+  learningSettingsButton: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.bgSubtle,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  learningSettingsButtonText: {
+    fontSize: 15,
+    fontWeight: font.weight.semibold,
+    color: colors.text,
   },
 
   // Stats

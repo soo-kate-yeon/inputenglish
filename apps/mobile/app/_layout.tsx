@@ -12,8 +12,8 @@ import * as Notifications from "expo-notifications";
 
 SplashScreen.preventAutoHideAsync();
 
-function RootLayoutNav() {
-  const { isInitialized, user } = useAuth();
+export function RootLayoutNav() {
+  const { isInitialized, isProfileLoading, learningProfile, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -29,13 +29,30 @@ function RootLayoutNav() {
   // isAuthenticated updates in TabLayout (which would redirect back to login).
   useEffect(() => {
     if (!isInitialized) return;
+    if (user && isProfileLoading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const inOnboarding = segments[0] === "onboarding";
+    const hasCompletedOnboarding = Boolean(
+      learningProfile?.onboarding_completed_at,
+    );
 
-    if (user && inAuthGroup) {
+    if (user && !hasCompletedOnboarding && !inOnboarding) {
+      router.replace("/onboarding" as never);
+      return;
+    }
+
+    if (user && hasCompletedOnboarding && (inAuthGroup || inOnboarding)) {
       router.replace("/(tabs)");
     }
-  }, [user, isInitialized, segments, router]);
+  }, [
+    user,
+    isInitialized,
+    isProfileLoading,
+    learningProfile,
+    segments,
+    router,
+  ]);
 
   // Setup notification handler after app is mounted (avoids module-level native crash)
   useEffect(() => {
@@ -108,6 +125,10 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
+        <Stack.Screen
+          name="onboarding"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
         <Stack.Screen
           name="study/[videoId]"
           options={{

@@ -27,9 +27,11 @@ describe("HighlightBottomSheet", () => {
   });
 
   it("should display the selected sentence text", () => {
-    const { getByText } = render(<HighlightBottomSheet {...baseProps} />);
+    const { getByDisplayValue } = render(
+      <HighlightBottomSheet {...baseProps} />,
+    );
     expect(
-      getByText("The quick brown fox jumps over the lazy dog."),
+      getByDisplayValue("The quick brown fox jumps over the lazy dog."),
     ).toBeTruthy();
   });
 
@@ -42,8 +44,8 @@ describe("HighlightBottomSheet", () => {
       getByPlaceholderText("메모를 남겨보세요"),
       "Test note",
     );
-    fireEvent.press(getByText("저장"));
-    expect(onSave).toHaveBeenCalledWith("Test note");
+    fireEvent.press(getByText("전체 문장 저장"));
+    expect(onSave).toHaveBeenCalledWith("Test note", undefined);
   });
 
   it("should call onSave with empty string if no note entered", () => {
@@ -51,8 +53,8 @@ describe("HighlightBottomSheet", () => {
     const { getByText } = render(
       <HighlightBottomSheet {...baseProps} onSave={onSave} />,
     );
-    fireEvent.press(getByText("저장"));
-    expect(onSave).toHaveBeenCalledWith("");
+    fireEvent.press(getByText("전체 문장 저장"));
+    expect(onSave).toHaveBeenCalledWith("", undefined);
   });
 
   it("should show loading state when saving is true", () => {

@@ -38,11 +38,13 @@ describe("POST /api/admin/autofill-session", () => {
         method: "POST",
         body: JSON.stringify({
           sentences: [{ id: "s1", text: "We saw strong momentum." }],
+          primarySpeakerName: "샘 알트만",
         }),
       }) as never,
     );
 
     const payload = await response.json();
+    const prompt = generateContent.mock.calls[0]?.[0] as string;
 
     expect(response.status).toBe(200);
     expect(payload.title).toContain("지표 설명");
@@ -50,6 +52,9 @@ describe("POST /api/admin/autofill-session", () => {
     expect(payload.genre).toBe("tech");
     expect(payload.roleRelevance).toEqual(["pm", "engineer"]);
     expect(payload.premiumRequired).toBe(true);
+    expect(prompt).toContain('대표 화자 이름: "샘 알트만"');
+    expect(prompt).toContain("좋은 예시 (이 톤과 밀도로 맞춰라):");
+    expect(prompt).toContain("제이미 다이먼 인터뷰");
   });
 
   it("falls back to safe defaults when AI returns invalid enums", async () => {

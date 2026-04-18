@@ -14,11 +14,13 @@ import {
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SessionListItem } from "@/lib/api";
+import { useSubscription } from "@/hooks/useSubscription";
 import {
   fetchSpeakerDetail,
   fetchSpeakerSessions,
   type SpeakerDetail,
 } from "@/lib/api";
+import { getSessionPressDestination } from "@/lib/session-access";
 import { getSpeakerImageSource } from "@/lib/speaker-assets";
 import { colors, font, radius, shadow, spacing } from "@/theme";
 
@@ -34,14 +36,15 @@ function formatDuration(seconds: number): string {
   return `${minutes}분 ${remainder}초`;
 }
 
-function SpeakerSessionCard({ item }: { item: SessionListItem }) {
+function SpeakerSessionCard({
+  item,
+  onPress,
+}: {
+  item: SessionListItem;
+  onPress: () => void;
+}) {
   return (
-    <Pressable
-      style={styles.sessionCard}
-      onPress={() =>
-        router.push(`/study/${item.source_video_id}?sessionId=${item.id}`)
-      }
-    >
+    <Pressable style={styles.sessionCard} onPress={onPress}>
       {item.thumbnail_url ? (
         <Image
           source={{ uri: item.thumbnail_url }}
@@ -74,6 +77,7 @@ function SpeakerSessionCard({ item }: { item: SessionListItem }) {
 export default function SpeakerDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const insets = useSafeAreaInsets();
+  const { plan } = useSubscription();
   const [speaker, setSpeaker] = useState<SpeakerDetail | null>(null);
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,7 +184,14 @@ export default function SpeakerDetailScreen() {
           <FlatList
             data={sessions}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <SpeakerSessionCard item={item} />}
+            renderItem={({ item }) => (
+              <SpeakerSessionCard
+                item={item}
+                onPress={() =>
+                  router.push(getSessionPressDestination(item, plan))
+                }
+              />
+            )}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               paddingBottom: 48 + insets.bottom,

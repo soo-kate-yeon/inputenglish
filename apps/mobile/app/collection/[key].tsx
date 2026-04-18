@@ -11,8 +11,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSubscription } from "../../src/hooks/useSubscription";
 import { fetchLearningSessions, SessionListItem } from "../../src/lib/api";
 import { FEED_CATEGORIES } from "../../src/lib/feed-categories";
+import { getSessionPressDestination } from "../../src/lib/session-access";
 import { colors, font, radius, spacing } from "../../src/theme";
 
 function formatDuration(seconds: number): string {
@@ -69,6 +71,7 @@ export default function CollectionScreen() {
   const { key, title } = useLocalSearchParams<{ key: string; title: string }>();
   const decodedTitle = title ? decodeURIComponent(title) : "";
   const insets = useSafeAreaInsets();
+  const { plan } = useSubscription();
 
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,9 +142,7 @@ export default function CollectionScreen() {
             <ListItem
               item={item}
               onPress={() =>
-                router.push(
-                  `/study/${item.source_video_id}?sessionId=${item.id}`,
-                )
+                router.push(getSessionPressDestination(item, plan))
               }
             />
           )}

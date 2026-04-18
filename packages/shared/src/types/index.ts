@@ -94,6 +94,30 @@ export interface Speaker {
   updated_at?: string;
 }
 
+export const LEARNING_LEVEL_BANDS = [
+  "beginner",
+  "basic",
+  "conversation",
+  "professional",
+] as const;
+
+export type LearningLevelBand = (typeof LEARNING_LEVEL_BANDS)[number];
+
+export const LEARNING_GOAL_MODES = ["pronunciation", "expression"] as const;
+
+export type LearningGoalMode = (typeof LEARNING_GOAL_MODES)[number];
+
+export interface LearningProfile {
+  user_id: string;
+  level_band: LearningLevelBand | null;
+  goal_mode: LearningGoalMode | null;
+  focus_tags: string[];
+  preferred_speakers: string[];
+  preferred_situations: string[];
+  onboarding_completed_at: string | null;
+  updated_at?: string | null;
+}
+
 export interface FeaturedSpeaker {
   id: string;
   slug: string;

@@ -27,6 +27,7 @@ jest.mock("react-native-mmkv", () => {
 });
 
 const mockRouterPush = jest.fn();
+let mockPlan: "FREE" | "PREMIUM" = "PREMIUM";
 
 const mockSessions = [
   {
@@ -75,6 +76,7 @@ jest.mock("expo-router", () => {
 });
 
 jest.mock("../../src/lib/api", () => ({
+  fetchFeaturedSpeakers: jest.fn().mockResolvedValue([]),
   fetchLearningSessions: jest.fn().mockResolvedValue(mockSessions),
   fetchLearningSessionsPaginated: jest.fn().mockResolvedValue({
     sessions: mockSessions,
@@ -83,15 +85,25 @@ jest.mock("../../src/lib/api", () => ({
   fetchLearningSessionsByIds: jest.fn().mockResolvedValue([]),
 }));
 
-describe("HomeScreen professional discovery flow", () => {
-  const HomeScreen = require("../../app/(tabs)/index").default;
+jest.mock("../../src/hooks/useSubscription", () => ({
+  useSubscription: jest.fn(() => ({
+    plan: mockPlan,
+    canUseAI: mockPlan !== "FREE",
+    isLoading: false,
+    refresh: jest.fn(),
+  })),
+}));
+
+describe("ExploreScreen professional discovery flow", () => {
+  const ExploreScreen = require("../../app/(tabs)/explore").default;
 
   beforeEach(() => {
     mockRouterPush.mockClear();
+    mockPlan = "PREMIUM";
   });
 
   it("shows featured + category cards and navigates to study with session id", async () => {
-    const { findAllByText, findByText, getByText } = render(<HomeScreen />);
+    const { findAllByText, findByText, getByText } = render(<ExploreScreen />);
 
     expect(await findByText("OpenAI 데모로 배우는 지표 설명")).toBeTruthy();
     expect(
@@ -107,6 +119,23 @@ describe("HomeScreen professional discovery flow", () => {
         1,
         "/study/video-1?sessionId=session-1",
       );
+      expect(mockRouterPush).toHaveBeenNthCalledWith(
+        2,
+        "/study/video-2?sessionId=session-2",
+      );
+    });
+  });
+
+  it("sends FREE users to paywall for premium sessions only", async () => {
+    mockPlan = "FREE";
+
+    const { findAllByText, findByText, getByText } = render(<ExploreScreen />);
+
+    fireEvent.press(await findByText("OpenAI 데모로 배우는 지표 설명"));
+    fireEvent.press((await findAllByText("Quarterly Wrap-up Podcast"))[0]);
+
+    await waitFor(() => {
+      expect(mockRouterPush).toHaveBeenNthCalledWith(1, "/paywall");
       expect(mockRouterPush).toHaveBeenNthCalledWith(
         2,
         "/study/video-2?sessionId=session-2",

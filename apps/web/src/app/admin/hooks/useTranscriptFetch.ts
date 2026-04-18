@@ -52,7 +52,9 @@ export function useTranscriptFetch(): UseTranscriptFetchReturn {
       if (timeRange?.endTime !== undefined) {
         params.set("endTime", String(timeRange.endTime));
       }
-      const res = await fetch(`/api/admin/transcript?${params.toString()}`);
+      const res = await fetch(`/api/admin/transcript?${params.toString()}`, {
+        credentials: "include",
+      });
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -157,6 +159,7 @@ export function useTranscriptFetch(): UseTranscriptFetchReturn {
       const res = await fetch("/api/admin/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ sentences: texts }),
       });
 

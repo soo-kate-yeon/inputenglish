@@ -91,9 +91,18 @@ function resolveStudySentences(
 }
 
 export default function StudyScreen() {
-  const { videoId, sessionId } = useLocalSearchParams<{
+  const {
+    videoId,
+    sessionId,
+    sentenceId: entrySentenceId,
+    initialTab,
+    autoStartRecording,
+  } = useLocalSearchParams<{
     videoId: string;
     sessionId?: string;
+    sentenceId?: string;
+    initialTab?: MainTab;
+    autoStartRecording?: "0" | "1";
   }>();
 
   const [video, setVideo] = useState<CuratedVideo | null>(null);
@@ -172,6 +181,7 @@ export default function StudyScreen() {
   const shadowingLoopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const entryRoutingAppliedRef = useRef(false);
 
   // Stores
   const savedSentences = appStore((s) => s.savedSentences);
@@ -208,6 +218,7 @@ export default function StudyScreen() {
   // ── Load video ──
   useEffect(() => {
     if (!videoId) return;
+    entryRoutingAppliedRef.current = false;
     hasAutoStartedListeningRef.current = false;
     setPlayerReady(false);
     setScriptVisible(false);
@@ -763,6 +774,54 @@ export default function StudyScreen() {
     },
     [isRecorderBusy, recordingState, startRecording],
   );
+
+  useEffect(() => {
+    if (!playerReady || studySentences.length === 0) return;
+    if (entryRoutingAppliedRef.current) return;
+    if (!entrySentenceId && !initialTab) return;
+
+    const targetSentence =
+      studySentences.find((sentence) => sentence.id === entrySentenceId) ??
+      studySentences[0];
+
+    if (!targetSentence) return;
+
+    entryRoutingAppliedRef.current = true;
+    setBriefExpanded(false);
+    setScriptVisible(true);
+
+    if (initialTab === "shadowing") {
+      setMainTab("shadowing");
+      setActiveSentenceId(targetSentence.id);
+      activeIdRef.current = targetSentence.id;
+      handleSeek(targetSentence.id);
+
+      if (autoStartRecording === "1") {
+        setTimeout(() => {
+          void handleRecord(targetSentence.id);
+        }, 220);
+      }
+      return;
+    }
+
+    if (initialTab === "transformation") {
+      setMainTab("transformation");
+      setSelectedPracticeSentenceId(targetSentence.id);
+      return;
+    }
+
+    setMainTab("listening");
+    playSentenceImmediately(targetSentence);
+  }, [
+    autoStartRecording,
+    entrySentenceId,
+    handleRecord,
+    handleSeek,
+    initialTab,
+    playSentenceImmediately,
+    playerReady,
+    studySentences,
+  ]);
 
   const handleStop = useCallback(async () => {
     const uri = await stopRecording();

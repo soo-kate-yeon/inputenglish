@@ -539,6 +539,7 @@ export function SessionCreator({
           sentences: sessionSentences,
           videoTitle,
           targetPattern: editTransformationPattern ?? undefined,
+          primarySpeakerName: editPrimarySpeakerName.trim() || undefined,
         }),
       });
 

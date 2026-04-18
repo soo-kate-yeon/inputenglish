@@ -1,12 +1,14 @@
 // @MX:NOTE: [AUTO] Wraps react-native-youtube-iframe with ref-based seekTo control.
 // @MX:SPEC: SPEC-MOBILE-003 - REQ-U-001, REQ-E-006, REQ-N-001, REQ-N-003, REQ-C-002
-import React, { forwardRef, useImperativeHandle, useRef } from "react";
-import { Dimensions, StyleSheet, View } from "react-native";
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 import YoutubeIframe, { YoutubeIframeRef } from "react-native-youtube-iframe";
 import { palette } from "../../theme";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const PLAYER_HEIGHT = Math.floor(SCREEN_WIDTH * (9 / 16));
 
 export interface YouTubePlayerHandle {
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
@@ -38,6 +40,14 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     ref,
   ) => {
     const playerRef = useRef<YoutubeIframeRef>(null);
+    const [playerWidth, setPlayerWidth] = useState(0);
+
+    const handleLayout = (event: LayoutChangeEvent) => {
+      const nextWidth = event.nativeEvent.layout.width;
+      if (nextWidth > 0 && nextWidth !== playerWidth) {
+        setPlayerWidth(nextWidth);
+      }
+    };
 
     useImperativeHandle(ref, () => ({
       seekTo: (seconds: number, allowSeekAhead = true) => {
@@ -52,11 +62,11 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     }));
 
     return (
-      <View style={styles.container}>
+      <View style={styles.container} onLayout={handleLayout}>
         <YoutubeIframe
           ref={playerRef}
-          height={PLAYER_HEIGHT}
-          width={SCREEN_WIDTH}
+          height={playerWidth > 0 ? playerWidth * (9 / 16) : 1}
+          width={playerWidth > 0 ? playerWidth : 1}
           videoId={videoId}
           play={playing}
           playbackRate={playbackRate}
@@ -83,8 +93,8 @@ export default YouTubePlayer;
 
 const styles = StyleSheet.create({
   container: {
-    width: SCREEN_WIDTH,
-    height: PLAYER_HEIGHT,
+    width: "100%",
+    aspectRatio: 16 / 9,
     backgroundColor: palette.black,
   },
   webview: {

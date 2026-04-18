@@ -18,13 +18,15 @@ const ICONS: Record<
     inactive: keyof typeof Ionicons.glyphMap;
   }
 > = {
-  index: { active: "compass", inactive: "compass-outline" },
+  index: { active: "home", inactive: "home-outline" },
+  explore: { active: "compass", inactive: "compass-outline" },
   archive: { active: "albums", inactive: "albums-outline" },
   profile: { active: "person", inactive: "person-outline" },
 };
 
 const LABELS: Record<string, string> = {
   index: "홈",
+  explore: "탐색",
   archive: "보관함",
   profile: "프로필",
 };

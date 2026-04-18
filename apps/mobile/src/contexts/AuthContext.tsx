@@ -18,12 +18,21 @@ import {
   Session,
   Provider,
 } from "@supabase/supabase-js";
+import type { LearningProfile } from "@inputenglish/shared";
 import { supabase } from "@/lib/supabase";
 import { appStore } from "@/lib/stores";
+import {
+  clearCachedLearningProfile,
+  fetchLearningProfile,
+  readCachedLearningProfile,
+  updateLearningProfile as persistLearningProfile,
+} from "@/lib/learning-profile";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  learningProfile: LearningProfile | null;
+  isProfileLoading: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
   isInitialized: boolean;
@@ -40,6 +49,10 @@ interface AuthContextType {
   ) => Promise<void>;
   signInWithApple: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshLearningProfile: () => Promise<void>;
+  updateLearningProfile: (
+    patch: Partial<Omit<LearningProfile, "user_id">>,
+  ) => Promise<LearningProfile>;
   deleteAccount: () => Promise<void>;
 }
 
@@ -52,6 +65,9 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [learningProfile, setLearningProfile] =
+    useState<LearningProfile | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -89,6 +105,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const loadLearningProfile = useCallback(
+    async (authUser: User): Promise<void> => {
+      const cachedProfile = readCachedLearningProfile(authUser.id);
+      if (cachedProfile) {
+        setLearningProfile(cachedProfile);
+      }
+
+      setIsProfileLoading(true);
+      try {
+        const profile = await fetchLearningProfile(authUser.id);
+        setLearningProfile(profile);
+      } catch (err) {
+        console.error("[AuthContext] Failed to load learning profile:", err);
+        if (!cachedProfile) {
+          setLearningProfile({
+            user_id: authUser.id,
+            level_band: null,
+            goal_mode: null,
+            focus_tags: [],
+            preferred_speakers: [],
+            preferred_situations: [],
+            onboarding_completed_at: null,
+            updated_at: null,
+          });
+        }
+      } finally {
+        setIsProfileLoading(false);
+      }
+    },
+    [],
+  );
+
   // Initialize auth state and subscribe to changes
   useEffect(() => {
     let mounted = true;
@@ -104,11 +152,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (initialSession) {
           setSession(initialSession);
           setUser(initialSession.user);
+          await loadLearningProfile(initialSession.user);
           appStore.getState().loadUserData().catch(console.error);
         } else {
           // No session - guest user; skip getUser to avoid AuthSessionMissingError
           setUser(null);
           setSession(null);
+          setLearningProfile(null);
         }
       } catch (err) {
         console.error("[AuthContext] Initialization error:", err);
@@ -142,14 +192,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(false);
 
         if (event === "SIGNED_IN" && newSession) {
+          setIsProfileLoading(true);
+          void loadLearningProfile(newSession.user);
           appStore.getState().loadUserData().catch(console.error);
           // Navigation handled declaratively in _layout.tsx via useEffect
           // to avoid race condition where router.replace fires before React
           // commits the setUser state update, causing TabLayout to see
           // isAuthenticated=false and redirect back to login.
         } else if (event === "SIGNED_OUT") {
+          if (user?.id) clearCachedLearningProfile(user.id);
           setUser(null);
           setSession(null);
+          setLearningProfile(null);
           router.replace("/(auth)/login");
         } else if (event === "TOKEN_REFRESHED" && newSession) {
           setUser(newSession.user);
@@ -161,7 +215,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadLearningProfile, user?.id]);
 
   // AppState listener: pause/resume token auto-refresh when app goes background/foreground
   useEffect(() => {
@@ -200,8 +254,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Explicitly update auth state so the navigation useEffect triggers
         // immediately, without waiting for the async onAuthStateChange.
         if (data.session) {
+          setIsProfileLoading(true);
           setSession(data.session);
           setUser(data.session.user);
+          void loadLearningProfile(data.session.user);
           appStore.getState().loadUserData().catch(console.error);
         }
       } catch (err) {
@@ -212,7 +268,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(false);
       }
     },
-    [],
+    [loadLearningProfile],
   );
 
   const signUp = useCallback(
@@ -241,8 +297,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // Session present = signed in immediately (email confirmation disabled)
         if (data.session) {
+          setIsProfileLoading(true);
           setSession(data.session);
           setUser(data.session.user);
+          void loadLearningProfile(data.session.user);
           appStore.getState().loadUserData().catch(console.error);
           return { needsEmailConfirmation: false };
         }
@@ -257,15 +315,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(false);
       }
     },
-    [],
+    [loadLearningProfile],
   );
 
   const signOut = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
       await supabase.auth.signOut();
+      if (user?.id) clearCachedLearningProfile(user.id);
       setUser(null);
       setSession(null);
+      setLearningProfile(null);
       router.replace("/(auth)/login");
     } catch (err) {
       console.error("[AuthContext] Sign out error:", err);
@@ -273,7 +333,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   // @MX:NOTE: [AUTO] signInWithOAuth initiates OAuth flow via Supabase.
   // Actual token exchange from deep link happens in the root _layout.tsx.
@@ -339,8 +399,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // useEffect in _layout.tsx fires immediately, without waiting for
       // onAuthStateChange (which depends on async SecureStore persistence).
       if (data.session) {
+        setIsProfileLoading(true);
         setSession(data.session);
         setUser(data.session.user);
+        void loadLearningProfile(data.session.user);
         appStore.getState().loadUserData().catch(console.error);
       }
     } catch (err: unknown) {
@@ -360,7 +422,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadLearningProfile]);
 
   const refreshUser = useCallback(async (): Promise<void> => {
     setIsLoading(true);
@@ -368,14 +430,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(false);
   }, [fetchUser]);
 
+  const refreshLearningProfile = useCallback(async (): Promise<void> => {
+    if (!user) return;
+    await loadLearningProfile(user);
+  }, [loadLearningProfile, user]);
+
+  const updateLearningProfile = useCallback(
+    async (
+      patch: Partial<Omit<LearningProfile, "user_id">>,
+    ): Promise<LearningProfile> => {
+      if (!user) {
+        throw new Error("Cannot update learning profile without a user");
+      }
+
+      setIsProfileLoading(true);
+      try {
+        const nextProfile = await persistLearningProfile(user.id, patch);
+        setLearningProfile(nextProfile);
+        return nextProfile;
+      } finally {
+        setIsProfileLoading(false);
+      }
+    },
+    [user],
+  );
+
   const deleteAccount = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
       const { error: deleteError } = await supabase.rpc("delete_user");
       if (deleteError) throw deleteError;
       await supabase.auth.signOut();
+      if (user?.id) clearCachedLearningProfile(user.id);
       setUser(null);
       setSession(null);
+      setLearningProfile(null);
       router.replace("/(auth)/login");
     } catch (err) {
       console.error("[AuthContext] Delete account error:", err);
@@ -386,12 +475,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   const value = useMemo(
     () => ({
       user,
       session,
+      learningProfile,
+      isProfileLoading,
       isLoading,
       isAuthenticated: !!user,
       isInitialized,
@@ -402,11 +493,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signInWithOAuth,
       signInWithApple,
       refreshUser,
+      refreshLearningProfile,
+      updateLearningProfile,
       deleteAccount,
     }),
     [
       user,
       session,
+      learningProfile,
+      isProfileLoading,
       isLoading,
       isInitialized,
       error,
@@ -416,6 +511,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signInWithOAuth,
       signInWithApple,
       refreshUser,
+      refreshLearningProfile,
+      updateLearningProfile,
       deleteAccount,
     ],
   );

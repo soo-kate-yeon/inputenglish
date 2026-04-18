@@ -321,7 +321,9 @@ export function TransformationExerciseEditor({
     if (!isSaved) return;
     let cancelled = false;
     setIsLoading(true);
-    fetch(`/api/admin/save-transformation-set?sessionId=${sessionId}`)
+    fetch(`/api/admin/save-transformation-set?sessionId=${sessionId}`, {
+      credentials: "include",
+    })
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
@@ -357,6 +359,7 @@ export function TransformationExerciseEditor({
       const response = await fetch("/api/admin/generate-transformation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ sessionId, sentences }),
       });
 
@@ -393,6 +396,7 @@ export function TransformationExerciseEditor({
       const response = await fetch("/api/admin/save-transformation-set", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ sessionId, set: generatedSet, exercises }),
       });
 
@@ -603,6 +607,7 @@ export function TransformationExerciseEditor({
                       {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
+                        credentials: "include",
                         body: JSON.stringify({
                           setId: generatedSet.id,
                           source_sentence_ids:

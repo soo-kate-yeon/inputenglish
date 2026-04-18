@@ -3,6 +3,16 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 export function AdminAuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -47,59 +57,62 @@ export function AdminAuthGate({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="flex h-screen items-center justify-center bg-neutral-50">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <form
-          onSubmit={handleSignIn}
-          className="w-full max-w-sm rounded-lg border bg-white p-8 shadow-sm"
-        >
-          <h1 className="mb-6 text-center text-xl font-semibold">
-            Admin Login
-          </h1>
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
+        <Card className="w-full max-w-[400px]">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl tracking-tight">Admin</CardTitle>
+            <CardDescription>
+              Sign in to access the admin dashboard
+            </CardDescription>
+          </CardHeader>
 
-          {error && (
-            <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+          <CardContent>
+            <form onSubmit={handleSignIn} className="flex flex-col gap-5">
+              {error && (
+                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
 
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mb-4 w-full rounded border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            required
-          />
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
 
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            Password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-6 w-full rounded border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            required
-          />
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-          <button
-            type="submit"
-            disabled={signingIn}
-            className="w-full rounded bg-black py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            {signingIn ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+              <Button type="submit" size="lg" disabled={signingIn}>
+                {signingIn ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -37,6 +37,7 @@ function TabsContent() {
         screenOptions={{ headerShown: false }}
       >
         <Tabs.Screen name="index" />
+        <Tabs.Screen name="explore" />
         <Tabs.Screen name="archive" />
         <Tabs.Screen name="profile" />
       </Tabs>
