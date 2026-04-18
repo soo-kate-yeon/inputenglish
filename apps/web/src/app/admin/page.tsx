@@ -20,6 +20,7 @@ import { VideoPlayerPanel } from "./components/VideoPlayerPanel";
 import { RawScriptEditor } from "./components/RawScriptEditor";
 import { SentenceListEditor } from "./components/SentenceListEditor";
 import { SessionCreator } from "./components/SessionCreator";
+import { AdminAuthGate } from "./components/AdminAuthGate";
 import { createClient } from "@/utils/supabase/client";
 import {
   Popover,
@@ -291,6 +292,7 @@ function AdminPageContent() {
       const response = await fetch("/api/admin/analyze-scenes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ sentences }),
       });
 
@@ -823,7 +825,9 @@ function AdminPageContent() {
 export default function AdminPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <AdminPageContent />
+      <AdminAuthGate>
+        <AdminPageContent />
+      </AdminAuthGate>
     </Suspense>
   );
 }
