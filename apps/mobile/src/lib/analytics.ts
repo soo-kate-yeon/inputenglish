@@ -9,7 +9,13 @@ export type AnalyticsEventName =
   | "daily_input_seek_play"
   | "daily_input_record_start"
   | "daily_input_repeat_toggle"
-  | "daily_input_swipe";
+  | "daily_input_swipe"
+  | "expression_practice_start"
+  | "expression_sample_answer_open"
+  | "expression_practice_complete"
+  | "pronunciation_analysis_start"
+  | "pronunciation_analysis_complete"
+  | "pronunciation_retry";
 
 export function trackEvent(
   event: AnalyticsEventName,

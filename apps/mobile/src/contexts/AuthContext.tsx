@@ -21,6 +21,7 @@ import {
 import type { LearningProfile } from "@inputenglish/shared";
 import { supabase } from "@/lib/supabase";
 import { appStore } from "@/lib/stores";
+import { clearDailyInputQueueCache } from "@/lib/daily-input";
 import {
   clearCachedLearningProfile,
   fetchLearningProfile,
@@ -446,6 +447,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsProfileLoading(true);
       try {
         const nextProfile = await persistLearningProfile(user.id, patch);
+        clearDailyInputQueueCache(user.id);
         setLearningProfile(nextProfile);
         return nextProfile;
       } finally {

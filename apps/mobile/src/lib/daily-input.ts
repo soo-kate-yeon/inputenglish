@@ -4,6 +4,7 @@ import type {
   LearningLevelBand,
   LearningProfile,
   Sentence,
+  TransformationSet,
 } from "@inputenglish/shared";
 import type { SessionListItem } from "@/lib/api";
 import {
@@ -11,6 +12,7 @@ import {
   fetchLearningSessions,
   fetchSessionsByIds,
 } from "@/lib/api";
+import { fetchTransformationSet } from "@/lib/transformation-api";
 import { getRecentSessionIds } from "@/lib/recent-sessions";
 import storage from "@/lib/mmkv";
 
@@ -29,15 +31,18 @@ export interface DailyInputQueueItem {
   isReview: boolean;
   cardOrder: number;
   reason: string;
+  transformationSet?: TransformationSet | null;
 }
 
 interface CachedDailyInputQueue {
+  version: number;
   queueDate: string;
   profileHash: string;
   items: DailyInputQueueItem[];
 }
 
 const DAILY_INPUT_CACHE_PREFIX = "daily_input_queue";
+const DAILY_INPUT_CACHE_VERSION = 2;
 const MAX_DAILY_INPUT_ITEMS = 3;
 
 const EXPRESSION_HINTS: Record<
@@ -236,9 +241,18 @@ function scoreSessionForProfile(
 function pickSentence(
   session: SessionListItem,
   video: CuratedVideo,
+  allowedSentenceIds?: string[],
 ): Sentence | null {
   const transcript = video.transcript ?? [];
   if (transcript.length === 0) return null;
+
+  if (allowedSentenceIds && allowedSentenceIds.length > 0) {
+    for (const sentenceId of allowedSentenceIds) {
+      const matched = transcript.find((sentence) => sentence.id === sentenceId);
+      if (matched) return matched;
+    }
+    return null;
+  }
 
   const sentenceIds = session.sentence_ids ?? [];
   if (sentenceIds.length === 0) {
@@ -282,7 +296,20 @@ async function materializeQueueItem(
   isReview: boolean,
 ): Promise<DailyInputQueueItem | null> {
   const video = await fetchCuratedVideo(session.source_video_id);
-  const sentence = pickSentence(session, video);
+  const transformationSet =
+    mode === "expression" ? await fetchTransformationSet(session.id) : null;
+  const sentence = pickSentence(
+    session,
+    video,
+    mode === "expression"
+      ? (transformationSet?.source_sentence_ids ?? [])
+      : undefined,
+  );
+
+  if (mode === "expression" && (!transformationSet || !sentence)) {
+    return null;
+  }
+
   if (!sentence) return null;
 
   return {
@@ -300,6 +327,7 @@ async function materializeQueueItem(
     isReview,
     cardOrder: 0,
     reason: buildReason(mode, isReview, session),
+    transformationSet,
   };
 }
 
@@ -365,6 +393,7 @@ export async function getDailyInputQueue(
   const cachedQueue = parseCachedQueue(storage.getString(cacheKey));
 
   if (
+    cachedQueue?.version === DAILY_INPUT_CACHE_VERSION &&
     cachedQueue?.queueDate === queueDate &&
     cachedQueue.profileHash === profileHash
   ) {
@@ -373,6 +402,7 @@ export async function getDailyInputQueue(
 
   const items = await generateDailyInputQueue(profile);
   const payload: CachedDailyInputQueue = {
+    version: DAILY_INPUT_CACHE_VERSION,
     queueDate,
     profileHash,
     items,

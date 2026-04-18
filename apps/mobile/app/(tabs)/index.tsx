@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   PanResponder,
   Pressable,
@@ -18,6 +19,7 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchCuratedVideo } from "@/lib/api";
 import { DailyInputQueueItem, getDailyInputQueue } from "@/lib/daily-input";
@@ -26,15 +28,74 @@ import YouTubePlayer, {
   YouTubePlayerHandle,
 } from "@/components/player/YouTubePlayer";
 import useAudioRecorder from "@/hooks/useAudioRecorder";
-import type { CuratedVideo } from "@inputenglish/shared";
+import type {
+  CuratedVideo,
+  TransformationExercise,
+} from "@inputenglish/shared";
 import { colors, font, radius, spacing } from "@/theme";
 
-const SWIPE_THRESHOLD = 56;
+const SWIPE_THRESHOLD = 32;
+const SWIPE_VELOCITY_THRESHOLD = 0.22;
+const SWIPE_EXIT_DISTANCE = 280;
+const CARD_PREVIEW_OFFSET = 28;
+const EXERCISE_SWIPE_THRESHOLD = 36;
+const EXERCISE_SWIPE_VELOCITY_THRESHOLD = 0.18;
+const EXERCISE_EXIT_DISTANCE = 84;
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function getExerciseInstruction(exercise: TransformationExercise): string {
+  switch (exercise.exercise_type) {
+    case "kr-to-en":
+      return "위에서 배운 표현을 사용해 아래 한국어 문장을 영어로 바꿔보세요.";
+    case "qa-response":
+      return "위에서 배운 표현을 사용해 아래 질문에 영어로 답해보세요.";
+    case "dialog-completion":
+      return "위에서 배운 표현을 사용해 아래 대화를 자연스럽게 이어 말해보세요.";
+    case "situation-response":
+      return "위에서 배운 표현을 사용해 아래 상황에서 바로 꺼낼 한 문장을 말해보세요.";
+    default:
+      return "위에서 배운 표현을 사용해 아래 문장을 소리 내어 연습해보세요.";
+  }
+}
+
+function getExercisePrompt(exercise: TransformationExercise): string {
+  if (exercise.source_korean) return exercise.source_korean;
+  if (exercise.question_text) return exercise.question_text;
+  if (exercise.situation_text) return exercise.situation_text;
+
+  if (exercise.dialog_lines && exercise.dialog_lines.length > 0) {
+    return exercise.dialog_lines
+      .map(
+        (line) =>
+          `${line.speaker}: ${line.is_blank ? line.text || "여기에 어울리는 답을 말해보세요." : line.text}`,
+      )
+      .join("\n\n");
+  }
+
+  return exercise.instruction_text;
+}
+
+function getExpressionIntroCopy(
+  targetPattern?: string | null,
+  rationale?: string | null,
+): { headline: string | null; body: string | null } {
+  return {
+    headline: targetPattern?.trim() || null,
+    body: rationale?.trim() || null,
+  };
+}
+
+function getPronunciationFocusTags(focusTags: string[]): string[] {
+  if (focusTags.length > 0) {
+    return focusTags.slice(0, 2);
+  }
+
+  return ["속도", "문장 끝 처리"];
 }
 
 function DailyQueueCard({
@@ -140,16 +201,34 @@ export default function HomeScreen() {
   const sentenceStartSecondsRef = useRef<number | null>(null);
   const sentenceDurationMsRef = useRef<number | null>(null);
   const repeatEnabledRef = useRef(false);
+  const panX = useRef(new Animated.Value(0)).current;
+  const exercisePanX = useRef(new Animated.Value(0)).current;
 
   const {
     recordingState,
+    audioUri,
     duration,
     startRecording,
     stopRecording,
     resetRecording,
   } = useAudioRecorder();
+  const {
+    recordingState: followupRecordingState,
+    audioUri: followupAudioUri,
+    duration: followupDuration,
+    isPlaying: isFollowupPlaying,
+    startRecording: startFollowupRecording,
+    stopRecording: stopFollowupRecording,
+    playRecording: playFollowupRecording,
+    pauseRecording: pauseFollowupRecording,
+    resetRecording: resetFollowupRecording,
+  } = useAudioRecorder();
 
   const currentItem = queue[activeIndex] ?? null;
+  const [exerciseIndex, setExerciseIndex] = useState(0);
+  const [revealedSampleAnswerIds, setRevealedSampleAnswerIds] = useState<
+    Record<string, boolean>
+  >({});
   const translationKey = currentItem
     ? `${currentItem.sessionId}:${currentItem.sentenceId}`
     : null;
@@ -179,6 +258,39 @@ export default function HomeScreen() {
     [activeIndex, queue],
   );
 
+  const previousItem =
+    activeIndex > 0 ? (queue[activeIndex - 1] ?? null) : null;
+  const nextItem = queue[activeIndex + 1] ?? null;
+  const transformationSet = currentItem?.transformationSet ?? null;
+  const expressionExercises = useMemo(
+    () =>
+      [...(transformationSet?.exercises ?? [])].sort(
+        (a, b) => a.page_order - b.page_order,
+      ),
+    [transformationSet],
+  );
+  const primaryExercise = useMemo(
+    () => expressionExercises[exerciseIndex] ?? null,
+    [exerciseIndex, expressionExercises],
+  );
+  const expressionIntroCopy = useMemo(() => {
+    if (!transformationSet) {
+      return { headline: null, body: null };
+    }
+
+    return getExpressionIntroCopy(
+      transformationSet.target_pattern,
+      transformationSet.pattern_rationale ??
+        "이 패턴은 비슷한 상황에서 바로 꺼내 쓸수록 내 표현으로 굳어져요.",
+    );
+  }, [transformationSet]);
+  const canRevealSampleAnswer = Boolean(
+    followupAudioUri && primaryExercise?.reference_answer,
+  );
+  const isCurrentSampleAnswerRevealed = Boolean(
+    primaryExercise && revealedSampleAnswerIds[primaryExercise.id],
+  );
+
   const stopPlaybackTimer = useCallback(() => {
     if (playbackTimeoutRef.current) {
       clearTimeout(playbackTimeoutRef.current);
@@ -192,6 +304,57 @@ export default function HomeScreen() {
     setIsPlayerVisible(false);
     setPlayerNonce((value) => value + 1);
   }, [stopPlaybackTimer]);
+
+  const resetCardPosition = useCallback(() => {
+    Animated.spring(panX, {
+      toValue: 0,
+      tension: 70,
+      friction: 12,
+      useNativeDriver: true,
+    }).start();
+  }, [panX]);
+
+  const animateToIndex = useCallback(
+    (direction: "next" | "previous") => {
+      const targetIndex =
+        direction === "next" ? activeIndex + 1 : activeIndex - 1;
+      const targetItem = queue[targetIndex];
+
+      if (!targetItem) {
+        resetCardPosition();
+        return;
+      }
+
+      Animated.timing(panX, {
+        toValue:
+          direction === "next" ? SWIPE_EXIT_DISTANCE : -SWIPE_EXIT_DISTANCE,
+        duration: 190,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished) return;
+        panX.setValue(0);
+        moveToIndex(targetIndex);
+      });
+    },
+    [activeIndex, moveToIndex, panX, queue, resetCardPosition],
+  );
+
+  const handleSwipeRelease = useCallback(
+    (dx: number, vx: number) => {
+      if (dx >= SWIPE_THRESHOLD || vx >= SWIPE_VELOCITY_THRESHOLD) {
+        animateToIndex("next");
+        return;
+      }
+
+      if (dx <= -SWIPE_THRESHOLD || vx <= -SWIPE_VELOCITY_THRESHOLD) {
+        animateToIndex("previous");
+        return;
+      }
+
+      resetCardPosition();
+    },
+    [animateToIndex, resetCardPosition],
+  );
 
   const scheduleSentencePlaybackStop = useCallback(() => {
     const durationMs = sentenceDurationMsRef.current;
@@ -216,19 +379,16 @@ export default function HomeScreen() {
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 10 &&
+          Math.abs(gestureState.dx) > 3 &&
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
-        onPanResponderRelease: (_, gestureState) => {
-          if (gestureState.dx <= -SWIPE_THRESHOLD) {
-            moveToIndex(activeIndex + 1);
-            return;
-          }
-          if (gestureState.dx >= SWIPE_THRESHOLD) {
-            moveToIndex(activeIndex - 1);
-          }
+        onPanResponderMove: (_, gestureState) => {
+          panX.setValue(gestureState.dx);
         },
+        onPanResponderRelease: (_, gestureState) =>
+          handleSwipeRelease(gestureState.dx, gestureState.vx),
+        onPanResponderTerminate: resetCardPosition,
       }),
-    [activeIndex, moveToIndex],
+    [handleSwipeRelease, panX, resetCardPosition],
   );
 
   const loadQueue = useCallback(async () => {
@@ -268,7 +428,6 @@ export default function HomeScreen() {
     }
 
     setIsVideoLoading(true);
-    setActiveVideo(null);
     setIsPlayerVisible(false);
     setIsPlaying(false);
     setIsRepeatEnabled(false);
@@ -279,6 +438,9 @@ export default function HomeScreen() {
     repeatEnabledRef.current = false;
     stopPlaybackTimer();
     void resetRecording();
+    void resetFollowupRecording();
+    setExerciseIndex(0);
+    setRevealedSampleAnswerIds({});
 
     fetchCuratedVideo(currentItem.videoId)
       .then(setActiveVideo)
@@ -287,7 +449,18 @@ export default function HomeScreen() {
         setActiveVideo(null);
       })
       .finally(() => setIsVideoLoading(false));
-  }, [currentItem?.videoId, resetRecording, stopPlaybackTimer]);
+  }, [
+    currentItem?.videoId,
+    resetFollowupRecording,
+    resetRecording,
+    stopPlaybackTimer,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      stopPlaybackTimer();
+    };
+  }, [stopPlaybackTimer]);
 
   useEffect(() => {
     const active = currentItem;
@@ -400,6 +573,200 @@ export default function HomeScreen() {
     router.push(route as never);
   }, [currentItem]);
 
+  const handleToggleSampleAnswer = useCallback(() => {
+    if (!primaryExercise?.reference_answer || !canRevealSampleAnswer) return;
+
+    if (!isCurrentSampleAnswerRevealed) {
+      trackEvent("expression_sample_answer_open", {
+        sessionId: currentItem?.sessionId ?? null,
+        sentenceId: currentItem?.sentenceId ?? null,
+        exerciseId: primaryExercise.id,
+      });
+    }
+
+    setRevealedSampleAnswerIds((current) => ({
+      ...current,
+      [primaryExercise.id]: !current[primaryExercise.id],
+    }));
+  }, [
+    canRevealSampleAnswer,
+    currentItem?.sentenceId,
+    currentItem?.sessionId,
+    isCurrentSampleAnswerRevealed,
+    primaryExercise,
+  ]);
+
+  const handleFollowupRecordPress = useCallback(async () => {
+    if (!currentItem || !primaryExercise) return;
+
+    if (followupRecordingState === "recording") {
+      await stopFollowupRecording();
+      trackEvent("expression_practice_complete", {
+        sessionId: currentItem.sessionId,
+        sentenceId: currentItem.sentenceId,
+        exerciseId: primaryExercise.id,
+        entry: "daily_input_followup",
+      });
+      return;
+    }
+
+    if (followupRecordingState === "playback") {
+      await resetFollowupRecording();
+    }
+
+    trackEvent("expression_practice_start", {
+      sessionId: currentItem.sessionId,
+      sentenceId: currentItem.sentenceId,
+      exerciseId: primaryExercise.id,
+      entry: "daily_input_followup",
+    });
+
+    await startFollowupRecording();
+  }, [
+    currentItem,
+    followupRecordingState,
+    primaryExercise,
+    resetFollowupRecording,
+    startFollowupRecording,
+    stopFollowupRecording,
+  ]);
+
+  const handleFollowupPlaybackPress = useCallback(async () => {
+    if (!followupAudioUri) return;
+
+    if (isFollowupPlaying) {
+      pauseFollowupRecording();
+      return;
+    }
+
+    await playFollowupRecording();
+  }, [
+    followupAudioUri,
+    isFollowupPlaying,
+    pauseFollowupRecording,
+    playFollowupRecording,
+  ]);
+
+  const handleExerciseStep = useCallback(
+    async (direction: "next" | "previous") => {
+      if (expressionExercises.length === 0) return;
+
+      const delta = direction === "next" ? 1 : -1;
+      const nextIndex = exerciseIndex + delta;
+      if (nextIndex < 0 || nextIndex >= expressionExercises.length) {
+        return;
+      }
+
+      if (followupRecordingState === "recording") {
+        await stopFollowupRecording();
+      }
+      if (followupAudioUri || followupRecordingState === "playback") {
+        await resetFollowupRecording();
+      }
+
+      setExerciseIndex(nextIndex);
+    },
+    [
+      exerciseIndex,
+      expressionExercises.length,
+      followupAudioUri,
+      followupRecordingState,
+      resetFollowupRecording,
+      stopFollowupRecording,
+    ],
+  );
+
+  const resetExerciseCardPosition = useCallback(() => {
+    Animated.spring(exercisePanX, {
+      toValue: 0,
+      tension: 90,
+      friction: 14,
+      useNativeDriver: true,
+    }).start();
+  }, [exercisePanX]);
+
+  const animateExerciseTransition = useCallback(
+    (direction: "next" | "previous") => {
+      const delta = direction === "next" ? 1 : -1;
+      const nextIndex = exerciseIndex + delta;
+      if (nextIndex < 0 || nextIndex >= expressionExercises.length) {
+        resetExerciseCardPosition();
+        return;
+      }
+
+      Animated.timing(exercisePanX, {
+        toValue:
+          direction === "next"
+            ? -EXERCISE_EXIT_DISTANCE
+            : EXERCISE_EXIT_DISTANCE,
+        duration: 110,
+        useNativeDriver: true,
+      }).start(async ({ finished }) => {
+        if (!finished) return;
+
+        await handleExerciseStep(direction);
+        exercisePanX.setValue(
+          direction === "next"
+            ? EXERCISE_EXIT_DISTANCE * 0.22
+            : -EXERCISE_EXIT_DISTANCE * 0.22,
+        );
+        Animated.timing(exercisePanX, {
+          toValue: 0,
+          duration: 120,
+          useNativeDriver: true,
+        }).start();
+      });
+    },
+    [
+      exerciseIndex,
+      exercisePanX,
+      expressionExercises.length,
+      handleExerciseStep,
+      resetExerciseCardPosition,
+    ],
+  );
+
+  const exercisePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dx) > 8 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        onPanResponderRelease: (_, gestureState) => {
+          if (
+            gestureState.dx <= -EXERCISE_SWIPE_THRESHOLD ||
+            gestureState.vx <= -EXERCISE_SWIPE_VELOCITY_THRESHOLD
+          ) {
+            animateExerciseTransition("next");
+            return;
+          }
+
+          if (
+            gestureState.dx >= EXERCISE_SWIPE_THRESHOLD ||
+            gestureState.vx >= EXERCISE_SWIPE_VELOCITY_THRESHOLD
+          ) {
+            animateExerciseTransition("previous");
+            return;
+          }
+
+          resetExerciseCardPosition();
+        },
+      }),
+    [animateExerciseTransition, resetExerciseCardPosition],
+  );
+
+  const exerciseCardAnimatedStyle = {
+    transform: [{ translateX: exercisePanX }],
+  } as const;
+
+  const handleOpenPronunciationFollowup = useCallback(() => {
+    if (!currentItem) return;
+
+    router.push(
+      `/study/${currentItem.videoId}?sessionId=${currentItem.sessionId}&sentenceId=${currentItem.sentenceId}&initialTab=shadowing` as never,
+    );
+  }, [currentItem]);
+
   const renderMedia = () => {
     if (!currentItem) return null;
 
@@ -505,20 +872,244 @@ export default function HomeScreen() {
     </>
   );
 
+  const cardAnimatedStyle = {
+    transform: [{ translateX: panX }, { scale: 1 }],
+  } as const;
+
+  const previousCardAnimatedStyle = {
+    opacity: panX.interpolate({
+      inputRange: [-140, -24, 0],
+      outputRange: [0.88, 0.56, 0.32],
+      extrapolate: "clamp",
+    }),
+    transform: [
+      {
+        translateX: panX.interpolate({
+          inputRange: [-180, 0],
+          outputRange: [-CARD_PREVIEW_OFFSET, -CARD_PREVIEW_OFFSET - 18],
+          extrapolate: "clamp",
+        }),
+      },
+      {
+        scale: panX.interpolate({
+          inputRange: [-180, 0],
+          outputRange: [0.98, 0.94],
+          extrapolate: "clamp",
+        }),
+      },
+    ],
+  } as const;
+
+  const nextCardAnimatedStyle = {
+    opacity: panX.interpolate({
+      inputRange: [0, 24, 140],
+      outputRange: [0.32, 0.56, 0.88],
+      extrapolate: "clamp",
+    }),
+    transform: [
+      {
+        translateX: panX.interpolate({
+          inputRange: [0, 180],
+          outputRange: [CARD_PREVIEW_OFFSET + 18, CARD_PREVIEW_OFFSET],
+          extrapolate: "clamp",
+        }),
+      },
+      {
+        scale: panX.interpolate({
+          inputRange: [0, 180],
+          outputRange: [0.94, 0.98],
+          extrapolate: "clamp",
+        }),
+      },
+    ],
+  } as const;
+
+  const renderFollowUpSurface = () => {
+    if (!currentItem || !learningProfile?.goal_mode) return null;
+
+    if (learningProfile.goal_mode === "pronunciation") {
+      const focusTags = getPronunciationFocusTags(
+        learningProfile.preferred_speakers.length > 0
+          ? learningProfile.preferred_speakers
+          : learningProfile.focus_tags,
+      );
+      const hasRecordedAttempt = Boolean(audioUri);
+
+      return (
+        <View style={styles.followupCard}>
+          <View style={styles.followupHeader}>
+            <Text style={styles.followupEyebrow}>발음 교정 세션</Text>
+            <Text style={styles.followupTitle}>
+              {hasRecordedAttempt
+                ? "방금 녹음한 시도를 기준으로 교정하러 가기"
+                : "먼저 한 번 따라 말해보면 교정 세션이 준비돼요"}
+            </Text>
+          </View>
+          <Text style={styles.followupBody}>
+            {hasRecordedAttempt
+              ? "현재 문장을 다시 들으면서 속도, 끊어읽기, 문장 끝 처리를 중심으로 교정해볼 수 있어요."
+              : "위의 녹음 버튼으로 한 번 말해본 뒤 교정 세션에서 무엇을 훔쳐야 할지 정리해드릴게요."}
+          </Text>
+          <View style={styles.followupTagRow}>
+            {focusTags.map((tag) => (
+              <View key={tag} style={styles.followupTag}>
+                <Text style={styles.followupTagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="발음 교정 세션 열기"
+            style={[
+              styles.followupPrimaryButton,
+              !hasRecordedAttempt && styles.followupPrimaryButtonDisabled,
+            ]}
+            onPress={handleOpenPronunciationFollowup}
+            disabled={!hasRecordedAttempt}
+          >
+            <Text style={styles.followupPrimaryButtonText}>
+              {hasRecordedAttempt ? "교정 세션 열기" : "녹음 후 열기"}
+            </Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.followupCard}>
+        {primaryExercise ? (
+          <>
+            {expressionIntroCopy.headline || expressionIntroCopy.body ? (
+              <View style={styles.expressionIntroBlock}>
+                {expressionIntroCopy.headline ? (
+                  <Text style={styles.expressionIntroHeadline}>
+                    {expressionIntroCopy.headline}
+                  </Text>
+                ) : null}
+                {expressionIntroCopy.body ? (
+                  <Text style={styles.expressionIntroBody}>
+                    {expressionIntroCopy.body}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            <View
+              style={styles.practiceCard}
+              {...exercisePanResponder.panHandlers}
+            >
+              <Animated.View style={exerciseCardAnimatedStyle}>
+                <View style={styles.practiceCardHeader}>
+                  <View style={styles.practiceDotsRow}>
+                    {expressionExercises.map((exercise, index) => (
+                      <View
+                        key={exercise.id}
+                        style={[
+                          styles.practiceDot,
+                          index === exerciseIndex && styles.practiceDotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
+                <Text style={styles.practiceCardInstruction}>
+                  {getExerciseInstruction(primaryExercise)}
+                </Text>
+                <Text style={styles.practiceCardPrompt}>
+                  {getExercisePrompt(primaryExercise)}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    followupRecordingState === "recording"
+                      ? "표현 연습 녹음 완료"
+                      : "표현 연습 녹음 시작"
+                  }
+                  style={styles.followupRecordButton}
+                  onPress={() => void handleFollowupRecordPress()}
+                >
+                  <Ionicons
+                    name={
+                      followupRecordingState === "recording" ? "stop" : "mic"
+                    }
+                    size={18}
+                    color={colors.bg}
+                  />
+                  <Text style={styles.followupRecordButtonText}>
+                    {followupRecordingState === "recording"
+                      ? `녹음 완료 ${formatDuration(followupDuration)}`
+                      : "말해보기"}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            </View>
+
+            {followupAudioUri ? (
+              <View style={styles.followupPlaybackSection}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isFollowupPlaying ? "녹음 듣기 일시정지" : "녹음 듣기 재생"
+                  }
+                  style={styles.followupPlaybackButton}
+                  onPress={() => void handleFollowupPlaybackPress()}
+                >
+                  <Ionicons
+                    name={isFollowupPlaying ? "pause" : "play"}
+                    size={18}
+                    color={colors.text}
+                  />
+                  <Text style={styles.followupPlaybackButtonText}>
+                    {isFollowupPlaying ? "듣는 중" : "내 녹음 듣기"}
+                  </Text>
+                </Pressable>
+
+                {primaryExercise.reference_answer ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="모범답안 보기"
+                    style={styles.sampleAnswerCard}
+                    onPress={handleToggleSampleAnswer}
+                    disabled={!canRevealSampleAnswer}
+                  >
+                    <Text style={styles.sampleAnswerText}>
+                      {primaryExercise.reference_answer}
+                    </Text>
+                    {!isCurrentSampleAnswerRevealed ? (
+                      <BlurView
+                        intensity={22}
+                        tint="light"
+                        style={styles.sampleAnswerBlur}
+                      >
+                        <Text style={styles.sampleAnswerBlurText}>
+                          눌러서 모범답안 보기
+                        </Text>
+                      </BlurView>
+                    ) : null}
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Text style={styles.followupBody}>
+              이 카드와 연결된 변형 연습이 아직 준비되지 않았어요. 전체 학습
+              화면에서 바로 연습을 이어갈 수 있어요.
+            </Text>
+          </>
+        )}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.heroBlock}>
-          <Text style={styles.eyebrow}>오늘의 학습 중심</Text>
-          <Text style={styles.title}>오늘의 인풋</Text>
-          <Text style={styles.subtitle}>
-            오늘은 많아도 3개까지만. 카드 안에서 듣고, 번역 보고, 바로 말해보는
-            흐름으로 바꿨습니다.
-          </Text>
-        </View>
+        <Text style={styles.title}>오늘의 인풋</Text>
 
         {isLoading || isProfileLoading ? (
           <View style={styles.stateCard}>
@@ -584,36 +1175,53 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.cardStage} {...panResponder.panHandlers}>
-              <DailyQueueCard
-                mediaContent={renderMedia()}
-                onSentencePress={handleSentencePress}
-                translationContent={renderTranslationContent()}
-                actionContent={renderActionContent()}
-              />
+              <View style={styles.cardRail}>
+                {previousItem ? (
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.cardPreview,
+                      styles.cardPreviewPrevious,
+                      previousCardAnimatedStyle,
+                    ]}
+                  >
+                    <View style={styles.cardPreviewInner}>
+                      <Text style={styles.cardPreviewText} numberOfLines={2}>
+                        {previousItem.sentenceText}
+                      </Text>
+                    </View>
+                  </Animated.View>
+                ) : null}
+
+                {nextItem ? (
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.cardPreview,
+                      styles.cardPreviewNext,
+                      nextCardAnimatedStyle,
+                    ]}
+                  >
+                    <View style={styles.cardPreviewInner}>
+                      <Text style={styles.cardPreviewText} numberOfLines={2}>
+                        {nextItem.sentenceText}
+                      </Text>
+                    </View>
+                  </Animated.View>
+                ) : null}
+
+                <Animated.View style={cardAnimatedStyle}>
+                  <DailyQueueCard
+                    mediaContent={renderMedia()}
+                    onSentencePress={handleSentencePress}
+                    translationContent={renderTranslationContent()}
+                    actionContent={renderActionContent()}
+                  />
+                </Animated.View>
+              </View>
             </View>
 
-            <View style={styles.indicatorRow}>
-              {queue.map((item, index) => (
-                <View
-                  key={`${item.sessionId}:${index}`}
-                  style={[
-                    styles.indicatorDot,
-                    index === activeIndex && styles.indicatorDotActive,
-                  ]}
-                />
-              ))}
-            </View>
-
-            <View style={styles.footerHint}>
-              <Ionicons
-                name="swap-horizontal"
-                size={16}
-                color={colors.textMuted}
-              />
-              <Text style={styles.footerHintText}>
-                카드를 좌우로 넘겨 오늘 학습할 다음 인풋으로 이동하세요
-              </Text>
-            </View>
+            {renderFollowUpSurface()}
           </>
         ) : null}
       </ScrollView>
@@ -630,26 +1238,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },
-  heroBlock: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  eyebrow: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 0.4,
-  },
   title: {
-    fontSize: 30,
-    lineHeight: 36,
+    paddingHorizontal: spacing.lg,
+    fontSize: 28,
+    lineHeight: 34,
     color: colors.text,
     fontWeight: font.weight.bold,
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textMuted,
   },
   stateCard: {
     marginTop: spacing.xl,
@@ -715,6 +1309,34 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingHorizontal: spacing.lg,
   },
+  cardRail: {
+    position: "relative",
+    overflow: "visible",
+  },
+  cardPreview: {
+    position: "absolute",
+    top: spacing.sm,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  cardPreviewPrevious: {},
+  cardPreviewNext: {},
+  cardPreviewInner: {
+    flex: 1,
+    borderRadius: radius.xl,
+    backgroundColor: colors.bgSubtle,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "flex-end",
+    padding: spacing.lg,
+  },
+  cardPreviewText: {
+    fontSize: 18,
+    lineHeight: 26,
+    color: colors.textMuted,
+    fontWeight: font.weight.medium,
+  },
   card: {
     borderRadius: radius.xl,
     backgroundColor: colors.bgSubtle,
@@ -734,6 +1356,8 @@ const styles = StyleSheet.create({
   },
   playerShell: {
     overflow: "hidden",
+    position: "relative",
+    backgroundColor: colors.bgMuted,
   },
   sentenceBlock: {
     padding: spacing.lg,
@@ -812,32 +1436,203 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.medium,
     textAlign: "center",
   },
-  indicatorRow: {
+  followupCard: {
     marginTop: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    marginHorizontal: spacing.lg,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgSubtle,
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  expressionFollowupCard: {},
+  followupHeader: {
     gap: spacing.xs,
   },
-  indicatorDot: {
-    width: 8,
-    height: 8,
+  followupEyebrow: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.primary,
+    fontWeight: font.weight.semibold,
+  },
+  followupTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+  },
+  followupBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textMuted,
+  },
+  followupTagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  followupTag: {
     borderRadius: radius.pill,
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  followupTagText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.text,
+    fontWeight: font.weight.medium,
+  },
+  followupPrimaryButton: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.text,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  followupPrimaryButtonDisabled: {
     backgroundColor: colors.border,
   },
-  indicatorDotActive: {
-    width: 20,
-    backgroundColor: colors.text,
+  followupPrimaryButtonText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.bg,
+    fontWeight: font.weight.semibold,
   },
-  footerHint: {
-    marginTop: spacing.md,
+  followupLoadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  followupLoadingText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
+  },
+  practiceCard: {
+    borderRadius: radius.lg,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl + spacing.sm,
+    paddingBottom: spacing.lg,
+    gap: spacing.lg,
+  },
+  practiceCardHeader: {
+    alignItems: "flex-start",
+    marginBottom: spacing.md,
+  },
+  expressionIntroBlock: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  expressionIntroHeadline: {
+    fontSize: 18,
+    lineHeight: 26,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+  },
+  expressionIntroBody: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: colors.text,
+  },
+  practiceCardInstruction: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textMuted,
+    fontWeight: font.weight.medium,
+    marginBottom: spacing.sm,
+  },
+  practiceCardPrompt: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.text,
+    fontWeight: font.weight.medium,
+    marginBottom: spacing.sm,
+  },
+  practiceDotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  practiceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: colors.borderStrong,
+  },
+  practiceDotActive: {
+    width: 18,
+    backgroundColor: colors.textSecondary,
+  },
+  followupRecordButton: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.text,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  followupRecordButtonText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.bg,
+    fontWeight: font.weight.semibold,
+  },
+  followupPlaybackSection: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  followupPlaybackButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  followupPlaybackButtonText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text,
+    fontWeight: font.weight.medium,
+  },
+  sampleAnswerCard: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: radius.lg,
+    backgroundColor: colors.bg,
+    padding: spacing.md,
     gap: spacing.xs,
   },
-  footerHintText: {
+  sampleAnswerText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text,
+  },
+  sampleAnswerBlur: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  sampleAnswerBlurText: {
     fontSize: 13,
-    color: colors.textMuted,
+    lineHeight: 18,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+    textAlign: "center",
   },
 });
