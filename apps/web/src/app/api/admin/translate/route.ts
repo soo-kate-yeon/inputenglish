@@ -4,6 +4,67 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const REQUEST_TIMEOUT_MS = 55_000;
+
+function extractTranslations(
+  responseText: string,
+  expectedLength: number,
+): string[] {
+  const cleanedText = responseText
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  const tryParseArray = (value: string): string[] | null => {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item) => typeof item === "string")
+      ) {
+        return parsed.map((item) => item.trim());
+      }
+
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        Array.isArray((parsed as { translations?: unknown }).translations)
+      ) {
+        const translations = (parsed as { translations: unknown[] })
+          .translations;
+        if (translations.every((item) => typeof item === "string")) {
+          return translations.map((item) => item.trim());
+        }
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  };
+
+  const direct = tryParseArray(cleanedText);
+  if (direct) {
+    if (direct.length !== expectedLength) {
+      throw new Error("AI returned unmatched number of translations");
+    }
+    return direct;
+  }
+
+  const arrayMatch = cleanedText.match(/\[[\s\S]*\]/);
+  if (arrayMatch) {
+    const extracted = tryParseArray(arrayMatch[0]);
+    if (extracted) {
+      if (extracted.length !== expectedLength) {
+        throw new Error("AI returned unmatched number of translations");
+      }
+      return extracted;
+    }
+  }
+
+  throw new Error("AI response was not a valid JSON array");
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdmin();
@@ -26,7 +87,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const model = genAI.getGenerativeModel({
+      model: GEMINI_MODEL,
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    });
 
     const prompt = `
 You are a professional English-Korean translator specializing in natural spoken Korean.
@@ -45,34 +111,39 @@ Input Sentences:
 ${JSON.stringify(sentences)}
 `;
 
-    const result = await model.generateContent(prompt);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let result: Awaited<ReturnType<typeof model.generateContent>>;
+    try {
+      result = await model.generateContent(prompt, {
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
     const responseText = result.response.text();
 
-    let translations: string[] = [];
     try {
-      // Clean up potentially wrapped markdown
-      const cleanedText = responseText
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-      translations = JSON.parse(cleanedText);
-    } catch (e) {
+      const translations = extractTranslations(responseText, sentences.length);
+
+      return NextResponse.json({
+        translations,
+      });
+    } catch {
       console.error("Failed to parse AI response:", responseText);
       throw new Error("AI response was not a valid JSON array");
     }
-
-    if (
-      !Array.isArray(translations) ||
-      translations.length !== sentences.length
-    ) {
-      throw new Error("AI returned unmatched number of translations");
-    }
-
-    return NextResponse.json({
-      translations,
-    });
   } catch (error: unknown) {
     console.error("Translation API error:", error);
-    return NextResponse.json({ error: "Failed to translate" }, { status: 500 });
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "Translation request timed out"
+        : error instanceof Error
+          ? error.message
+          : "Failed to translate";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

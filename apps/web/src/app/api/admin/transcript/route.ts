@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/utils/supabase/admin-auth";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { writeFile, readFile, unlink } from "fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 
 const execFileAsync = promisify(execFile);
+const YT_DLP_TIMEOUT_MS = 30_000;
 
 interface Json3Event {
   tStartMs?: number;
@@ -29,7 +30,8 @@ async function fetchTranscriptViaYtDlp(
     lang: string;
   }[]
 > {
-  const outPath = join(tmpdir(), `yt_${videoId}_${Date.now()}`);
+  const workDir = await mkdtemp(join(tmpdir(), `yt_${videoId}_`));
+  const outPath = join(workDir, "subtitle");
 
   try {
     // Try manual subtitles first, then fall back to auto-generated
@@ -49,13 +51,24 @@ async function fetchTranscriptViaYtDlp(
         outPath,
         "--quiet",
       ],
-      { timeout: 30000 },
+      { timeout: YT_DLP_TIMEOUT_MS },
     );
 
-    // yt-dlp appends language to filename
-    const subtitlePath = `${outPath}.${lang}.json3`;
+    const files = await readdir(workDir);
+    const subtitleFile = files.find(
+      (fileName) =>
+        fileName.endsWith(".json3") &&
+        (fileName.includes(`.${lang}.`) ||
+          fileName.includes(`.${lang}-`) ||
+          fileName.includes(`.${lang}.json3`)),
+    );
+
+    if (!subtitleFile) {
+      throw new Error(`No ${lang} subtitles were generated for this video`);
+    }
+
+    const subtitlePath = join(workDir, subtitleFile);
     const raw = await readFile(subtitlePath, "utf8");
-    await unlink(subtitlePath).catch(() => {});
 
     const data = JSON.parse(raw) as { events?: Json3Event[] };
 
@@ -77,9 +90,9 @@ async function fetchTranscriptViaYtDlp(
       }))
       .filter((e) => e.text && e.text !== " ");
   } catch (err) {
-    // Clean up any partial files
-    await unlink(`${outPath}.${lang}.json3`).catch(() => {});
     throw err;
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -126,9 +139,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ transcript });
   } catch (error: unknown) {
     console.error("Transcript fetch error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch transcript" },
-      { status: 500 },
-    );
+
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch transcript";
+
+    if (message.includes("No transcript available")) {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
+
+    if (message.includes("No en subtitles were generated")) {
+      return NextResponse.json(
+        {
+          error:
+            "This video does not have English subtitles available through yt-dlp",
+        },
+        { status: 404 },
+      );
+    }
+
+    if (message.includes("timed out")) {
+      return NextResponse.json(
+        { error: "Transcript request timed out" },
+        { status: 504 },
+      );
+    }
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

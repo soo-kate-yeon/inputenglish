@@ -229,6 +229,53 @@ export interface PracticeCoachingSummary {
   score?: number;
 }
 
+export type PronunciationAnalysisStatus =
+  | "queued"
+  | "processing"
+  | "complete"
+  | "failed";
+
+export interface PronunciationWordIssue {
+  word: string;
+  error_type?: string | null;
+  accuracy_score?: number | null;
+}
+
+export interface PronunciationFeedback {
+  status: PronunciationAnalysisStatus;
+  provider: "azure";
+  reference_text: string;
+  recognized_text?: string | null;
+  overall_score?: number | null;
+  accuracy_score?: number | null;
+  fluency_score?: number | null;
+  completeness_score?: number | null;
+  prosody_score?: number | null;
+  summary?: string | null;
+  pacing_note?: string | null;
+  chunking_note?: string | null;
+  stress_note?: string | null;
+  ending_tone_note?: string | null;
+  clarity_note?: string | null;
+  next_focus?: string | null;
+  confidence?: number | null;
+  word_issues?: PronunciationWordIssue[];
+}
+
+export interface PronunciationAnalysisJob {
+  analysis_id: string;
+  status: PronunciationAnalysisStatus;
+  provider: "azure";
+  provider_locale: string;
+  result?: PronunciationFeedback | null;
+  error?: {
+    code: string;
+    message: string;
+  } | null;
+  requested_at?: string;
+  completed_at?: string | null;
+}
+
 export interface PracticeAttempt {
   id: string;
   session_id: string;

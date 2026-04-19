@@ -2,6 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateContent = vi.fn();
 
+vi.mock("@/utils/supabase/admin-auth", () => ({
+  requireAdmin: vi.fn(async () => ({
+    id: "admin-user",
+    email: "admin@example.com",
+  })),
+}));
+
 vi.mock("@google/generative-ai", () => ({
   GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
     getGenerativeModel: vi.fn(() => ({
@@ -16,7 +23,7 @@ describe("POST /api/admin/analyze-scenes", () => {
     generateContent.mockReset();
   });
 
-  it("uses business-session curation criteria in the prompt and returns 3 scenes", async () => {
+  it("uses situation-focused curation criteria in the prompt and returns 3 scenes", async () => {
     generateContent.mockResolvedValue({
       response: {
         text: () =>
@@ -53,7 +60,7 @@ describe("POST /api/admin/analyze-scenes", () => {
                 endIndex: 8,
                 title: "다음 액션을 제안하는 장면",
                 reason:
-                  "업무상 제안과 다음 행동 정리가 함께 나와 세션화 가치가 높습니다.",
+                  "상대에게 다음 흐름을 제안하고 대화를 앞으로 밀어가는 패턴을 연습하기 좋습니다.",
                 learningPoints: [
                   "제안하기",
                   "다음 행동 제시",
@@ -87,8 +94,8 @@ describe("POST /api/admin/analyze-scenes", () => {
 
     expect(response.status).toBe(200);
     expect(payload.scenes).toHaveLength(3);
-    expect(prompt).toContain("업무 재사용성");
+    expect(prompt).toContain("상황 재사용성");
     expect(prompt).toContain("독립 세션 가능성");
-    expect(prompt).toContain("maximize product value");
+    expect(prompt).toContain("maximize learning payoff and situation variety");
   });
 });

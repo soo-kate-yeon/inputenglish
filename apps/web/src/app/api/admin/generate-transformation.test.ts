@@ -6,6 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Create a stable generateContent mock that persists across tests
 const generateContent = vi.fn();
 
+vi.mock("@/utils/supabase/admin-auth", () => ({
+  requireAdmin: vi.fn(async () => ({
+    id: "admin-user",
+    email: "admin@example.com",
+  })),
+}));
+
 vi.mock("@google/generative-ai", () => {
   // Keep stable reference to generateContent inside factory scope
   const gc = generateContent;

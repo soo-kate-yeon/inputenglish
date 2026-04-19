@@ -48,22 +48,23 @@ export async function POST(request: NextRequest) {
     const prompt = `
 트랜스크립트에서 학습 세션으로 만들 만한 씬 3개를 골라줘.
 
-대상: 영어로 일하는 한국인. 꼭 회의실 상황이 아니어도 됨.
-목적: "이 표현, 나도 언젠가 쓸 것 같은데" 싶은 장면을 고를 것.
+대상: 영어를 이미 조금은 말하지만, 더 자연스러운 표현을 익히고 싶은 한국어 화자.
+목적: "이 표현, 저 상황에서 나도 써먹겠다" 싶은 장면을 고를 것.
+기본 전제: 업무/회의/프로젝트는 수많은 상황 중 하나일 뿐이다. 트랜스크립트가 실제로 그쪽이 아닐 때는 그 프레임을 먼저 씌우지 마라.
 
 씬 선택 기준 (우선순위 순):
 1. 명확한 말하기 목적 — 아래 중 하나에 해당:
    설득, 지표 설명, 핵심 요약, 완화 표현, 반대 의견, 제안, 질문 답변,
    생각할 시간 벌기, 확인/되묻기, 실수 수습, 관계 형성/스몰토크, 주제 전환
-2. 실생활 재사용성 — 회의·발표뿐 아니라 점심 대화, 화상회의 앞뒤 스몰토크,
-   출장 중 대화, 처음 만난 사람과의 잡담도 가치 있는 씬으로 인정
+2. 상황 재사용성 — 회의·발표뿐 아니라 친구와 근황 얘기할 때, 처음 만난 사람과 거리 좁힐 때,
+   인터뷰에서 답을 고를 때, 카메라 앞에서 의견을 정리할 때도 가치 있는 씬으로 인정
 3. 독립 세션 가능성 — 시작-전개-마무리가 있어서 하나의 학습 단위로 성립
 4. 자연스러운 톤 — "프로페셔널해 보이는 톤"이 아니라 "실제 원어민이 이 상황에서 말하는 톤"
 5. 길이: 30-120초
 
 3개 씬 구성 가이드:
-- 최소 1개는 formal한 상황 (발표, 실적 공유, 제안 등)
-- 최소 1개는 semi-formal/casual 상황 (스몰토크, Q&A 후 대화, 1:1 잡담 등)
+- 최소 1개는 formal한 상황 (발표, 인터뷰, 브리핑, 설명 장면 등)
+- 최소 1개는 semi-formal/casual 상황 (스몰토크, Q&A 후 대화, 1:1 잡담, 친한 사이 대화 등)
   단, 이 씬에서도 배울 수 있는 표현 구조가 있어야 함
 - 나머지 1개는 자유롭게 판단
 
@@ -124,7 +125,7 @@ Requirements:
 - startIndex and endIndex are array indices (0-based)
 - estimatedDuration should be calculated from timestamps (endTime - startTime)
 - Include difficulty for each scene based on the criteria above
-- All scenes combined should maximize product value, not just transcript coverage
+- All scenes combined should maximize learning payoff and situation variety, not just transcript coverage
 `;
 
     const controller = new AbortController();

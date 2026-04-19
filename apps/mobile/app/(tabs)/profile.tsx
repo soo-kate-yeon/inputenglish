@@ -343,13 +343,13 @@ export default function ProfileScreen() {
               right={
                 <Text style={styles.settingValue}>
                   {learningProfile?.level_band === "beginner"
-                    ? "거의 한마디도 못한다"
+                    ? "거의 한 마디도 못해요"
                     : learningProfile?.level_band === "basic"
-                      ? "간단한 의사표현 가능"
+                      ? "간단한 의사표현 정도만 가능해요"
                       : learningProfile?.level_band === "conversation"
-                        ? "일상 회화 가능"
+                        ? "일상 회화는 가능해요"
                         : learningProfile?.level_band === "professional"
-                          ? "영어로 업무 소통 가능"
+                          ? "영어로 업무 소통이나 논의까지 가능해요"
                           : "아직 설정 안됨"}
                 </Text>
               }

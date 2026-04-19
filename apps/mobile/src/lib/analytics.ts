@@ -18,7 +18,9 @@ export type AnalyticsEventName =
   | "expression_sample_answer_open"
   | "expression_practice_complete"
   | "pronunciation_analysis_start"
+  | "pronunciation_analysis_requested"
   | "pronunciation_analysis_complete"
+  | "pronunciation_analysis_failed"
   | "pronunciation_retry";
 
 export function trackEvent(

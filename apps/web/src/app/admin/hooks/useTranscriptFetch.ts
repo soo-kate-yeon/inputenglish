@@ -163,7 +163,12 @@ export function useTranscriptFetch(): UseTranscriptFetchReturn {
         body: JSON.stringify({ sentences: texts }),
       });
 
-      if (!res.ok) throw new Error("Translation failed");
+      if (!res.ok) {
+        const errorData = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(errorData?.error || "Translation failed");
+      }
 
       const { translations } = await res.json();
 

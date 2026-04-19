@@ -1,7 +1,7 @@
 ---
 id: SPEC-MOBILE-013
 title: "Goal-Oriented Home + Explore Split + Daily Input Queue"
-version: "1.1.1"
+version: "1.1.2"
 status: completed
 created: "2026-04-18"
 updated: "2026-04-19"
@@ -231,7 +231,8 @@ fallback 후보를 채워 daily queue를 비워두지 않아야 한다.
 
 ### 4.4 Remaining Work From V1
 
-현재 구현 기준에서 남은 핵심 작업은 아래와 같다.
+현재 구현 기준에서 남은 핵심 작업은 후속 스펙으로 분리되어 있으며, 아래 항목은
+`SPEC-MOBILE-014`, `SPEC-MOBILE-015`에서 이어서 다룬다.
 
 1. 카드 하단 indicator 제거
 2. `goal_mode`별 하단 follow-up surface 삽입

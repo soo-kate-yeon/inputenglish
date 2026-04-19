@@ -53,15 +53,50 @@ const EXPRESSION_HINTS: Record<
     titleKeywords?: string[];
   }
 > = {
+  "일상 잡담": {
+    sourceTypes: ["podcast", "interview", "panel"],
+    genres: ["art", "business", "news"],
+    titleKeywords: ["chat", "conversation", "talk", "daily"],
+  },
+  "친구/연애": {
+    sourceTypes: ["podcast", "interview"],
+    genres: ["art", "fashion", "beauty"],
+    titleKeywords: ["relationship", "friend", "dating", "love"],
+  },
+  "학교/업무": {
+    sourceTypes: ["podcast", "earnings-call", "demo"],
+    genres: ["business", "economy"],
+    titleKeywords: ["update", "review", "work", "school", "meeting"],
+  },
   "회의/업데이트": {
     sourceTypes: ["podcast", "earnings-call", "demo"],
     genres: ["business", "economy"],
     titleKeywords: ["update", "review", "wrap", "sync", "meeting"],
   },
+  "발표/회의": {
+    sourceTypes: ["demo", "keynote", "public-speech"],
+    genres: ["tech", "business"],
+    titleKeywords: ["demo", "launch", "presentation", "meeting"],
+  },
   "발표/데모": {
     sourceTypes: ["demo", "keynote", "public-speech"],
     genres: ["tech", "business"],
     titleKeywords: ["demo", "launch", "presentation", "pitch"],
+  },
+  인터뷰: {
+    sourceTypes: ["interview", "panel"],
+    genres: ["business", "tech"],
+    titleKeywords: ["interview", "career", "question", "answer"],
+  },
+  서비스직: {
+    sourceTypes: ["interview", "podcast"],
+    genres: ["business", "art"],
+    titleKeywords: ["service", "customer", "hospitality", "support"],
+  },
+  "자기소개/스몰토크": {
+    sourceTypes: ["interview", "podcast", "panel"],
+    genres: ["business", "art", "news"],
+    titleKeywords: ["introduce", "small talk", "icebreaker", "about me"],
   },
   "면접/자기소개": {
     sourceTypes: ["interview", "panel"],
@@ -73,6 +108,46 @@ const EXPRESSION_HINTS: Record<
     genres: ["business", "tech"],
     titleKeywords: ["proposal", "sell", "convince", "pitch"],
   },
+  브이로그: {
+    sourceTypes: ["podcast", "interview"],
+    genres: ["art", "fashion", "beauty"],
+    titleKeywords: ["vlog", "day", "routine", "life"],
+  },
+  "영화 속 장면들": {
+    sourceTypes: ["interview", "panel"],
+    genres: ["art", "fashion"],
+    titleKeywords: ["movie", "film", "scene", "cinema"],
+  },
+  "드라마 속 장면들": {
+    sourceTypes: ["interview", "panel"],
+    genres: ["art", "fashion"],
+    titleKeywords: ["drama", "series", "scene", "show"],
+  },
+  "연설이나 강단 발표": {
+    sourceTypes: ["keynote", "public-speech"],
+    genres: ["tech", "business", "current-affairs"],
+    titleKeywords: ["speech", "talk", "keynote", "lecture"],
+  },
+  "정보성 팟캐스트/인터뷰": {
+    sourceTypes: ["podcast", "interview"],
+    genres: ["tech", "business", "economy"],
+    titleKeywords: ["podcast", "interview", "explain", "insight"],
+  },
+  "셀럽 인터뷰": {
+    sourceTypes: ["interview", "panel"],
+    genres: ["fashion", "beauty", "art"],
+    titleKeywords: ["interview", "celebrity", "star", "artist"],
+  },
+  "최신 시사 이슈": {
+    sourceTypes: ["podcast", "public-speech", "panel"],
+    genres: ["current-affairs", "news", "economy", "politics"],
+    titleKeywords: ["news", "issue", "today", "latest"],
+  },
+  "티키타카를 배울 수 있는 팟캐스트/토크쇼": {
+    sourceTypes: ["podcast", "panel", "interview"],
+    genres: ["art", "news", "business"],
+    titleKeywords: ["talk show", "banter", "conversation", "podcast"],
+  },
 };
 
 const PRONUNCIATION_HINTS: Record<
@@ -82,21 +157,69 @@ const PRONUNCIATION_HINTS: Record<
     titleKeywords?: string[];
   }
 > = {
+  "Michelle Obama": {
+    sourceTypes: ["public-speech", "interview", "panel"],
+    titleKeywords: ["michelle obama", "michelle"],
+  },
   "차분한 리더 톤": {
     sourceTypes: ["keynote", "earnings-call", "public-speech"],
     titleKeywords: ["leader", "ceo", "founder", "briefing"],
+  },
+  Oprah: {
+    sourceTypes: ["interview", "panel", "podcast"],
+    titleKeywords: ["oprah"],
+  },
+  "Taylor Swift": {
+    sourceTypes: ["interview", "panel"],
+    titleKeywords: ["taylor swift", "taylor"],
+  },
+  Zendaya: {
+    sourceTypes: ["interview", "panel"],
+    titleKeywords: ["zendaya"],
+  },
+  "Emma Watson": {
+    sourceTypes: ["interview", "public-speech"],
+    titleKeywords: ["emma watson", "emma"],
+  },
+  Jennie: {
+    sourceTypes: ["interview", "panel"],
+    titleKeywords: ["jennie"],
+  },
+  "Ryan Reynolds": {
+    sourceTypes: ["interview", "panel", "podcast"],
+    titleKeywords: ["ryan reynolds", "ryan"],
+  },
+  "Matt Damon": {
+    sourceTypes: ["interview", "panel"],
+    titleKeywords: ["matt damon", "matt"],
+  },
+  "Jensen Huang": {
+    sourceTypes: ["keynote", "interview", "public-speech"],
+    titleKeywords: ["jensen huang", "jensen", "nvidia"],
   },
   "또렷한 발표 스타일": {
     sourceTypes: ["demo", "keynote", "public-speech"],
     titleKeywords: ["presentation", "talk", "demo", "launch"],
   },
+  "Simon Sinek": {
+    sourceTypes: ["public-speech", "podcast", "interview"],
+    titleKeywords: ["simon sinek", "simon"],
+  },
   "설득력 있는 데모 말투": {
     sourceTypes: ["demo", "podcast"],
     titleKeywords: ["demo", "product", "pitch"],
   },
+  "Conan O’Brien": {
+    sourceTypes: ["interview", "podcast", "panel"],
+    titleKeywords: ["conan", "obrien", "o'brien"],
+  },
   "좋아하는 인물 따라하기": {
     sourceTypes: ["interview", "podcast", "panel"],
     titleKeywords: ["conversation", "interview", "fireside"],
+  },
+  "Barack Obama": {
+    sourceTypes: ["public-speech", "interview", "panel"],
+    titleKeywords: ["barack obama", "obama"],
   },
 };
 
@@ -199,10 +322,16 @@ function scoreExpressionSession(
 ): number {
   let score = 0;
   const searchText = getSessionSearchText(session);
-  const preferredTags =
-    profile.preferred_situations.length > 0
-      ? profile.preferred_situations
-      : profile.focus_tags;
+  const preferredTags = [
+    ...new Set(
+      [
+        ...(profile.preferred_situations.length > 0
+          ? profile.preferred_situations
+          : []),
+        ...profile.focus_tags,
+      ].filter(Boolean),
+    ),
+  ];
 
   for (const tag of preferredTags) {
     const hint = EXPRESSION_HINTS[tag];

@@ -1,11 +1,21 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
+  ImageSourcePropType,
+  ImageBackground,
+  LayoutAnimation,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -14,42 +24,109 @@ import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
 import { colors, font, radius, spacing } from "@/theme";
 
-type OnboardingStep = "level" | "goal" | "preparing";
+type OnboardingStep = "level" | "goal" | "details" | "preparing";
+const STEP_SEQUENCE: OnboardingStep[] = [
+  "level",
+  "goal",
+  "details",
+  "preparing",
+];
 
 const LEVEL_OPTIONS: Array<{ value: LearningLevelBand; label: string }> = [
-  { value: "beginner", label: "거의 한마디도 못한다" },
-  { value: "basic", label: "간단한 의사표현 가능" },
-  { value: "conversation", label: "일상 회화 가능" },
-  { value: "professional", label: "영어로 업무 소통 가능" },
+  { value: "beginner", label: "거의 한 마디도 못해요" },
+  { value: "basic", label: "간단한 의사표현 정도만 가능해요" },
+  { value: "conversation", label: "일상 회화는 가능해요" },
+  { value: "professional", label: "영어로 업무 소통이나 논의까지 가능해요" },
 ];
 
-const PRONUNCIATION_TAGS = [
-  "차분한 리더 톤",
-  "또렷한 발표 스타일",
-  "설득력 있는 데모 말투",
-  "좋아하는 인물 따라하기",
-];
+const PRONUNCIATION_PEOPLE = [
+  {
+    name: "Michelle Obama",
+    trait: "차분하고 또렷한 리더형 리듬",
+    imageSource: require("../assets/images/speakers/person_1.png"),
+  },
+  {
+    name: "Oprah",
+    trait: "따뜻하고 밀도 있는 저음 톤",
+    imageSource: require("../assets/images/speakers/person_2.png"),
+  },
+  {
+    name: "Taylor Swift",
+    trait: "부드럽고 선명한 미국식 딕션",
+    imageSource: require("../assets/images/speakers/person_3.png"),
+  },
+  {
+    name: "Zendaya",
+    trait: "가볍고 세련된 대화체 억양",
+    imageSource: require("../assets/images/speakers/person_4.png"),
+  },
+  {
+    name: "Emma Watson",
+    trait: "정갈한 영국식 발음과 호흡",
+    imageSource: require("../assets/images/speakers/person_5.png"),
+  },
+  {
+    name: "Jennie",
+    trait: "짧고 감각적인 글로벌 톤",
+    imageSource: require("../assets/images/speakers/person_6.png"),
+  },
+  {
+    name: "Ryan Reynolds",
+    trait: "위트 있게 튀는 북미식 리듬",
+    imageSource: require("../assets/images/speakers/person_7.png"),
+  },
+  {
+    name: "Matt Damon",
+    trait: "담백하고 안정적인 표준 억양",
+    imageSource: require("../assets/images/speakers/person_8.png"),
+  },
+  {
+    name: "Jensen Huang",
+    trait: "명확하고 에너지 있는 발표 톤",
+    imageSource: require("../assets/images/speakers/person_9.png"),
+  },
+  {
+    name: "Simon Sinek",
+    trait: "단단하고 설득력 있는 강연 호흡",
+    imageSource: require("../assets/images/speakers/person_10.png"),
+  },
+  {
+    name: "Conan O’Brien",
+    trait: "리듬감 있고 장난기 있는 억양",
+    imageSource: require("../assets/images/speakers/person_11.png"),
+  },
+  {
+    name: "Barack Obama",
+    trait: "여유롭고 묵직한 연설형 억양",
+    imageSource: require("../assets/images/speakers/person_12.png"),
+  },
+] as const;
 
-const EXPRESSION_TAGS = [
-  "회의/업데이트",
-  "발표/데모",
-  "면접/자기소개",
-  "설득/제안",
-];
+const EXPRESSION_SITUATIONS = [
+  "일상 잡담",
+  "친구/연애",
+  "학교/업무",
+  "발표/회의",
+  "인터뷰",
+  "서비스직",
+  "자기소개/스몰토크",
+] as const;
 
-function ProgressDots({ step }: { step: OnboardingStep }) {
-  const index = ["level", "goal", "preparing"].indexOf(step);
+const EXPRESSION_TOPICS = [
+  "브이로그",
+  "영화 속 장면들",
+  "드라마 속 장면들",
+  "연설이나 강단 발표",
+  "정보성 팟캐스트/인터뷰",
+  "셀럽 인터뷰",
+  "최신 시사 이슈",
+  "티키타카를 배울 수 있는 팟캐스트/토크쇼",
+] as const;
 
-  return (
-    <View style={styles.progressRow}>
-      {[0, 1, 2].map((dot) => (
-        <View
-          key={dot}
-          style={[styles.progressDot, dot <= index && styles.progressDotActive]}
-        />
-      ))}
-    </View>
-  );
+const IS_TEST_ENV = process.env.NODE_ENV === "test";
+
+function dedupe(values: string[]) {
+  return [...new Set(values)];
 }
 
 function OptionButton({
@@ -61,20 +138,213 @@ function OptionButton({
   selected: boolean;
   onPress: () => void;
 }) {
+  const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (IS_TEST_ENV) {
+      selectionAnim.setValue(selected ? 1 : 0);
+      return;
+    }
+
+    Animated.timing(selectionAnim, {
+      toValue: selected ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [selected, selectionAnim]);
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
-        styles.optionButton,
-        selected && styles.optionButtonSelected,
+        styles.optionPressable,
         pressed && styles.optionButtonPressed,
       ]}
     >
-      <Text
-        style={[styles.optionLabel, selected && styles.optionLabelSelected]}
+      <Animated.View
+        style={[
+          styles.optionButton,
+          {
+            backgroundColor: selectionAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [colors.bgSubtle, colors.primary],
+            }),
+            borderColor: selectionAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [colors.border, colors.primary],
+            }),
+          },
+        ]}
       >
-        {label}
-      </Text>
+        <Animated.Text
+          style={[
+            styles.optionLabel,
+            {
+              color: selectionAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [colors.text, colors.textInverse],
+              }),
+            },
+          ]}
+        >
+          {label}
+        </Animated.Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function ChoiceChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (IS_TEST_ENV) {
+      selectionAnim.setValue(selected ? 1 : 0);
+      return;
+    }
+
+    Animated.timing(selectionAnim, {
+      toValue: selected ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [selected, selectionAnim]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.chipPressable,
+        pressed && styles.optionButtonPressed,
+      ]}
+    >
+      <Animated.View
+        style={[
+          styles.chip,
+          {
+            backgroundColor: selectionAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [colors.bgSubtle, colors.primary],
+            }),
+            borderColor: selectionAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [colors.border, colors.primary],
+            }),
+          },
+        ]}
+      >
+        <Animated.Text
+          style={[
+            styles.chipText,
+            {
+              color: selectionAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [colors.text, colors.textInverse],
+              }),
+            },
+          ]}
+        >
+          {label}
+        </Animated.Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function PronunciationPersonCard({
+  name,
+  trait,
+  imageSource,
+  selected,
+  onPress,
+}: {
+  name: string;
+  trait: string;
+  imageSource: ImageSourcePropType;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (IS_TEST_ENV) {
+      selectionAnim.setValue(selected ? 1 : 0);
+      return;
+    }
+
+    Animated.timing(selectionAnim, {
+      toValue: selected ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [selected, selectionAnim]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.personCardPressable,
+        pressed && styles.optionButtonPressed,
+      ]}
+    >
+      <Animated.View
+        style={[
+          styles.personCard,
+          {
+            borderColor: selectionAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [colors.border, colors.primary],
+            }),
+          },
+        ]}
+      >
+        <ImageBackground
+          source={imageSource}
+          style={styles.personImage}
+          imageStyle={styles.personImageInner}
+        >
+          <LinearGradient
+            colors={[
+              "rgba(0,0,0,0.04)",
+              "rgba(0,0,0,0.18)",
+              "rgba(0,0,0,0.82)",
+            ]}
+            locations={[0, 0.45, 1]}
+            style={styles.personGradient}
+          >
+            <Animated.View
+              style={[
+                styles.personCardBadge,
+                {
+                  opacity: selectionAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 1],
+                  }),
+                },
+              ]}
+            >
+              <Ionicons name="checkmark" size={14} color={colors.textInverse} />
+            </Animated.View>
+            <View style={styles.personCopy}>
+              <Text style={styles.personName}>{name}</Text>
+              <Text style={styles.personTrait} numberOfLines={1}>
+                {trait}
+              </Text>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -83,12 +353,41 @@ export default function OnboardingScreen() {
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const { user, learningProfile, isProfileLoading, updateLearningProfile } =
     useAuth();
+  const { width: viewportWidth } = useWindowDimensions();
   const isEditMode = edit === "1";
   const [step, setStep] = useState<OnboardingStep>("level");
+  const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [level, setLevel] = useState<LearningLevelBand | null>(null);
   const [goalMode, setGoalMode] = useState<LearningGoalMode | null>(null);
   const [focusTags, setFocusTags] = useState<string[]>([]);
+  const [expressionSituations, setExpressionSituations] = useState<string[]>(
+    [],
+  );
+  const [expressionTopics, setExpressionTopics] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const hydratedProfileKeyRef = useRef<string | null>(null);
+  const stepTransition = useRef(new Animated.Value(1)).current;
+  const transitionSwapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (
+      Platform.OS === "android" &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (transitionSwapTimeoutRef.current) {
+        clearTimeout(transitionSwapTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     trackEvent("onboarding_start", {
@@ -104,6 +403,19 @@ export default function OnboardingScreen() {
 
     if (!learningProfile) return;
 
+    const profileHydrationKey = JSON.stringify({
+      level_band: learningProfile.level_band,
+      goal_mode: learningProfile.goal_mode,
+      focus_tags: learningProfile.focus_tags,
+      preferred_speakers: learningProfile.preferred_speakers,
+      preferred_situations: learningProfile.preferred_situations,
+    });
+
+    if (hydratedProfileKeyRef.current === profileHydrationKey) {
+      return;
+    }
+    hydratedProfileKeyRef.current = profileHydrationKey;
+
     setLevel(learningProfile.level_band);
     setGoalMode(learningProfile.goal_mode);
 
@@ -113,34 +425,130 @@ export default function OnboardingScreen() {
           ? learningProfile.preferred_speakers
           : learningProfile.focus_tags,
       );
+      setExpressionSituations([]);
+      setExpressionTopics([]);
     } else if (learningProfile.goal_mode === "expression") {
-      setFocusTags(
+      const situations =
         learningProfile.preferred_situations.length > 0
-          ? learningProfile.preferred_situations
-          : learningProfile.focus_tags,
+          ? learningProfile.preferred_situations.filter((item) =>
+              EXPRESSION_SITUATIONS.includes(
+                item as (typeof EXPRESSION_SITUATIONS)[number],
+              ),
+            )
+          : learningProfile.focus_tags.filter((item) =>
+              EXPRESSION_SITUATIONS.includes(
+                item as (typeof EXPRESSION_SITUATIONS)[number],
+              ),
+            );
+      const topics = learningProfile.focus_tags.filter((item) =>
+        EXPRESSION_TOPICS.includes(item as (typeof EXPRESSION_TOPICS)[number]),
       );
+      setExpressionSituations(situations);
+      setExpressionTopics(topics);
+      setFocusTags(dedupe([...situations, ...topics]));
+    } else {
+      setFocusTags([]);
+      setExpressionSituations([]);
+      setExpressionTopics([]);
     }
   }, [learningProfile, user]);
 
-  const availableTags = useMemo(
-    () => (goalMode === "pronunciation" ? PRONUNCIATION_TAGS : EXPRESSION_TAGS),
-    [goalMode],
-  );
+  useEffect(() => {
+    if (goalMode !== "expression") return;
+    setFocusTags(dedupe([...expressionSituations, ...expressionTopics]));
+  }, [expressionSituations, expressionTopics, goalMode]);
 
-  const canSubmit = Boolean(level && goalMode && focusTags.length > 0);
+  useEffect(() => {
+    if (step !== "details") return;
 
-  const toggleFocusTag = (tag: string) => {
-    setFocusTags((current) =>
-      current.includes(tag)
-        ? current.filter((item) => item !== tag)
-        : [...current, tag],
+    if (!goalMode) {
+      setStep("goal");
+    }
+  }, [goalMode, step]);
+
+  const canSubmit = useMemo(() => {
+    if (!level || !goalMode) return false;
+    if (goalMode === "pronunciation") return focusTags.length > 0;
+    return expressionSituations.length > 0 && expressionTopics.length > 0;
+  }, [
+    expressionSituations.length,
+    expressionTopics.length,
+    focusTags.length,
+    goalMode,
+    level,
+  ]);
+
+  const toggleSelection = (
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+  ) => {
+    if (!IS_TEST_ENV) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setter((items) =>
+      items.includes(value)
+        ? items.filter((item) => item !== value)
+        : [...items, value],
     );
+  };
+
+  const transitionToStep = (nextStep: OnboardingStep) => {
+    if (nextStep === step || isTransitioning) return;
+
+    if (IS_TEST_ENV) {
+      setStep(nextStep);
+      setIsTransitioning(false);
+      stepTransition.setValue(1);
+      return;
+    }
+
+    const currentIndex = STEP_SEQUENCE.indexOf(step);
+    const nextIndex = STEP_SEQUENCE.indexOf(nextStep);
+    const direction: 1 | -1 = nextIndex > currentIndex ? 1 : -1;
+
+    setTransitionDirection(direction);
+    setIsTransitioning(true);
+    stepTransition.setValue(0);
+
+    if (transitionSwapTimeoutRef.current) {
+      clearTimeout(transitionSwapTimeoutRef.current);
+    }
+    transitionSwapTimeoutRef.current = setTimeout(() => {
+      setStep(nextStep);
+      transitionSwapTimeoutRef.current = null;
+    }, 120);
+
+    Animated.timing(stepTransition, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setIsTransitioning(false);
+      stepTransition.setValue(1);
+    });
+  };
+
+  const handleBack = () => {
+    if (isSaving || step === "preparing") return;
+
+    if (step === "details") {
+      transitionToStep("goal");
+      return;
+    }
+
+    if (step === "goal") {
+      transitionToStep("level");
+      return;
+    }
+
+    router.back();
   };
 
   const handleComplete = async () => {
     if (!user || !goalMode || !level || focusTags.length === 0) return;
 
-    setStep("preparing");
+    transitionToStep("preparing");
     setIsSaving(true);
 
     try {
@@ -152,7 +560,8 @@ export default function OnboardingScreen() {
         goal_mode: goalMode,
         focus_tags: focusTags,
         preferred_speakers: goalMode === "pronunciation" ? focusTags : [],
-        preferred_situations: goalMode === "expression" ? focusTags : [],
+        preferred_situations:
+          goalMode === "expression" ? expressionSituations : [],
         onboarding_completed_at: new Date().toISOString(),
       });
 
@@ -165,10 +574,167 @@ export default function OnboardingScreen() {
       router.replace("/(tabs)");
     } catch (error) {
       console.error("[Onboarding] Failed to save learning profile:", error);
-      setStep("goal");
+      transitionToStep("details");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const slideDistance = Math.min(Math.max(viewportWidth * 0.22, 72), 140);
+
+  const buildStepAnimatedStyle = () => {
+    if (!isTransitioning) {
+      return styles.stepStatic;
+    }
+
+    return {
+      opacity: stepTransition.interpolate({
+        inputRange: [0, 0.46, 0.54, 1],
+        outputRange: [1, 0, 0, 1],
+      }),
+      transform: [
+        {
+          translateX: stepTransition.interpolate({
+            inputRange: [0, 0.46, 0.54, 1],
+            outputRange: [0, 0, transitionDirection * slideDistance, 0],
+          }),
+        },
+      ],
+    };
+  };
+
+  const renderStepContent = (targetStep: OnboardingStep) => {
+    if (targetStep === "level") {
+      return (
+        <View style={styles.stepBlock}>
+          <Text style={styles.title}>
+            영어 말하기 수준이 어느 정도이신가요?
+          </Text>
+          <View style={styles.optionList}>
+            {LEVEL_OPTIONS.map((option) => (
+              <OptionButton
+                key={option.value}
+                label={option.label}
+                selected={level === option.value}
+                onPress={() => setLevel(option.value)}
+              />
+            ))}
+          </View>
+        </View>
+      );
+    }
+
+    if (targetStep === "goal") {
+      return (
+        <View style={styles.stepBlock}>
+          <Text style={styles.title}>
+            지금 집중하고 싶은 영역은 어느 쪽인가요?
+          </Text>
+          <Text style={styles.body}>
+            선택에 따라 제공해드릴 학습 컨텐츠가 달라져요. 언제든지 바꿀 수
+            있어요.
+          </Text>
+          <View style={styles.modeRow}>
+            <OptionButton
+              label="발음이나 억양을 개선하고 싶어요"
+              selected={goalMode === "pronunciation"}
+              onPress={() => {
+                setGoalMode("pronunciation");
+                setFocusTags([]);
+                setExpressionSituations([]);
+                setExpressionTopics([]);
+              }}
+            />
+            <OptionButton
+              label="말할 때 쓸 수 있는 표현이 다양해지면 좋겠어요"
+              selected={goalMode === "expression"}
+              onPress={() => {
+                setGoalMode("expression");
+                setFocusTags([]);
+                setExpressionSituations([]);
+                setExpressionTopics([]);
+              }}
+            />
+          </View>
+        </View>
+      );
+    }
+
+    if (targetStep === "details") {
+      return (
+        <View style={styles.stepBlock}>
+          {goalMode === "pronunciation" ? (
+            <View style={styles.focusSection}>
+              <Text style={styles.title}>
+                발음이나 억양 연습을 할 때 선호하는 인물이 있나요?
+              </Text>
+              <Text style={styles.body}>
+                선호도에 맞춰 영상을 추천해드릴게요.
+              </Text>
+              <View style={styles.personGrid}>
+                {PRONUNCIATION_PEOPLE.map((person) => (
+                  <PronunciationPersonCard
+                    key={person.name}
+                    name={person.name}
+                    trait={person.trait}
+                    imageSource={person.imageSource}
+                    selected={focusTags.includes(person.name)}
+                    onPress={() => toggleSelection(person.name, setFocusTags)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {goalMode === "expression" ? (
+            <View style={styles.focusSection}>
+              <Text style={styles.title}>
+                주로 어떤 상황에서 영어를 많이 쓰게 될까요?
+              </Text>
+              <View style={styles.chipWrap}>
+                {EXPRESSION_SITUATIONS.map((tag) => (
+                  <ChoiceChip
+                    key={tag}
+                    label={tag}
+                    selected={expressionSituations.includes(tag)}
+                    onPress={() =>
+                      toggleSelection(tag, setExpressionSituations)
+                    }
+                  />
+                ))}
+              </View>
+
+              <Text style={[styles.focusTitle, styles.secondaryFocusTitle]}>
+                어떤 주제의 영상들이 있으면 하루라도 더 들어오고 싶어질까요?
+              </Text>
+              <View style={styles.chipWrap}>
+                {EXPRESSION_TOPICS.map((tag) => (
+                  <ChoiceChip
+                    key={tag}
+                    label={tag}
+                    selected={expressionTopics.includes(tag)}
+                    onPress={() => toggleSelection(tag, setExpressionTopics)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.stepBlock}>
+        <Text style={styles.title}>
+          학습 목표에 맞게 피드를 재구성하는 중이에요
+        </Text>
+        <Text style={styles.body}>
+          선택한 목표를 바탕으로 오늘부터 바로 따라 말할 수 있는 학습 흐름을
+          준비하고 있어요.
+        </Text>
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
+      </View>
+    );
   };
 
   if (isProfileLoading && !learningProfile) {
@@ -183,124 +749,93 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <ProgressDots step={step} />
-
-        {step === "level" ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.eyebrow}>1 / 2</Text>
-            <Text style={styles.title}>지금 어느 정도로 말할 수 있나요?</Text>
-            <View style={styles.optionList}>
-              {LEVEL_OPTIONS.map((option) => (
-                <OptionButton
-                  key={option.value}
-                  label={option.label}
-                  selected={level === option.value}
-                  onPress={() => setLevel(option.value)}
-                />
-              ))}
-            </View>
+      <View style={styles.screen}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            step !== "preparing" && styles.contentWithFooter,
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerRow}>
             <Pressable
-              accessibilityLabel="학습 수준 다음 단계"
-              style={[
-                styles.primaryButton,
-                !level && styles.primaryButtonDisabled,
+              accessibilityLabel="이전"
+              onPress={handleBack}
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.backButtonPressed,
               ]}
-              onPress={() => level && setStep("goal")}
-              disabled={!level}
             >
-              <Text style={styles.primaryButtonText}>다음</Text>
+              <Ionicons name="arrow-back" size={22} color={colors.text} />
             </Pressable>
           </View>
-        ) : null}
+          <View style={styles.stepViewport}>
+            <Animated.View
+              style={[
+                styles.stepAnimatedContainer,
+                styles.stepLayerCurrent,
+                buildStepAnimatedStyle(),
+              ]}
+            >
+              {renderStepContent(step)}
+            </Animated.View>
+          </View>
+        </ScrollView>
 
-        {step === "goal" ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.eyebrow}>2 / 2</Text>
-            <Text style={styles.title}>어떤 영어를 먼저 훔치고 싶나요?</Text>
-            <View style={styles.modeRow}>
-              <OptionButton
-                label="발음/억양 훔치기"
-                selected={goalMode === "pronunciation"}
+        {step !== "preparing" ? (
+          <View style={styles.footerCta}>
+            {step === "level" ? (
+              <Pressable
+                accessibilityLabel="학습 수준 다음 단계"
+                style={[
+                  styles.primaryButton,
+                  !level && styles.primaryButtonDisabled,
+                ]}
                 onPress={() => {
-                  setGoalMode("pronunciation");
-                  setFocusTags([]);
+                  if (!level) return;
+                  transitionToStep("goal");
                 }}
-              />
-              <OptionButton
-                label="표현 훔치기"
-                selected={goalMode === "expression"}
-                onPress={() => {
-                  setGoalMode("expression");
-                  setFocusTags([]);
-                }}
-              />
-            </View>
-
-            {goalMode ? (
-              <View style={styles.focusSection}>
-                <Text style={styles.focusTitle}>
-                  {goalMode === "pronunciation"
-                    ? "원하는 말하기 스타일이나 인물을 골라주세요"
-                    : "더 많이 쓰고 싶은 상황이나 주제를 골라주세요"}
-                </Text>
-                <View style={styles.chipWrap}>
-                  {availableTags.map((tag) => (
-                    <Pressable
-                      key={tag}
-                      onPress={() => toggleFocusTag(tag)}
-                      style={[
-                        styles.chip,
-                        focusTags.includes(tag) && styles.chipSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          focusTags.includes(tag) && styles.chipTextSelected,
-                        ]}
-                      >
-                        {tag}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
+                disabled={!level}
+              >
+                <Text style={styles.primaryButtonText}>다음</Text>
+              </Pressable>
             ) : null}
 
-            <Pressable
-              accessibilityLabel="온보딩 완료하기"
-              style={[
-                styles.primaryButton,
-                (!canSubmit || isSaving) && styles.primaryButtonDisabled,
-              ]}
-              onPress={handleComplete}
-              disabled={!canSubmit || isSaving}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isEditMode ? "저장하기" : "완료하기"}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
+            {step === "goal" ? (
+              <Pressable
+                accessibilityLabel="학습 목표 다음 단계"
+                style={[
+                  styles.primaryButton,
+                  !goalMode && styles.primaryButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (!goalMode) return;
+                  transitionToStep("details");
+                }}
+                disabled={!goalMode}
+              >
+                <Text style={styles.primaryButtonText}>다음</Text>
+              </Pressable>
+            ) : null}
 
-        {step === "preparing" ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.eyebrow}>3 / 3</Text>
-            <Text style={styles.title}>
-              학습 목표에 맞게 피드를 재구성하는 중이에요
-            </Text>
-            <Text style={styles.body}>
-              선택한 목표를 바탕으로 오늘부터 바로 따라 말할 수 있는 학습 흐름을
-              준비하고 있어요.
-            </Text>
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            {step === "details" ? (
+              <Pressable
+                accessibilityLabel="온보딩 완료하기"
+                style={[
+                  styles.primaryButton,
+                  (!canSubmit || isSaving) && styles.primaryButtonDisabled,
+                ]}
+                onPress={handleComplete}
+                disabled={!canSubmit || isSaving}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isEditMode ? "저장하기" : "저장하기"}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -310,40 +845,58 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  screen: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
   },
+  contentWithFooter: {
+    paddingBottom: 136,
+  },
   centeredState: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  progressRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+  headerRow: {
+    alignItems: "flex-start",
+    marginBottom: spacing.md,
   },
-  progressDot: {
-    flex: 1,
-    height: 6,
+  backButton: {
+    width: 40,
+    height: 40,
     borderRadius: radius.pill,
-    backgroundColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -spacing.xs,
   },
-  progressDotActive: {
-    backgroundColor: colors.primary,
+  backButtonPressed: {
+    opacity: 0.7,
+  },
+  stepViewport: {
+    position: "relative",
+    flexGrow: 1,
+    overflow: "hidden",
+  },
+  stepLayerCurrent: {
+    width: "100%",
+  },
+  stepStatic: {
+    opacity: 1,
+    transform: [{ translateX: 0 }],
+  },
+  stepAnimatedContainer: {
+    width: "100%",
   },
   stepBlock: {
     flex: 1,
-    justifyContent: "center",
-    paddingVertical: spacing.xl,
-  },
-  eyebrow: {
-    fontSize: font.size.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    justifyContent: "flex-start",
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   title: {
     fontSize: font.size["2xl"],
@@ -367,6 +920,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
+  optionPressable: {
+    width: "100%",
+  },
   optionButton: {
     borderRadius: radius.xl,
     borderWidth: 1,
@@ -387,9 +943,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: font.weight.medium,
   },
-  optionLabelSelected: {
-    color: colors.textInverse,
-  },
   focusSection: {
     marginBottom: spacing.xl,
   },
@@ -399,10 +952,65 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.semibold,
     marginBottom: spacing.sm,
   },
+  secondaryFocusTitle: {
+    marginTop: spacing.lg,
+  },
   chipWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+  },
+  personGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  personCardPressable: {
+    width: "48.5%",
+  },
+  personCard: {
+    aspectRatio: 1,
+    borderRadius: radius.xl,
+    overflow: "hidden",
+    borderWidth: 2,
+    backgroundColor: colors.bgSubtle,
+  },
+  personImage: {
+    flex: 1,
+  },
+  personImageInner: {
+    borderRadius: radius.xl - 2,
+  },
+  personGradient: {
+    flex: 1,
+    justifyContent: "space-between",
+    padding: spacing.sm,
+  },
+  personCardBadge: {
+    alignSelf: "flex-end",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  personCopy: {
+    gap: 2,
+  },
+  personName: {
+    fontSize: font.size.base,
+    fontWeight: font.weight.semibold,
+    color: colors.textInverse,
+  },
+  personTrait: {
+    fontSize: font.size.xs,
+    lineHeight: 16,
+    color: "rgba(255,255,255,0.86)",
+  },
+  chipPressable: {
+    alignSelf: "flex-start",
   },
   chip: {
     borderRadius: radius.pill,
@@ -420,11 +1028,7 @@ const styles = StyleSheet.create({
     fontSize: font.size.sm,
     color: colors.text,
   },
-  chipTextSelected: {
-    color: colors.textInverse,
-  },
   primaryButton: {
-    marginTop: "auto",
     backgroundColor: colors.primary,
     borderRadius: radius.xl,
     paddingVertical: spacing.md,
@@ -440,5 +1044,13 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: spacing.lg,
+  },
+  footerCta: {
+    position: "absolute",
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.lg,
+    padding: spacing.xs,
+    backgroundColor: colors.bg,
   },
 });

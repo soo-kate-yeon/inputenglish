@@ -42,19 +42,21 @@ describe("OnboardingScreen", () => {
   it("completes onboarding and saves the learning profile", async () => {
     const { getByText, getByLabelText } = render(<OnboardingScreen />);
 
-    fireEvent.press(getByText("일상 회화 가능"));
+    fireEvent.press(getByText("일상 회화는 가능해요"));
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
-    fireEvent.press(getByText("표현 훔치기"));
-    fireEvent.press(getByText("회의/업데이트"));
+    fireEvent.press(getByText("말할 때 쓸 수 있는 표현이 다양해지면 좋겠어요"));
+    fireEvent.press(getByLabelText("학습 목표 다음 단계"));
+    fireEvent.press(getByText("학교/업무"));
+    fireEvent.press(getByText("셀럽 인터뷰"));
     fireEvent.press(getByLabelText("온보딩 완료하기"));
 
     await waitFor(() => {
       expect(mockUpdateLearningProfile).toHaveBeenCalledWith({
         level_band: "conversation",
         goal_mode: "expression",
-        focus_tags: ["회의/업데이트"],
+        focus_tags: ["학교/업무", "셀럽 인터뷰"],
         preferred_speakers: [],
-        preferred_situations: ["회의/업데이트"],
+        preferred_situations: ["학교/업무"],
         onboarding_completed_at: expect.any(String),
       });
       expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
@@ -67,8 +69,8 @@ describe("OnboardingScreen", () => {
       user_id: "user-1",
       level_band: "professional",
       goal_mode: "pronunciation",
-      focus_tags: ["또렷한 발표 스타일"],
-      preferred_speakers: ["또렷한 발표 스타일"],
+      focus_tags: ["Jensen Huang"],
+      preferred_speakers: ["Jensen Huang"],
       preferred_situations: [],
       onboarding_completed_at: null,
     };
@@ -76,14 +78,15 @@ describe("OnboardingScreen", () => {
     const { getByText, getByLabelText } = render(<OnboardingScreen />);
 
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
+    fireEvent.press(getByLabelText("학습 목표 다음 단계"));
     fireEvent.press(getByText("저장하기"));
 
     await waitFor(() => {
       expect(mockUpdateLearningProfile).toHaveBeenCalledWith({
         level_band: "professional",
         goal_mode: "pronunciation",
-        focus_tags: ["또렷한 발표 스타일"],
-        preferred_speakers: ["또렷한 발표 스타일"],
+        focus_tags: ["Jensen Huang"],
+        preferred_speakers: ["Jensen Huang"],
         preferred_situations: [],
         onboarding_completed_at: expect.any(String),
       });

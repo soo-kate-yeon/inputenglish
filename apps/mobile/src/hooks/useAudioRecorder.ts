@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Alert, Platform } from "react-native";
 import { Audio } from "expo-av";
+import * as Device from "expo-device";
 
 export type RecordingState = "idle" | "recording" | "playback";
 
@@ -24,6 +25,24 @@ export interface UseAudioRecorderReturn {
 }
 
 const RECORDING_OPTIONS = Audio.RecordingOptionsPresets.HIGH_QUALITY;
+const RECORDING_AUDIO_MODE = {
+  allowsRecordingIOS: true,
+  playsInSilentModeIOS: true,
+  staysActiveInBackground: false,
+  interruptionModeIOS: 1 as const,
+  interruptionModeAndroid: 1 as const,
+  shouldDuckAndroid: true,
+  playThroughEarpieceAndroid: false,
+};
+const PLAYBACK_AUDIO_MODE = {
+  allowsRecordingIOS: false,
+  playsInSilentModeIOS: true,
+  staysActiveInBackground: false,
+  interruptionModeIOS: 1 as const,
+  interruptionModeAndroid: 1 as const,
+  shouldDuckAndroid: true,
+  playThroughEarpieceAndroid: false,
+};
 
 export default function useAudioRecorder(): UseAudioRecorderReturn {
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
@@ -87,6 +106,50 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     return status.granted;
   }, []);
 
+  const isIosSimulator = Platform.OS === "ios" && !Device.isDevice;
+
+  const startRecordingAttempt = useCallback(async () => {
+    await Audio.setIsEnabledAsync(true);
+    await cleanupRecording();
+    await cleanupSound();
+    await Audio.setAudioModeAsync(RECORDING_AUDIO_MODE);
+
+    const recording = new Audio.Recording();
+    recording.setOnRecordingStatusUpdate((status) => {
+      if (!("canRecord" in status) || !status.canRecord) return;
+      const durationMillis = status.durationMillis ?? 0;
+      setDuration(Math.floor(durationMillis / 1000));
+    });
+    await recording.prepareToRecordAsync(RECORDING_OPTIONS);
+    const status = await recording.getStatusAsync();
+
+    if (!status.canRecord) {
+      throw new Error("Recorder was not prepared correctly");
+    }
+
+    await recording.startAsync();
+    recordingRef.current = recording;
+  }, []);
+
+  const getStartRecordingAlertMessage = useCallback(
+    (message: string) => {
+      if (isIosSimulator) {
+        return "iOS 시뮬레이터에서는 오디오 녹음이 지원되지 않습니다. 실제 iPhone 기기에서 테스트해주세요.";
+      }
+
+      if (
+        message.includes("permission") ||
+        message.includes("denied") ||
+        message.includes("not allowed")
+      ) {
+        return "마이크 권한이 꺼져 있어요. 설정에서 마이크 접근을 허용한 뒤 다시 시도해주세요.";
+      }
+
+      return "녹음을 시작하지 못했어요. 다른 오디오가 재생 중이면 잠시 멈춘 뒤 다시 시도해주세요.";
+    },
+    [isIosSimulator],
+  );
+
   const startRecording = useCallback(async () => {
     if (operationInFlightRef.current || recordingState === "recording") {
       return false;
@@ -110,30 +173,19 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     setLastError(null);
 
     try {
-      await cleanupRecording();
-      await cleanupSound();
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      });
-
-      const recording = new Audio.Recording();
-      recording.setOnRecordingStatusUpdate((status) => {
-        if (!("canRecord" in status) || !status.canRecord) return;
-        const durationMillis = status.durationMillis ?? 0;
-        setDuration(Math.floor(durationMillis / 1000));
-      });
-      await recording.prepareToRecordAsync(RECORDING_OPTIONS);
-      const status = await recording.getStatusAsync();
-
-      if (!status.canRecord) {
-        throw new Error("Recorder was not prepared correctly");
+      try {
+        await startRecordingAttempt();
+      } catch (firstError) {
+        console.warn(
+          "[useAudioRecorder] First recording attempt failed, retrying once:",
+          firstError,
+        );
+        await Audio.setAudioModeAsync(PLAYBACK_AUDIO_MODE).catch(() => {
+          // Ignore recovery failures between attempts.
+        });
+        await new Promise((resolve) => setTimeout(resolve, 180));
+        await startRecordingAttempt();
       }
-
-      await recording.startAsync();
-      recordingRef.current = recording;
 
       setDuration(0);
       setRecordingState("recording");
@@ -146,25 +198,24 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
         error instanceof Error ? error.message : "Unknown recording error";
       setLastError(message);
       recordingRef.current = null;
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      }).catch(() => {
+      await Audio.setAudioModeAsync(PLAYBACK_AUDIO_MODE).catch(() => {
         // Ignore audio mode cleanup failures.
       });
-      if (Platform.OS === "ios") {
-        Alert.alert(
-          "녹음을 시작할 수 없어요",
-          "iOS 시뮬레이터에서는 오디오 녹음이 지원되지 않습니다. 실제 iPhone 기기에서 테스트해주세요.",
-        );
-      }
+      Alert.alert(
+        "녹음을 시작할 수 없어요",
+        getStartRecordingAlertMessage(message),
+      );
       return false;
     } finally {
       operationInFlightRef.current = false;
       setIsRecorderBusy(false);
     }
-  }, [hasPermission, requestPermission]);
+  }, [
+    getStartRecordingAlertMessage,
+    hasPermission,
+    requestPermission,
+    startRecordingAttempt,
+  ]);
 
   const stopRecording = useCallback(async () => {
     if (operationInFlightRef.current) {
@@ -183,10 +234,7 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
       await currentRecording.stopAndUnloadAsync();
       const uri = currentRecording.getURI();
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-      });
+      await Audio.setAudioModeAsync(PLAYBACK_AUDIO_MODE);
 
       setAudioUri(uri);
       setRecordingState("playback");

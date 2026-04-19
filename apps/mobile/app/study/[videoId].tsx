@@ -52,12 +52,21 @@ import ContextBriefCard from "../../src/components/study/ContextBriefCard";
 import HighlightBottomSheet from "../../src/components/study/HighlightBottomSheet";
 import { TransformationCarousel } from "../../src/components/study/TransformationCarousel";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
-import { getPronunciationScore, uploadRecording } from "../../src/lib/ai-api";
+import {
+  getReadableAiApiErrorMessage,
+  requestPronunciationAnalysis,
+  uploadRecording,
+  waitForPronunciationAnalysisCompletion,
+} from "../../src/lib/ai-api";
 import { trackEvent } from "../../src/lib/analytics";
 import {
+  readPronunciationAnalysisCache,
+  writePronunciationAnalysisCache,
+} from "../../src/lib/pronunciation-analysis-cache";
+import {
   buildPracticeDraft,
+  generatePronunciationCoachingSummary,
   generateRewriteCoaching,
-  generateVoiceCoachingSummary,
 } from "../../src/lib/professional-practice";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { recordSessionVisit } from "../../src/lib/recent-sessions";
@@ -325,6 +334,74 @@ export default function StudyScreen() {
     selectedPracticeSentenceId,
     studySentences,
   ]);
+
+  useEffect(() => {
+    if (!sessionDetail || studySentences.length === 0 || !user?.id) {
+      return;
+    }
+
+    const sourceSentence =
+      studySentences.find(
+        (sentence) => sentence.id === selectedPracticeSentenceId,
+      ) ?? studySentences[0];
+    const cacheParams = {
+      userId: user.id,
+      source: "study" as const,
+      sessionId: sessionDetail.id,
+      sentenceId: sourceSentence.id,
+    };
+    const cachedJob = readPronunciationAnalysisCache(cacheParams);
+
+    if (!cachedJob) {
+      return;
+    }
+
+    let cancelled = false;
+
+    if (cachedJob.status === "complete" && cachedJob.result) {
+      setCoachingSummary(
+        generatePronunciationCoachingSummary(cachedJob.result),
+      );
+      return;
+    }
+
+    if (cachedJob.status === "failed") {
+      return;
+    }
+
+    setVoiceCoachingLoading(true);
+
+    void waitForPronunciationAnalysisCompletion(cachedJob.analysis_id, {
+      maxAttempts: 4,
+    })
+      .then((completedJob) => {
+        if (cancelled) return;
+
+        writePronunciationAnalysisCache(cacheParams, completedJob);
+
+        if (completedJob.status === "complete" && completedJob.result) {
+          setCoachingSummary(
+            generatePronunciationCoachingSummary(completedJob.result),
+          );
+        }
+      })
+      .catch((restoreError) => {
+        if (cancelled) return;
+        console.error(
+          "[StudyScreen] Failed to restore pronunciation analysis:",
+          restoreError,
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setVoiceCoachingLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPracticeSentenceId, sessionDetail, studySentences, user?.id]);
 
   // ── Background pause ──
   useEffect(() => {
@@ -940,11 +1017,73 @@ export default function StudyScreen() {
     setPlaybookMessage(null);
 
     try {
-      const result = await getPronunciationScore(
+      trackEvent("pronunciation_analysis_requested", {
+        sessionId: sessionDetail.id,
+        sentenceId: sourceSentence.id,
+        entry: "study_transformation",
+      });
+
+      const requestedJob = await requestPronunciationAnalysis({
         recordingUrl,
-        sourceSentence.text,
-      );
-      const summary = generateVoiceCoachingSummary(result);
+        referenceText: sourceSentence.text,
+        sentenceId: sourceSentence.id,
+        videoId: sessionDetail.source_video_id,
+        sessionId: sessionDetail.id,
+        source: "study",
+      });
+      if (user?.id) {
+        writePronunciationAnalysisCache(
+          {
+            userId: user.id,
+            source: "study",
+            sessionId: sessionDetail.id,
+            sentenceId: sourceSentence.id,
+          },
+          requestedJob,
+        );
+      }
+      const completedJob =
+        requestedJob.status === "complete" || requestedJob.status === "failed"
+          ? requestedJob
+          : await waitForPronunciationAnalysisCompletion(
+              requestedJob.analysis_id,
+            );
+      if (user?.id) {
+        writePronunciationAnalysisCache(
+          {
+            userId: user.id,
+            source: "study",
+            sessionId: sessionDetail.id,
+            sentenceId: sourceSentence.id,
+          },
+          completedJob,
+        );
+      }
+
+      if (completedJob.status !== "complete" || !completedJob.result) {
+        trackEvent("pronunciation_analysis_failed", {
+          sessionId: sessionDetail.id,
+          sentenceId: sourceSentence.id,
+          entry: "study_transformation",
+          code: completedJob.error?.code ?? "ANALYSIS_INCOMPLETE",
+        });
+        Alert.alert(
+          "발음 분석을 완료하지 못했어요",
+          completedJob.error?.message ??
+            "잠시 후 다시 시도하면 더 정확하게 분석할 수 있어요.",
+        );
+        return;
+      }
+
+      trackEvent("pronunciation_analysis_complete", {
+        sessionId: sessionDetail.id,
+        sentenceId: sourceSentence.id,
+        entry: "study_transformation",
+        analysisId: completedJob.analysis_id,
+        overallScore: completedJob.result.overall_score ?? null,
+      });
+
+      const summary = generatePronunciationCoachingSummary(completedJob.result);
       setCoachingSummary(summary);
 
       if (user?.id) {
@@ -963,6 +1102,16 @@ export default function StudyScreen() {
       console.error(
         "[StudyScreen] Failed to generate voice coaching:",
         voiceError,
+      );
+      trackEvent("pronunciation_analysis_failed", {
+        sessionId: sessionDetail.id,
+        sentenceId: sourceSentence.id,
+        entry: "study_transformation",
+        code: "REQUEST_FAILED",
+      });
+      Alert.alert(
+        "발음 분석을 완료하지 못했어요",
+        getReadableAiApiErrorMessage(voiceError),
       );
     } finally {
       setVoiceCoachingLoading(false);

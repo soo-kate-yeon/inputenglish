@@ -8,6 +8,7 @@ import React, {
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   Image,
   PanResponder,
   Pressable,
@@ -24,23 +25,47 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchCuratedVideo } from "@/lib/api";
 import { DailyInputQueueItem, getDailyInputQueue } from "@/lib/daily-input";
 import { trackEvent } from "@/lib/analytics";
+import { useSubscription } from "@/hooks/useSubscription";
+import {
+  getReadableAiApiErrorMessage,
+  requestPronunciationAnalysis,
+  uploadRecording,
+  waitForPronunciationAnalysisCompletion,
+} from "@/lib/ai-api";
+import {
+  readPronunciationAnalysisCache,
+  writePronunciationAnalysisCache,
+} from "@/lib/pronunciation-analysis-cache";
+import {
+  saveTransformationAttempt,
+  uploadTransformationRecording,
+} from "@/lib/transformation-api";
 import YouTubePlayer, {
   YouTubePlayerHandle,
 } from "@/components/player/YouTubePlayer";
 import useAudioRecorder from "@/hooks/useAudioRecorder";
 import type {
   CuratedVideo,
+  PracticeCoachingSummary,
+  PronunciationAnalysisJob,
   TransformationExercise,
 } from "@inputenglish/shared";
+import { generatePronunciationCoachingSummary } from "@/lib/professional-practice";
 import { colors, font, radius, spacing } from "@/theme";
 
-const SWIPE_THRESHOLD = 32;
-const SWIPE_VELOCITY_THRESHOLD = 0.22;
-const SWIPE_EXIT_DISTANCE = 280;
-const CARD_PREVIEW_OFFSET = 28;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CARD_STAGE_WIDTH = Math.max(SCREEN_WIDTH - spacing.lg * 2, 280);
+const SWIPE_THRESHOLD = Math.min(Math.max(CARD_STAGE_WIDTH * 0.2, 72), 96);
+const SWIPE_VELOCITY_THRESHOLD = 0.35;
+const SWIPE_EXIT_DISTANCE = CARD_STAGE_WIDTH + 72;
+const CARD_STACK_TRACK_DISTANCE = Math.min(CARD_STAGE_WIDTH * 0.45, 180);
 const EXERCISE_SWIPE_THRESHOLD = 36;
 const EXERCISE_SWIPE_VELOCITY_THRESHOLD = 0.18;
 const EXERCISE_EXIT_DISTANCE = 84;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -178,7 +203,8 @@ function ActionIconButton({
 }
 
 export default function HomeScreen() {
-  const { learningProfile, isProfileLoading } = useAuth();
+  const { learningProfile, isProfileLoading, user } = useAuth();
+  const { plan } = useSubscription();
   const [queue, setQueue] = useState<DailyInputQueueItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -201,6 +227,7 @@ export default function HomeScreen() {
   const sentenceStartSecondsRef = useRef<number | null>(null);
   const sentenceDurationMsRef = useRef<number | null>(null);
   const repeatEnabledRef = useRef(false);
+  const isCardSwipeAnimatingRef = useRef(false);
   const panX = useRef(new Animated.Value(0)).current;
   const exercisePanX = useRef(new Animated.Value(0)).current;
 
@@ -229,12 +256,40 @@ export default function HomeScreen() {
   const [revealedSampleAnswerIds, setRevealedSampleAnswerIds] = useState<
     Record<string, boolean>
   >({});
+  const [successfulAttemptIds, setSuccessfulAttemptIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [isFollowupAttemptSaving, setIsFollowupAttemptSaving] = useState(false);
+  const [followupAttemptError, setFollowupAttemptError] = useState<
+    string | null
+  >(null);
+  const [pronunciationJobMap, setPronunciationJobMap] = useState<
+    Record<string, PronunciationAnalysisJob | undefined>
+  >({});
+  const [pronunciationSummaryMap, setPronunciationSummaryMap] = useState<
+    Record<string, PracticeCoachingSummary | undefined>
+  >({});
+  const [pronunciationErrorMap, setPronunciationErrorMap] = useState<
+    Record<string, string | undefined>
+  >({});
+  const [isPronunciationAnalyzing, setIsPronunciationAnalyzing] = useState<
+    string | null
+  >(null);
   const translationKey = currentItem
     ? `${currentItem.sessionId}:${currentItem.sentenceId}`
     : null;
   const isTranslationVisible = translationKey
     ? Boolean(translationMap[translationKey])
     : false;
+  const currentPronunciationJob = translationKey
+    ? pronunciationJobMap[translationKey]
+    : undefined;
+  const currentPronunciationSummary = translationKey
+    ? pronunciationSummaryMap[translationKey]
+    : undefined;
+  const currentPronunciationError = translationKey
+    ? pronunciationErrorMap[translationKey]
+    : undefined;
 
   const moveToIndex = useCallback(
     (nextIndex: number) => {
@@ -253,9 +308,14 @@ export default function HomeScreen() {
         sentenceId: queue[nextIndex].sentenceId,
       });
 
+      void resetRecording();
+      void resetFollowupRecording();
+      setFollowupAttemptError(null);
+      setIsPlayerVisible(false);
+      setIsPlaying(false);
       setActiveIndex(nextIndex);
     },
-    [activeIndex, queue],
+    [activeIndex, queue, resetFollowupRecording, resetRecording],
   );
 
   const previousItem =
@@ -284,8 +344,11 @@ export default function HomeScreen() {
         "이 패턴은 비슷한 상황에서 바로 꺼내 쓸수록 내 표현으로 굳어져요.",
     );
   }, [transformationSet]);
+  const hasSuccessfulAttempt = Boolean(
+    primaryExercise && successfulAttemptIds[primaryExercise.id],
+  );
   const canRevealSampleAnswer = Boolean(
-    followupAudioUri && primaryExercise?.reference_answer,
+    hasSuccessfulAttempt && primaryExercise?.reference_answer,
   );
   const isCurrentSampleAnswerRevealed = Boolean(
     primaryExercise && revealedSampleAnswerIds[primaryExercise.id],
@@ -306,16 +369,25 @@ export default function HomeScreen() {
   }, [stopPlaybackTimer]);
 
   const resetCardPosition = useCallback(() => {
+    panX.stopAnimation();
     Animated.spring(panX, {
       toValue: 0,
       tension: 70,
       friction: 12,
       useNativeDriver: true,
-    }).start();
+    }).start(({ finished }) => {
+      if (finished) {
+        isCardSwipeAnimatingRef.current = false;
+      }
+    });
   }, [panX]);
 
   const animateToIndex = useCallback(
     (direction: "next" | "previous") => {
+      if (isCardSwipeAnimatingRef.current) {
+        return;
+      }
+
       const targetIndex =
         direction === "next" ? activeIndex + 1 : activeIndex - 1;
       const targetItem = queue[targetIndex];
@@ -325,14 +397,20 @@ export default function HomeScreen() {
         return;
       }
 
+      isCardSwipeAnimatingRef.current = true;
+      panX.stopAnimation();
       Animated.timing(panX, {
         toValue:
           direction === "next" ? SWIPE_EXIT_DISTANCE : -SWIPE_EXIT_DISTANCE,
-        duration: 190,
+        duration: 220,
         useNativeDriver: true,
       }).start(({ finished }) => {
-        if (!finished) return;
+        if (!finished) {
+          isCardSwipeAnimatingRef.current = false;
+          return;
+        }
         panX.setValue(0);
+        isCardSwipeAnimatingRef.current = false;
         moveToIndex(targetIndex);
       });
     },
@@ -378,15 +456,30 @@ export default function HomeScreen() {
   const panResponder = useMemo(
     () =>
       PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+          !isCardSwipeAnimatingRef.current &&
+          Math.abs(gestureState.dx) > 6 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2,
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 3 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+          !isCardSwipeAnimatingRef.current &&
+          Math.abs(gestureState.dx) > 6 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2,
+        onPanResponderGrant: () => {
+          panX.stopAnimation();
+        },
         onPanResponderMove: (_, gestureState) => {
-          panX.setValue(gestureState.dx);
+          if (isCardSwipeAnimatingRef.current) {
+            return;
+          }
+
+          panX.setValue(
+            clamp(gestureState.dx, -SWIPE_EXIT_DISTANCE, SWIPE_EXIT_DISTANCE),
+          );
         },
         onPanResponderRelease: (_, gestureState) =>
           handleSwipeRelease(gestureState.dx, gestureState.vx),
         onPanResponderTerminate: resetCardPosition,
+        onPanResponderTerminationRequest: () => false,
       }),
     [handleSwipeRelease, panX, resetCardPosition],
   );
@@ -413,10 +506,22 @@ export default function HomeScreen() {
     }
   }, [learningProfile]);
 
+  const resetFollowupPracticeState = useCallback(async () => {
+    setExerciseIndex(0);
+    setRevealedSampleAnswerIds({});
+    setSuccessfulAttemptIds({});
+    setFollowupAttemptError(null);
+    setIsFollowupAttemptSaving(false);
+    setIsRepeatEnabled(false);
+    repeatEnabledRef.current = false;
+    await resetFollowupRecording();
+  }, [resetFollowupRecording]);
+
   useFocusEffect(
     useCallback(() => {
+      void resetFollowupPracticeState();
       void loadQueue();
-    }, [loadQueue]),
+    }, [loadQueue, resetFollowupPracticeState]),
   );
 
   useEffect(() => {
@@ -438,9 +543,7 @@ export default function HomeScreen() {
     repeatEnabledRef.current = false;
     stopPlaybackTimer();
     void resetRecording();
-    void resetFollowupRecording();
-    setExerciseIndex(0);
-    setRevealedSampleAnswerIds({});
+    void resetFollowupPracticeState();
 
     fetchCuratedVideo(currentItem.videoId)
       .then(setActiveVideo)
@@ -451,7 +554,8 @@ export default function HomeScreen() {
       .finally(() => setIsVideoLoading(false));
   }, [
     currentItem?.videoId,
-    resetFollowupRecording,
+    currentItem?.sentenceId,
+    resetFollowupPracticeState,
     resetRecording,
     stopPlaybackTimer,
   ]);
@@ -478,6 +582,109 @@ export default function HomeScreen() {
       isReview: active.isReview,
     });
   }, [currentItem]);
+
+  useEffect(() => {
+    if (
+      !currentItem ||
+      !translationKey ||
+      !user?.id ||
+      learningProfile?.goal_mode !== "pronunciation"
+    ) {
+      return;
+    }
+
+    const cacheParams = {
+      userId: user.id,
+      source: "daily-input" as const,
+      sessionId: currentItem.sessionId,
+      sentenceId: currentItem.sentenceId,
+    };
+    const cachedJob = readPronunciationAnalysisCache(cacheParams);
+
+    if (!cachedJob) {
+      return;
+    }
+
+    let cancelled = false;
+
+    setPronunciationJobMap((current) => ({
+      ...current,
+      [translationKey]: cachedJob,
+    }));
+
+    if (cachedJob.status === "complete" && cachedJob.result) {
+      const cachedResult = cachedJob.result;
+      setPronunciationSummaryMap((current) => ({
+        ...current,
+        [translationKey]: generatePronunciationCoachingSummary(cachedResult),
+      }));
+      return;
+    }
+
+    if (cachedJob.status === "failed") {
+      setPronunciationErrorMap((current) => ({
+        ...current,
+        [translationKey]:
+          cachedJob.error?.message ??
+          "이전 분석을 완료하지 못했어요. 다시 시도해주세요.",
+      }));
+      return;
+    }
+
+    setIsPronunciationAnalyzing(translationKey);
+
+    void waitForPronunciationAnalysisCompletion(cachedJob.analysis_id, {
+      maxAttempts: 4,
+    })
+      .then((completedJob) => {
+        if (cancelled) return;
+
+        setPronunciationJobMap((current) => ({
+          ...current,
+          [translationKey]: completedJob,
+        }));
+        writePronunciationAnalysisCache(cacheParams, completedJob);
+
+        if (completedJob.status === "complete" && completedJob.result) {
+          const completedResult = completedJob.result;
+          setPronunciationSummaryMap((current) => ({
+            ...current,
+            [translationKey]:
+              generatePronunciationCoachingSummary(completedResult),
+          }));
+          setPronunciationErrorMap((current) => ({
+            ...current,
+            [translationKey]: undefined,
+          }));
+          return;
+        }
+
+        setPronunciationErrorMap((current) => ({
+          ...current,
+          [translationKey]:
+            completedJob.error?.message ??
+            "분석 상태를 불러오지 못했어요. 다시 시도해주세요.",
+        }));
+      })
+      .catch((restoreError) => {
+        if (cancelled) return;
+        console.error(
+          "[DailyInputHome] Failed to restore pronunciation analysis:",
+          restoreError,
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsPronunciationAnalyzing((current) =>
+            current === translationKey ? null : current,
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentItem, learningProfile?.goal_mode, translationKey, user?.id]);
 
   const toggleTranslation = useCallback(() => {
     if (!translationKey) return;
@@ -550,6 +757,19 @@ export default function HomeScreen() {
       mode: currentItem.mode,
     });
 
+    const currentKey = `${currentItem.sessionId}:${currentItem.sentenceId}`;
+    setPronunciationJobMap((current) => ({
+      ...current,
+      [currentKey]: undefined,
+    }));
+    setPronunciationSummaryMap((current) => ({
+      ...current,
+      [currentKey]: undefined,
+    }));
+    setPronunciationErrorMap((current) => ({
+      ...current,
+      [currentKey]: undefined,
+    }));
     sentenceDurationMsRef.current = null;
     sentenceStartSecondsRef.current = null;
     stopSentencePlayback();
@@ -576,6 +796,11 @@ export default function HomeScreen() {
   const handleToggleSampleAnswer = useCallback(() => {
     if (!primaryExercise?.reference_answer || !canRevealSampleAnswer) return;
 
+    if (plan === "FREE") {
+      router.push("/paywall" as never);
+      return;
+    }
+
     if (!isCurrentSampleAnswerRevealed) {
       trackEvent("expression_sample_answer_open", {
         sessionId: currentItem?.sessionId ?? null,
@@ -593,6 +818,7 @@ export default function HomeScreen() {
     currentItem?.sentenceId,
     currentItem?.sessionId,
     isCurrentSampleAnswerRevealed,
+    plan,
     primaryExercise,
   ]);
 
@@ -600,13 +826,64 @@ export default function HomeScreen() {
     if (!currentItem || !primaryExercise) return;
 
     if (followupRecordingState === "recording") {
-      await stopFollowupRecording();
-      trackEvent("expression_practice_complete", {
-        sessionId: currentItem.sessionId,
-        sentenceId: currentItem.sentenceId,
-        exerciseId: primaryExercise.id,
-        entry: "daily_input_followup",
-      });
+      const stoppedUri = await stopFollowupRecording();
+
+      if (!stoppedUri || !user?.id) {
+        setFollowupAttemptError("녹음을 저장하지 못했어요. 다시 시도해주세요.");
+        return;
+      }
+
+      setIsFollowupAttemptSaving(true);
+      setFollowupAttemptError(null);
+
+      try {
+        const recordingUrl = await uploadTransformationRecording(
+          stoppedUri,
+          user.id,
+          primaryExercise.id,
+        );
+
+        await saveTransformationAttempt({
+          user_id: user.id,
+          exercise_id: primaryExercise.id,
+          recording_url: recordingUrl,
+          recording_duration:
+            followupDuration > 0 ? followupDuration : undefined,
+          attempt_metadata: {
+            source: "daily_input_followup",
+            queue_session_id: currentItem.sessionId,
+            queue_sentence_id: currentItem.sentenceId,
+            save_status: "success",
+          },
+        });
+
+        setSuccessfulAttemptIds((current) => ({
+          ...current,
+          [primaryExercise.id]: true,
+        }));
+
+        trackEvent("expression_practice_complete", {
+          sessionId: currentItem.sessionId,
+          sentenceId: currentItem.sentenceId,
+          exerciseId: primaryExercise.id,
+          entry: "daily_input_followup",
+        });
+      } catch (attemptError) {
+        console.error(
+          "[DailyInputHome] Failed to save follow-up attempt:",
+          attemptError,
+        );
+        setSuccessfulAttemptIds((current) => ({
+          ...current,
+          [primaryExercise.id]: false,
+        }));
+        setFollowupAttemptError(
+          "시도 저장에 실패했어요. 모범답안은 저장 성공 후에만 열 수 있어요.",
+        );
+      } finally {
+        setIsFollowupAttemptSaving(false);
+      }
+
       return;
     }
 
@@ -621,14 +898,17 @@ export default function HomeScreen() {
       entry: "daily_input_followup",
     });
 
+    setFollowupAttemptError(null);
     await startFollowupRecording();
   }, [
     currentItem,
     followupRecordingState,
+    followupDuration,
     primaryExercise,
     resetFollowupRecording,
     startFollowupRecording,
     stopFollowupRecording,
+    user?.id,
   ]);
 
   const handleFollowupPlaybackPress = useCallback(async () => {
@@ -664,6 +944,7 @@ export default function HomeScreen() {
         await resetFollowupRecording();
       }
 
+      setFollowupAttemptError(null);
       setExerciseIndex(nextIndex);
     },
     [
@@ -759,13 +1040,131 @@ export default function HomeScreen() {
     transform: [{ translateX: exercisePanX }],
   } as const;
 
-  const handleOpenPronunciationFollowup = useCallback(() => {
-    if (!currentItem) return;
+  const handlePronunciationAnalyzePress = useCallback(async () => {
+    if (!currentItem || !audioUri || !user?.id) return;
 
-    router.push(
-      `/study/${currentItem.videoId}?sessionId=${currentItem.sessionId}&sentenceId=${currentItem.sentenceId}&initialTab=shadowing` as never,
-    );
-  }, [currentItem]);
+    const currentKey = `${currentItem.sessionId}:${currentItem.sentenceId}`;
+
+    setIsPronunciationAnalyzing(currentKey);
+    setPronunciationErrorMap((current) => ({
+      ...current,
+      [currentKey]: undefined,
+    }));
+
+    try {
+      trackEvent("pronunciation_analysis_requested", {
+        sessionId: currentItem.sessionId,
+        sentenceId: currentItem.sentenceId,
+        entry: "daily_input_followup",
+      });
+
+      const recordingUrl = await uploadRecording(
+        audioUri,
+        user.id,
+        currentItem.videoId,
+        currentItem.sentenceId,
+        duration,
+      );
+
+      const requestedJob = await requestPronunciationAnalysis({
+        recordingUrl,
+        referenceText: currentItem.sentenceText,
+        sentenceId: currentItem.sentenceId,
+        videoId: currentItem.videoId,
+        sessionId: currentItem.sessionId,
+        source: "daily-input",
+      });
+
+      setPronunciationJobMap((current) => ({
+        ...current,
+        [currentKey]: requestedJob,
+      }));
+      writePronunciationAnalysisCache(
+        {
+          userId: user.id,
+          source: "daily-input",
+          sessionId: currentItem.sessionId,
+          sentenceId: currentItem.sentenceId,
+        },
+        requestedJob,
+      );
+
+      const completedJob =
+        requestedJob.status === "complete" || requestedJob.status === "failed"
+          ? requestedJob
+          : await waitForPronunciationAnalysisCompletion(
+              requestedJob.analysis_id,
+            );
+
+      setPronunciationJobMap((current) => ({
+        ...current,
+        [currentKey]: completedJob,
+      }));
+      writePronunciationAnalysisCache(
+        {
+          userId: user.id,
+          source: "daily-input",
+          sessionId: currentItem.sessionId,
+          sentenceId: currentItem.sentenceId,
+        },
+        completedJob,
+      );
+
+      if (completedJob.status !== "complete" || !completedJob.result) {
+        const message =
+          completedJob.error?.message ??
+          "발음 분석을 완료하지 못했어요. 잠시 후 다시 시도해주세요.";
+        setPronunciationErrorMap((current) => ({
+          ...current,
+          [currentKey]: message,
+        }));
+        trackEvent("pronunciation_analysis_failed", {
+          sessionId: currentItem.sessionId,
+          sentenceId: currentItem.sentenceId,
+          entry: "daily_input_followup",
+          code: completedJob.error?.code ?? "ANALYSIS_INCOMPLETE",
+        });
+        return;
+      }
+
+      const summary = generatePronunciationCoachingSummary(completedJob.result);
+      setPronunciationSummaryMap((current) => ({
+        ...current,
+        [currentKey]: summary,
+      }));
+      setPronunciationErrorMap((current) => ({
+        ...current,
+        [currentKey]: undefined,
+      }));
+
+      trackEvent("pronunciation_analysis_complete", {
+        sessionId: currentItem.sessionId,
+        sentenceId: currentItem.sentenceId,
+        entry: "daily_input_followup",
+        analysisId: completedJob.analysis_id,
+        overallScore: completedJob.result.overall_score ?? null,
+      });
+    } catch (analysisError) {
+      console.error(
+        "[DailyInputHome] Failed to request pronunciation analysis:",
+        analysisError,
+      );
+      setPronunciationErrorMap((current) => ({
+        ...current,
+        [currentKey]: getReadableAiApiErrorMessage(analysisError),
+      }));
+      trackEvent("pronunciation_analysis_failed", {
+        sessionId: currentItem.sessionId,
+        sentenceId: currentItem.sentenceId,
+        entry: "daily_input_followup",
+        code: "REQUEST_FAILED",
+      });
+    } finally {
+      setIsPronunciationAnalyzing((current) =>
+        current === currentKey ? null : current,
+      );
+    }
+  }, [audioUri, currentItem, duration, user?.id]);
 
   const renderMedia = () => {
     if (!currentItem) return null;
@@ -873,27 +1272,60 @@ export default function HomeScreen() {
   );
 
   const cardAnimatedStyle = {
-    transform: [{ translateX: panX }, { scale: 1 }],
+    opacity: panX.interpolate({
+      inputRange: [-SWIPE_EXIT_DISTANCE, 0, SWIPE_EXIT_DISTANCE],
+      outputRange: [0.88, 1, 0.88],
+      extrapolate: "clamp",
+    }),
+    transform: [
+      { translateX: panX },
+      {
+        rotate: panX.interpolate({
+          inputRange: [-CARD_STAGE_WIDTH, 0, CARD_STAGE_WIDTH],
+          outputRange: ["-8deg", "0deg", "8deg"],
+          extrapolate: "clamp",
+        }),
+      },
+      {
+        translateY: panX.interpolate({
+          inputRange: [
+            -CARD_STACK_TRACK_DISTANCE,
+            0,
+            CARD_STACK_TRACK_DISTANCE,
+          ],
+          outputRange: [-4, 0, -4],
+          extrapolate: "clamp",
+        }),
+      },
+    ],
   } as const;
 
   const previousCardAnimatedStyle = {
     opacity: panX.interpolate({
-      inputRange: [-140, -24, 0],
-      outputRange: [0.88, 0.56, 0.32],
+      inputRange: [-CARD_STACK_TRACK_DISTANCE, 0, CARD_STACK_TRACK_DISTANCE],
+      outputRange: [0.8, 0, 0],
       extrapolate: "clamp",
     }),
     transform: [
       {
-        translateX: panX.interpolate({
-          inputRange: [-180, 0],
-          outputRange: [-CARD_PREVIEW_OFFSET, -CARD_PREVIEW_OFFSET - 18],
+        translateY: panX.interpolate({
+          inputRange: [
+            -CARD_STACK_TRACK_DISTANCE,
+            0,
+            CARD_STACK_TRACK_DISTANCE,
+          ],
+          outputRange: [spacing.sm, spacing.lg, spacing.lg],
           extrapolate: "clamp",
         }),
       },
       {
         scale: panX.interpolate({
-          inputRange: [-180, 0],
-          outputRange: [0.98, 0.94],
+          inputRange: [
+            -CARD_STACK_TRACK_DISTANCE,
+            0,
+            CARD_STACK_TRACK_DISTANCE,
+          ],
+          outputRange: [0.98, 0.92, 0.92],
           extrapolate: "clamp",
         }),
       },
@@ -902,22 +1334,30 @@ export default function HomeScreen() {
 
   const nextCardAnimatedStyle = {
     opacity: panX.interpolate({
-      inputRange: [0, 24, 140],
-      outputRange: [0.32, 0.56, 0.88],
+      inputRange: [-CARD_STACK_TRACK_DISTANCE, 0, CARD_STACK_TRACK_DISTANCE],
+      outputRange: [0, 0.22, 0.8],
       extrapolate: "clamp",
     }),
     transform: [
       {
-        translateX: panX.interpolate({
-          inputRange: [0, 180],
-          outputRange: [CARD_PREVIEW_OFFSET + 18, CARD_PREVIEW_OFFSET],
+        translateY: panX.interpolate({
+          inputRange: [
+            -CARD_STACK_TRACK_DISTANCE,
+            0,
+            CARD_STACK_TRACK_DISTANCE,
+          ],
+          outputRange: [spacing.lg, spacing.md, spacing.sm],
           extrapolate: "clamp",
         }),
       },
       {
         scale: panX.interpolate({
-          inputRange: [0, 180],
-          outputRange: [0.94, 0.98],
+          inputRange: [
+            -CARD_STACK_TRACK_DISTANCE,
+            0,
+            CARD_STACK_TRACK_DISTANCE,
+          ],
+          outputRange: [0.92, 0.95, 0.985],
           extrapolate: "clamp",
         }),
       },
@@ -934,6 +1374,14 @@ export default function HomeScreen() {
           : learningProfile.focus_tags,
       );
       const hasRecordedAttempt = Boolean(audioUri);
+      const isAnalyzingCurrent = translationKey === isPronunciationAnalyzing;
+      const actionLabel = !hasRecordedAttempt
+        ? "녹음 후 분석"
+        : currentPronunciationSummary
+          ? "다시 분석하기"
+          : currentPronunciationError
+            ? "다시 시도"
+            : "발음 분석하기";
 
       return (
         <View style={styles.followupCard}>
@@ -941,14 +1389,14 @@ export default function HomeScreen() {
             <Text style={styles.followupEyebrow}>발음 교정 세션</Text>
             <Text style={styles.followupTitle}>
               {hasRecordedAttempt
-                ? "방금 녹음한 시도를 기준으로 교정하러 가기"
-                : "먼저 한 번 따라 말해보면 교정 세션이 준비돼요"}
+                ? "방금 녹음한 문장을 기준으로 교정 포인트를 바로 확인할 수 있어요"
+                : "먼저 한 번 따라 말해보면 발음 교정 포인트를 바로 정리해드릴게요"}
             </Text>
           </View>
           <Text style={styles.followupBody}>
             {hasRecordedAttempt
-              ? "현재 문장을 다시 들으면서 속도, 끊어읽기, 문장 끝 처리를 중심으로 교정해볼 수 있어요."
-              : "위의 녹음 버튼으로 한 번 말해본 뒤 교정 세션에서 무엇을 훔쳐야 할지 정리해드릴게요."}
+              ? "현재 문장의 속도, 끊어읽기, 강세, 문장 끝 처리를 기준으로 다음에 무엇을 고치면 좋을지 알려드릴게요."
+              : "위의 녹음 버튼으로 한 번 말해본 뒤, 어디에 강세를 두고 어떤 리듬으로 말하면 좋을지 정리해드릴게요."}
           </Text>
           <View style={styles.followupTagRow}>
             {focusTags.map((tag) => (
@@ -959,18 +1407,74 @@ export default function HomeScreen() {
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="발음 교정 세션 열기"
+            accessibilityLabel="발음 분석하기"
             style={[
               styles.followupPrimaryButton,
-              !hasRecordedAttempt && styles.followupPrimaryButtonDisabled,
+              (!hasRecordedAttempt || isAnalyzingCurrent) &&
+                styles.followupPrimaryButtonDisabled,
             ]}
-            onPress={handleOpenPronunciationFollowup}
-            disabled={!hasRecordedAttempt}
+            onPress={() => {
+              if (currentPronunciationError || currentPronunciationSummary) {
+                trackEvent("pronunciation_retry", {
+                  sessionId: currentItem.sessionId,
+                  sentenceId: currentItem.sentenceId,
+                  entry: "daily_input_followup",
+                });
+              }
+              void handlePronunciationAnalyzePress();
+            }}
+            disabled={!hasRecordedAttempt || isAnalyzingCurrent}
           >
             <Text style={styles.followupPrimaryButtonText}>
-              {hasRecordedAttempt ? "교정 세션 열기" : "녹음 후 열기"}
+              {isAnalyzingCurrent ? "분석 중..." : actionLabel}
             </Text>
           </Pressable>
+
+          {isAnalyzingCurrent ? (
+            <View style={styles.followupLoadingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.followupLoadingText}>
+                녹음을 업로드하고 발음 분석을 기다리는 중이에요...
+              </Text>
+            </View>
+          ) : null}
+
+          {currentPronunciationError ? (
+            <Text style={styles.followupAttemptError}>
+              {currentPronunciationError}
+            </Text>
+          ) : null}
+
+          {currentPronunciationSummary ? (
+            <View style={styles.pronunciationSummaryCard}>
+              <Text style={styles.pronunciationSummaryTitle}>교정 요약</Text>
+              <Text style={styles.pronunciationSummaryBody}>
+                {currentPronunciationSummary.summary}
+              </Text>
+              <Text style={styles.pronunciationSummaryLabel}>발음 선명도</Text>
+              <Text style={styles.pronunciationSummaryBody}>
+                {currentPronunciationSummary.clarity_feedback}
+              </Text>
+              <Text style={styles.pronunciationSummaryLabel}>리듬/억양</Text>
+              <Text style={styles.pronunciationSummaryBody}>
+                {currentPronunciationSummary.usefulness_feedback}
+              </Text>
+              {currentPronunciationSummary.pronunciation_feedback ? (
+                <>
+                  <Text style={styles.pronunciationSummaryLabel}>
+                    세부 코칭
+                  </Text>
+                  <Text style={styles.pronunciationSummaryBody}>
+                    {currentPronunciationSummary.pronunciation_feedback}
+                  </Text>
+                </>
+              ) : null}
+              <Text style={styles.pronunciationSummaryLabel}>다음 포인트</Text>
+              <Text style={styles.pronunciationSummaryBody}>
+                {currentPronunciationSummary.next_step}
+              </Text>
+            </View>
+          ) : null}
         </View>
       );
     }
@@ -1027,6 +1531,7 @@ export default function HomeScreen() {
                   }
                   style={styles.followupRecordButton}
                   onPress={() => void handleFollowupRecordPress()}
+                  disabled={isFollowupAttemptSaving}
                 >
                   <Ionicons
                     name={
@@ -1036,9 +1541,11 @@ export default function HomeScreen() {
                     color={colors.bg}
                   />
                   <Text style={styles.followupRecordButtonText}>
-                    {followupRecordingState === "recording"
-                      ? `녹음 완료 ${formatDuration(followupDuration)}`
-                      : "말해보기"}
+                    {isFollowupAttemptSaving
+                      ? "저장 중..."
+                      : followupRecordingState === "recording"
+                        ? `녹음 완료 ${formatDuration(followupDuration)}`
+                        : "말해보기"}
                   </Text>
                 </Pressable>
               </Animated.View>
@@ -1064,6 +1571,18 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
 
+                {isFollowupAttemptSaving ? (
+                  <Text style={styles.followupAttemptStatus}>
+                    시도를 저장하는 중이에요...
+                  </Text>
+                ) : null}
+
+                {followupAttemptError ? (
+                  <Text style={styles.followupAttemptError}>
+                    {followupAttemptError}
+                  </Text>
+                ) : null}
+
                 {primaryExercise.reference_answer ? (
                   <Pressable
                     accessibilityRole="button"
@@ -1082,7 +1601,9 @@ export default function HomeScreen() {
                         style={styles.sampleAnswerBlur}
                       >
                         <Text style={styles.sampleAnswerBlurText}>
-                          눌러서 모범답안 보기
+                          {hasSuccessfulAttempt
+                            ? "눌러서 모범답안 보기"
+                            : "저장 성공 후 모범답안이 열려요"}
                         </Text>
                       </BlurView>
                     ) : null}
@@ -1210,7 +1731,9 @@ export default function HomeScreen() {
                   </Animated.View>
                 ) : null}
 
-                <Animated.View style={cardAnimatedStyle}>
+                <Animated.View
+                  style={[styles.activeCardFrame, cardAnimatedStyle]}
+                >
                   <DailyQueueCard
                     mediaContent={renderMedia()}
                     onSentencePress={handleSentencePress}
@@ -1313,12 +1836,16 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "visible",
   },
+  activeCardFrame: {
+    zIndex: 2,
+  },
   cardPreview: {
     position: "absolute",
     top: spacing.sm,
     bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 1,
   },
   cardPreviewPrevious: {},
   cardPreviewNext: {},
@@ -1513,6 +2040,33 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textMuted,
   },
+  pronunciationSummaryCard: {
+    borderRadius: radius.lg,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  pronunciationSummaryTitle: {
+    fontSize: 15,
+    lineHeight: 21,
+    color: colors.text,
+    fontWeight: font.weight.semibold,
+    marginBottom: spacing.xs,
+  },
+  pronunciationSummaryLabel: {
+    marginTop: spacing.sm,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textSecondary,
+    fontWeight: font.weight.semibold,
+  },
+  pronunciationSummaryBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.text,
+  },
   practiceCard: {
     borderRadius: radius.lg,
     backgroundColor: colors.bg,
@@ -1588,6 +2142,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.bg,
     fontWeight: font.weight.semibold,
+  },
+  followupAttemptStatus: {
+    marginTop: spacing.sm,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textMuted,
+    fontWeight: font.weight.medium,
+    textAlign: "center",
+  },
+  followupAttemptError: {
+    marginTop: spacing.sm,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.error,
+    fontWeight: font.weight.medium,
+    textAlign: "center",
   },
   followupPlaybackSection: {
     gap: spacing.sm,

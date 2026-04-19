@@ -1,5 +1,6 @@
 import type {
   PlaybookMasteryStatus,
+  PronunciationFeedback,
   PracticeCoachingSummary,
   PracticeMode,
   PracticePrompt,
@@ -162,6 +163,53 @@ export function generateVoiceCoachingSummary(params: {
     next_step:
       "같은 문장을 한 번 더 녹음하되 첫 문장만 천천히 시작하고, 핵심 단어에서 강세를 의식해 보세요.",
     score: params.score,
+  };
+}
+
+export function generatePronunciationCoachingSummary(
+  feedback: PronunciationFeedback,
+): PracticeCoachingSummary {
+  const score = feedback.overall_score ?? undefined;
+  const summary =
+    feedback.summary?.trim() ||
+    (typeof score === "number"
+      ? `이번 발화의 전체 전달감은 ${score}점 수준이에요.`
+      : "이번 발화를 바탕으로 발음 교정 포인트를 정리했어요.");
+
+  const clarityFeedback =
+    feedback.clarity_note?.trim() ||
+    feedback.chunking_note?.trim() ||
+    "핵심 단어를 또렷하게 세우고 문장 안에서 끊어 읽는 위치를 조금 더 안정화해보세요.";
+
+  const usefulnessFeedback =
+    feedback.stress_note?.trim() ||
+    feedback.ending_tone_note?.trim() ||
+    feedback.pacing_note?.trim() ||
+    "실전에서는 강세와 문장 끝 처리만 정리해도 훨씬 자연스럽게 들려요.";
+
+  const pronunciationNotes = [
+    feedback.pacing_note,
+    feedback.chunking_note,
+    feedback.stress_note,
+    feedback.ending_tone_note,
+  ]
+    .map((note) => note?.trim())
+    .filter((note): note is string => Boolean(note));
+
+  const nextStep =
+    feedback.next_focus?.trim() ||
+    "같은 문장을 다시 한 번 말하면서 강세를 줄 단어 하나와 끊어 읽을 위치 하나만 먼저 의식해보세요.";
+
+  return {
+    summary,
+    clarity_feedback: clarityFeedback,
+    usefulness_feedback: usefulnessFeedback,
+    pronunciation_feedback:
+      pronunciationNotes.length > 0
+        ? pronunciationNotes.slice(0, 2).join(" ")
+        : undefined,
+    next_step: nextStep,
+    score,
   };
 }
 
