@@ -307,8 +307,12 @@ function AdminPageContent() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Scene analysis failed.";
-      console.error("Scene analysis error:", msg);
+      const raw = err instanceof Error ? err.message : "Scene analysis failed.";
+      const msg =
+        raw === "Load failed" || raw === "Failed to fetch"
+          ? "씬 분석 중 연결이 끊겼습니다. 잠시 후 다시 시도해주세요."
+          : raw;
+      console.error("Scene analysis error:", raw);
       setErrorMessage(msg);
     } finally {
       setAnalyzingScenes(false);

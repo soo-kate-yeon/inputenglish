@@ -9,7 +9,6 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { configureRevenueCat, logInRevenueCat } from "@/lib/revenue-cat";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import "react-native-url-polyfill/auto";
@@ -18,7 +17,13 @@ import * as Notifications from "expo-notifications";
 SplashScreen.preventAutoHideAsync();
 
 export function RootLayoutNav() {
-  const { isInitialized, isProfileLoading, learningProfile, user } = useAuth();
+  const {
+    completeOAuthCodeExchange,
+    isInitialized,
+    isProfileLoading,
+    learningProfile,
+    user,
+  } = useAuth();
   const segments = useSegments();
   const { edit } = useGlobalSearchParams<{ edit?: string }>();
   const router = useRouter();
@@ -111,7 +116,7 @@ export function RootLayoutNav() {
         const urlObj = new URL(url);
         const code = urlObj.searchParams.get("code");
         if (code) {
-          await supabase.auth.exchangeCodeForSession(code);
+          await completeOAuthCodeExchange(code);
         }
       }
     };
@@ -129,12 +134,14 @@ export function RootLayoutNav() {
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [completeOAuthCodeExchange]);
 
   return (
     <>
       <OfflineBanner />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="intro" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen

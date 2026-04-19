@@ -49,6 +49,7 @@ interface AuthContextType {
     provider: "google" | "github" | "kakao" | "azure",
   ) => Promise<void>;
   signInWithApple: () => Promise<void>;
+  completeOAuthCodeExchange: (code: string) => Promise<Session | null>;
   refreshUser: () => Promise<void>;
   refreshLearningProfile: () => Promise<void>;
   updateLearningProfile: (
@@ -136,6 +137,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     },
     [],
+  );
+
+  const applyAuthenticatedSession = useCallback(
+    async (nextSession: Session): Promise<void> => {
+      setIsProfileLoading(true);
+      setSession(nextSession);
+      setUser(nextSession.user);
+      await loadLearningProfile(nextSession.user);
+      appStore.getState().loadUserData().catch(console.error);
+    },
+    [loadLearningProfile],
   );
 
   // Initialize auth state and subscribe to changes
@@ -255,11 +267,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Explicitly update auth state so the navigation useEffect triggers
         // immediately, without waiting for the async onAuthStateChange.
         if (data.session) {
-          setIsProfileLoading(true);
-          setSession(data.session);
-          setUser(data.session.user);
-          void loadLearningProfile(data.session.user);
-          appStore.getState().loadUserData().catch(console.error);
+          await applyAuthenticatedSession(data.session);
         }
       } catch (err) {
         console.error("[AuthContext] Sign in error:", err);
@@ -269,7 +277,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(false);
       }
     },
-    [loadLearningProfile],
+    [applyAuthenticatedSession],
   );
 
   const signUp = useCallback(
@@ -298,11 +306,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // Session present = signed in immediately (email confirmation disabled)
         if (data.session) {
-          setIsProfileLoading(true);
-          setSession(data.session);
-          setUser(data.session.user);
-          void loadLearningProfile(data.session.user);
-          appStore.getState().loadUserData().catch(console.error);
+          await applyAuthenticatedSession(data.session);
           return { needsEmailConfirmation: false };
         }
 
@@ -316,7 +320,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(false);
       }
     },
-    [loadLearningProfile],
+    [applyAuthenticatedSession],
   );
 
   const signOut = useCallback(async (): Promise<void> => {
@@ -400,11 +404,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // useEffect in _layout.tsx fires immediately, without waiting for
       // onAuthStateChange (which depends on async SecureStore persistence).
       if (data.session) {
-        setIsProfileLoading(true);
-        setSession(data.session);
-        setUser(data.session.user);
-        void loadLearningProfile(data.session.user);
-        appStore.getState().loadUserData().catch(console.error);
+        await applyAuthenticatedSession(data.session);
       }
     } catch (err: unknown) {
       if (
@@ -423,7 +423,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [loadLearningProfile]);
+  }, [applyAuthenticatedSession]);
+
+  const completeOAuthCodeExchange = useCallback(
+    async (code: string): Promise<Session | null> => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const { data, error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
+
+        if (exchangeError) {
+          throw exchangeError;
+        }
+
+        if (data.session) {
+          await applyAuthenticatedSession(data.session);
+          return data.session;
+        }
+
+        return null;
+      } catch (err) {
+        console.error("[AuthContext] OAuth code exchange error:", err);
+        setError(
+          err instanceof Error
+            ? err
+            : new Error("Failed to complete OAuth sign in"),
+        );
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [applyAuthenticatedSession],
+  );
 
   const refreshUser = useCallback(async (): Promise<void> => {
     setIsLoading(true);
@@ -494,6 +528,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signOut,
       signInWithOAuth,
       signInWithApple,
+      completeOAuthCodeExchange,
       refreshUser,
       refreshLearningProfile,
       updateLearningProfile,
@@ -512,6 +547,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signOut,
       signInWithOAuth,
       signInWithApple,
+      completeOAuthCodeExchange,
       refreshUser,
       refreshLearningProfile,
       updateLearningProfile,

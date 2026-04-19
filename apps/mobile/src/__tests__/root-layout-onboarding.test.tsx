@@ -3,6 +3,7 @@ import { render, waitFor } from "@testing-library/react-native";
 
 const mockReplace = jest.fn();
 let mockSegments: string[] = ["(auth)"];
+let mockSearchParams: { edit?: string } = {};
 let mockAuthState: any = {
   isInitialized: true,
   isProfileLoading: false,
@@ -21,6 +22,7 @@ jest.mock("expo-router", () => {
       replace: (...args: unknown[]) => mockReplace(...args),
     }),
     useSegments: () => mockSegments,
+    useGlobalSearchParams: () => mockSearchParams,
   };
 });
 
@@ -59,6 +61,7 @@ describe("RootLayoutNav onboarding redirects", () => {
   beforeEach(() => {
     mockReplace.mockClear();
     mockSegments = ["(auth)"];
+    mockSearchParams = {};
     mockAuthState = {
       isInitialized: true,
       isProfileLoading: false,
@@ -87,6 +90,23 @@ describe("RootLayoutNav onboarding redirects", () => {
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+  });
+
+  it("allows onboarding edit mode without forcing tabs redirect", async () => {
+    mockSegments = ["onboarding"];
+    mockSearchParams = { edit: "1" };
+    mockAuthState = {
+      ...mockAuthState,
+      learningProfile: {
+        onboarding_completed_at: "2026-04-18T10:00:00.000Z",
+      },
+    };
+
+    render(<RootLayoutNav />);
+
+    await waitFor(() => {
+      expect(mockReplace).not.toHaveBeenCalledWith("/(tabs)");
     });
   });
 });

@@ -17,6 +17,7 @@ import * as AuthSession from "expo-auth-session";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { mapAuthError } from "@/lib/auth-errors";
+import { colors, font, radius, spacing } from "@/theme";
 
 const googleGIcon = require("../../../assets/auth/google_g.png");
 const kakaoSymbol = require("../../../assets/auth/kakao_symbol.png");
@@ -28,7 +29,7 @@ type Provider = "google" | "kakao";
 export function OAuthButtons() {
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [appleLoading, setAppleLoading] = useState(false);
-  const { signInWithApple } = useAuth();
+  const { completeOAuthCodeExchange, signInWithApple } = useAuth();
 
   const handleOAuthSignIn = async (provider: Provider) => {
     try {
@@ -59,10 +60,21 @@ export function OAuthButtons() {
         const url = new URL(result.url);
         const code = url.searchParams.get("code");
         if (code) {
-          await supabase.auth.exchangeCodeForSession(code);
+          await completeOAuthCodeExchange(code);
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "message" in err &&
+        typeof err.message === "string" &&
+        err.message.includes("Code verifier")
+      ) {
+        // If the root deep-link handler already consumed the code, treat it as a
+        // completed sign-in instead of surfacing a false failure toast.
+        return;
+      }
       console.error(`[OAuthButtons] ${provider} sign in failed:`, err);
       Alert.alert("로그인 오류", mapAuthError(err));
     } finally {
@@ -95,7 +107,7 @@ export function OAuthButtons() {
           accessibilityLabel="Apple로 로그인"
         >
           {appleLoading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.textInverse} />
           ) : (
             <>
               <Text style={styles.appleLogo}>{"\uF8FF"}</Text>
@@ -115,7 +127,7 @@ export function OAuthButtons() {
         accessibilityLabel="Google로 로그인"
       >
         {loadingProvider === "google" ? (
-          <ActivityIndicator color="#1F1F1F" />
+          <ActivityIndicator color={colors.textInverse} />
         ) : (
           <>
             <Image source={googleGIcon} style={styles.googleIcon} />
@@ -147,39 +159,39 @@ export function OAuthButtons() {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    gap: 10,
+    gap: spacing.sm,
   },
-  // Apple branding: black fill, white text, SF Pro
   appleButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    height: 40,
-    borderRadius: 4,
-    backgroundColor: "#000000",
-    paddingHorizontal: 12,
+    minHeight: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgInverse,
+    paddingHorizontal: spacing.md,
   },
   appleLogo: {
     fontSize: 16,
-    color: "#FFFFFF",
+    color: colors.textInverse,
     marginRight: 10,
   },
   appleText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "500",
+    color: colors.textInverse,
+    fontSize: font.size.md,
+    fontWeight: font.weight.medium,
     letterSpacing: 0.25,
   },
-  // Google branding: white fill, #747775 1px stroke, r=4, h=40
-  // Ref: .gsi-material-button CSS spec
+  // Google only: outline style on light surface
   googleButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    height: 40,
-    borderRadius: 4,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 12,
+    minHeight: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing.md,
   },
   googleIcon: {
     width: 20,
@@ -187,20 +199,19 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   googleText: {
-    color: "#1F1F1F",
-    fontSize: 14,
-    fontWeight: "500",
+    color: colors.text,
+    fontSize: font.size.md,
+    fontWeight: font.weight.medium,
     letterSpacing: 0.25,
   },
-  // Kakao branding: #FEE500 fill, same layout as Google
   kakaoButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    height: 40,
-    borderRadius: 4,
+    minHeight: 48,
+    borderRadius: radius.md,
     backgroundColor: "#FEE500",
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
   },
   kakaoIcon: {
     width: 18,
@@ -209,8 +220,8 @@ const styles = StyleSheet.create({
   },
   kakaoText: {
     color: "#191919",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: font.size.md,
+    fontWeight: font.weight.medium,
     letterSpacing: 0.25,
   },
   buttonDisabled: {

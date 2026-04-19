@@ -42,7 +42,6 @@ describe("OnboardingScreen", () => {
   it("completes onboarding and saves the learning profile", async () => {
     const { getByText, getByLabelText } = render(<OnboardingScreen />);
 
-    fireEvent.press(getByLabelText("온보딩 시작하기"));
     fireEvent.press(getByText("일상 회화 가능"));
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
     fireEvent.press(getByText("표현 훔치기"));
@@ -76,7 +75,6 @@ describe("OnboardingScreen", () => {
 
     const { getByText, getByLabelText } = render(<OnboardingScreen />);
 
-    fireEvent.press(getByLabelText("온보딩 시작하기"));
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
     fireEvent.press(getByText("저장하기"));
 

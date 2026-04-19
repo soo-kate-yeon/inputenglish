@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
 import { colors, font, radius, spacing } from "@/theme";
 
-type OnboardingStep = "intro" | "level" | "goal" | "preparing";
+type OnboardingStep = "level" | "goal" | "preparing";
 
 const LEVEL_OPTIONS: Array<{ value: LearningLevelBand; label: string }> = [
   { value: "beginner", label: "거의 한마디도 못한다" },
@@ -38,11 +38,11 @@ const EXPRESSION_TAGS = [
 ];
 
 function ProgressDots({ step }: { step: OnboardingStep }) {
-  const index = ["intro", "level", "goal", "preparing"].indexOf(step);
+  const index = ["level", "goal", "preparing"].indexOf(step);
 
   return (
     <View style={styles.progressRow}>
-      {[0, 1, 2, 3].map((dot) => (
+      {[0, 1, 2].map((dot) => (
         <View
           key={dot}
           style={[styles.progressDot, dot <= index && styles.progressDotActive]}
@@ -84,7 +84,7 @@ export default function OnboardingScreen() {
   const { user, learningProfile, isProfileLoading, updateLearningProfile } =
     useAuth();
   const isEditMode = edit === "1";
-  const [step, setStep] = useState<OnboardingStep>("intro");
+  const [step, setStep] = useState<OnboardingStep>("level");
   const [level, setLevel] = useState<LearningLevelBand | null>(null);
   const [goalMode, setGoalMode] = useState<LearningGoalMode | null>(null);
   const [focusTags, setFocusTags] = useState<string[]>([]);
@@ -189,32 +189,9 @@ export default function OnboardingScreen() {
       >
         <ProgressDots step={step} />
 
-        {step === "intro" ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.eyebrow}>학습 철학</Text>
-            <Text style={styles.title}>
-              좋아하는 영어를 훔쳐, 내 영어로 만듭니다
-            </Text>
-            <Text style={styles.body}>
-              이 앱은 단순히 많이 말하게 만드는 대신, 좋아하는 발음과 표현을
-              골라 반복해서 내 것으로 만드는 훈련에 집중합니다.
-            </Text>
-            <Text style={styles.body}>
-              지금 고르는 수준과 목표에 따라 홈 추천과 연습 방식이 달라집니다.
-            </Text>
-            <Pressable
-              accessibilityLabel="온보딩 시작하기"
-              style={styles.primaryButton}
-              onPress={() => setStep("level")}
-            >
-              <Text style={styles.primaryButtonText}>시작하기</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
         {step === "level" ? (
           <View style={styles.stepBlock}>
-            <Text style={styles.eyebrow}>1 / 3</Text>
+            <Text style={styles.eyebrow}>1 / 2</Text>
             <Text style={styles.title}>지금 어느 정도로 말할 수 있나요?</Text>
             <View style={styles.optionList}>
               {LEVEL_OPTIONS.map((option) => (
@@ -242,7 +219,7 @@ export default function OnboardingScreen() {
 
         {step === "goal" ? (
           <View style={styles.stepBlock}>
-            <Text style={styles.eyebrow}>2 / 3</Text>
+            <Text style={styles.eyebrow}>2 / 2</Text>
             <Text style={styles.title}>어떤 영어를 먼저 훔치고 싶나요?</Text>
             <View style={styles.modeRow}>
               <OptionButton

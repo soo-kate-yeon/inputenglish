@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { mapAuthError } from "@/lib/auth-errors";
+import { colors, font, radius, spacing } from "@/theme";
 
 export function SignupForm() {
   const { signUp } = useAuth();
@@ -75,7 +76,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="이름"
-        placeholderTextColor="rgba(255,255,255,0.4)"
+        placeholderTextColor={colors.textMuted}
         value={fullName}
         onChangeText={setFullName}
         autoCapitalize="words"
@@ -86,7 +87,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="이메일"
-        placeholderTextColor="rgba(255,255,255,0.4)"
+        placeholderTextColor={colors.textMuted}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -99,7 +100,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="비밀번호"
-        placeholderTextColor="rgba(255,255,255,0.4)"
+        placeholderTextColor={colors.textMuted}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -110,7 +111,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="비밀번호 확인"
-        placeholderTextColor="rgba(255,255,255,0.4)"
+        placeholderTextColor={colors.textMuted}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
@@ -124,7 +125,7 @@ export function SignupForm() {
         disabled={isSubmitting}
       >
         {isSubmitting ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.textInverse} />
         ) : (
           <Text style={styles.buttonText}>가입하기</Text>
         )}
@@ -136,43 +137,43 @@ export function SignupForm() {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    gap: 12,
+    gap: spacing.sm + 4,
   },
   errorBox: {
-    backgroundColor: "rgba(255,59,48,0.15)",
+    backgroundColor: colors.errorBg,
     borderWidth: 1,
-    borderColor: "rgba(255,59,48,0.4)",
-    borderRadius: 8,
-    padding: 12,
+    borderColor: colors.error,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
   },
   errorText: {
-    color: "#FF6B6B",
-    fontSize: 14,
+    color: colors.error,
+    fontSize: font.size.sm,
   },
   successBox: {
-    backgroundColor: "rgba(52,199,89,0.15)",
+    backgroundColor: colors.successBg,
     borderWidth: 1,
-    borderColor: "rgba(52,199,89,0.4)",
-    borderRadius: 8,
-    padding: 12,
+    borderColor: colors.success,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
   },
   successText: {
-    color: "#34C759",
-    fontSize: 14,
+    color: colors.success,
+    fontSize: font.size.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    color: "#FFFFFF",
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    fontSize: font.size.md,
+    backgroundColor: colors.bgSubtle,
+    color: colors.text,
   },
   button: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 8,
+    backgroundColor: colors.bgInverse,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 4,
@@ -181,8 +182,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#1A1A14",
-    fontSize: 16,
-    fontWeight: "600",
+    color: colors.textInverse,
+    fontSize: font.size.md,
+    fontWeight: font.weight.semibold,
   },
 });

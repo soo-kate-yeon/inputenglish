@@ -494,6 +494,14 @@ export default function ProfileScreen() {
         <View style={styles.group}>
           <View style={styles.groupSurface}>
             <TouchableOpacity
+              style={[styles.actionRow, styles.actionRowBorder]}
+              onPress={() => router.push("/intro?preview=1" as never)}
+              accessibilityRole="button"
+              accessibilityLabel="온보딩 보기 테스트"
+            >
+              <Text style={styles.testIntroText}>온보딩 보기 테스트</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.actionRow}
               onPress={handleDeleteAccount}
               disabled={isDeleting}
@@ -649,10 +657,19 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
   },
+  actionRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
   signOutText: {
     fontSize: 15,
     fontWeight: font.weight.semibold,
     color: colors.text,
+  },
+  testIntroText: {
+    fontSize: 15,
+    fontWeight: font.weight.medium,
+    color: colors.textSecondary,
   },
   deleteText: {
     fontSize: 15,

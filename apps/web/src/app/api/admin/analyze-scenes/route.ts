@@ -127,7 +127,16 @@ Requirements:
 - All scenes combined should maximize product value, not just transcript coverage
 `;
 
-    const result = await model.generateContent(prompt);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55_000);
+    let result: Awaited<ReturnType<typeof model.generateContent>>;
+    try {
+      result = await model.generateContent(prompt, {
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     const responseText = result.response.text();
 
     let analysisResult: SceneAnalysisResponse;

@@ -20,5 +20,10 @@
       "source": "/api/:path*",
       "destination": "/api/:path*"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/admin/analyze-scenes/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

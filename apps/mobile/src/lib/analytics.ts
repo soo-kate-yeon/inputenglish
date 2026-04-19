@@ -1,6 +1,10 @@
 export type AnalyticsEventName =
   | "context_open"
   | "session_start"
+  | "intro_impression"
+  | "intro_page_view"
+  | "intro_login_click"
+  | "intro_signup_open_click"
   | "onboarding_start"
   | "onboarding_level_selected"
   | "onboarding_goal_selected"
