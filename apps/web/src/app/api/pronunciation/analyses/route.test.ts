@@ -2,6 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockRequireApiUser = vi.fn();
 const mockRequestPronunciationAnalysis = vi.fn();
+const mockProcessPronunciationAnalysis = vi.fn();
+const mockAfter = vi.fn();
+
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: (callback: () => void | Promise<void>) => {
+      mockAfter(callback);
+    },
+  };
+});
 
 vi.mock("@/utils/supabase/api-auth", () => ({
   requireApiUser: (request: Request) => mockRequireApiUser(request),
@@ -10,12 +22,16 @@ vi.mock("@/utils/supabase/api-auth", () => ({
 vi.mock("@/lib/pronunciation/service", () => ({
   requestPronunciationAnalysis: (...args: unknown[]) =>
     mockRequestPronunciationAnalysis(...args),
+  processPronunciationAnalysis: (...args: unknown[]) =>
+    mockProcessPronunciationAnalysis(...args),
 }));
 
 describe("POST /api/pronunciation/analyses", () => {
   beforeEach(() => {
     mockRequireApiUser.mockReset();
     mockRequestPronunciationAnalysis.mockReset();
+    mockProcessPronunciationAnalysis.mockReset();
+    mockAfter.mockReset();
   });
 
   it("returns 401 when authentication fails", async () => {
@@ -94,5 +110,7 @@ describe("POST /api/pronunciation/analyses", () => {
         source: "study",
       }),
     );
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockProcessPronunciationAnalysis).not.toHaveBeenCalled();
   });
 });

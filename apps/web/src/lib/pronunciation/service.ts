@@ -41,7 +41,7 @@ export async function requestPronunciationAnalysis(input: {
   providerLocale?: string;
 }): Promise<PronunciationAnalysisJob> {
   const providerLocale = input.providerLocale ?? "en-US";
-  const job = await createPronunciationAnalysis({
+  return createPronunciationAnalysis({
     userId: input.userId,
     sessionId: input.sessionId,
     videoId: input.videoId,
@@ -51,9 +51,18 @@ export async function requestPronunciationAnalysis(input: {
     recordingUrl: input.recordingUrl,
     referenceText: input.referenceText,
   });
+}
+
+export async function processPronunciationAnalysis(input: {
+  analysisId: string;
+  recordingUrl: string;
+  referenceText: string;
+  providerLocale?: string;
+}): Promise<PronunciationAnalysisJob> {
+  const providerLocale = input.providerLocale ?? "en-US";
 
   await updatePronunciationAnalysisStatus({
-    analysisId: job.analysis_id,
+    analysisId: input.analysisId,
     status: "processing",
   });
 
@@ -74,7 +83,7 @@ export async function requestPronunciationAnalysis(input: {
     });
 
     return await updatePronunciationAnalysisStatus({
-      analysisId: job.analysis_id,
+      analysisId: input.analysisId,
       status: "complete",
       result: normalized,
       recognizedText: providerResult.recognizedText,
@@ -82,7 +91,7 @@ export async function requestPronunciationAnalysis(input: {
     });
   } catch (error) {
     return updatePronunciationAnalysisStatus({
-      analysisId: job.analysis_id,
+      analysisId: input.analysisId,
       status: "failed",
       error: mapProviderError(error),
     });

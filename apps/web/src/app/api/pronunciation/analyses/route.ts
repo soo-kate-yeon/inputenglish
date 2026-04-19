@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requestPronunciationAnalysis } from "@/lib/pronunciation/service";
+import {
+  processPronunciationAnalysis,
+  requestPronunciationAnalysis,
+} from "@/lib/pronunciation/service";
 import { requireApiUser } from "@/utils/supabase/api-auth";
 
 const pronunciationAnalysisRequestSchema = z.object({
@@ -39,6 +42,22 @@ export async function POST(request: NextRequest) {
       recordingUrl: parsed.data.recordingUrl,
       referenceText: parsed.data.referenceText,
       providerLocale: parsed.data.providerLocale,
+    });
+
+    after(async () => {
+      try {
+        await processPronunciationAnalysis({
+          analysisId: job.analysis_id,
+          recordingUrl: parsed.data.recordingUrl,
+          referenceText: parsed.data.referenceText,
+          providerLocale: parsed.data.providerLocale,
+        });
+      } catch (error) {
+        console.error(
+          "Pronunciation analysis background processing failed:",
+          error,
+        );
+      }
     });
 
     return NextResponse.json(job);
