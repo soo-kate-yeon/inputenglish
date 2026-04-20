@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { constants as fsConstants } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -18,6 +19,28 @@ export class PronunciationAudioError extends Error {
     super(message);
     this.name = "PronunciationAudioError";
   }
+}
+
+function inferDownloadedAudioExtension(
+  recordingUrl: string,
+  contentType: string,
+): string {
+  const normalizedContentType = contentType.toLowerCase();
+  const normalizedUrl = recordingUrl.split("?")[0].toLowerCase();
+
+  if (normalizedContentType.includes("wav") || normalizedUrl.endsWith(".wav")) {
+    return ".wav";
+  }
+
+  if (
+    normalizedContentType.includes("audio/x-caf") ||
+    normalizedContentType.includes("audio/caf") ||
+    normalizedUrl.endsWith(".caf")
+  ) {
+    return ".caf";
+  }
+
+  return ".m4a";
 }
 
 async function writeBufferToTempFile(
@@ -45,7 +68,7 @@ export async function downloadRecordingToTempFile(
 
   const arrayBuffer = await response.arrayBuffer();
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  const extension = contentType.includes("wav") ? ".wav" : ".m4a";
+  const extension = inferDownloadedAudioExtension(recordingUrl, contentType);
   const inputPath = await writeBufferToTempFile(
     Buffer.from(arrayBuffer),
     extension,
@@ -59,11 +82,16 @@ export async function downloadRecordingToTempFile(
   };
 }
 
+// @MX:ANCHOR: Always transcode the incoming recording to canonical
+//             16kHz / mono / PCM_S16LE WAV before handing to Azure.
+// @MX:REASON: iOS expo-av with outputFormat=lpcm and extension=.wav does
+//             NOT emit a RIFF-compliant header; Azure SDK's
+//             fromWavFileInput then throws "offset is outside the bounds
+//             of the dataview" while parsing. Transcoding through ffmpeg
+//             always produces a proper RIFF WAV and normalizes sample
+//             rate/channels/bit depth to exactly what the Azure
+//             pronunciation assessment expects.
 export async function ensureWavInput(inputPath: string): Promise<string> {
-  if (inputPath.endsWith(".wav")) {
-    return inputPath;
-  }
-
   if (!ffmpegPath) {
     throw new PronunciationAudioError(
       "FFmpeg binary is not available for audio transcoding",
@@ -72,7 +100,20 @@ export async function ensureWavInput(inputPath: string): Promise<string> {
   }
   const transcoderPath = ffmpegPath;
 
-  const wavPath = inputPath.replace(/\.[^.]+$/, ".wav");
+  try {
+    await fs.access(transcoderPath, fsConstants.F_OK | fsConstants.X_OK);
+  } catch {
+    throw new PronunciationAudioError(
+      `FFmpeg binary is missing or not executable at ${transcoderPath}`,
+      "MISSING_TRANSCODER",
+    );
+  }
+
+  // Distinct output path to avoid overwriting the input (which may itself
+  // be a .wav that ffmpeg is still reading).
+  const dir = path.dirname(inputPath);
+  const base = path.basename(inputPath, path.extname(inputPath));
+  const wavPath = path.join(dir, `${base}.normalized.wav`);
 
   await new Promise<void>((resolve, reject) => {
     execFile(

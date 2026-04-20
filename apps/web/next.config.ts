@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -8,6 +9,17 @@ const nextConfig: NextConfig = {
 
   // Enable standalone output for Docker builds
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
+  outputFileTracingRoot: path.join(__dirname, "../.."),
+  outputFileTracingIncludes: {
+    "/api/pronunciation/analyses/route": [
+      "../../node_modules/ffmpeg-static/ffmpeg",
+      "**/node_modules/ffmpeg-static/ffmpeg",
+    ],
+    "/api/pronunciation/analyses/[analysisId]/route": [
+      "../../node_modules/ffmpeg-static/ffmpeg",
+      "**/node_modules/ffmpeg-static/ffmpeg",
+    ],
+  },
 
   // Production optimizations
 
