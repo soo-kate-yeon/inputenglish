@@ -90,10 +90,25 @@ export async function processPronunciationAnalysis(input: {
       providerPayload: providerResult.jsonResult,
     });
   } catch (error) {
+    const mapped = mapProviderError(error);
+    // @MX:NOTE: stderr from ffmpeg / Azure SDK is otherwise only visible
+    //           in the DB record for this analysis. Log it so Vercel
+    //           function logs surface the root cause of transcode or
+    //           recognition failures.
+    console.error("[pronunciation.service] analysis failed", {
+      analysisId: input.analysisId,
+      recordingUrl: input.recordingUrl,
+      code: mapped.code,
+      message: mapped.message,
+      raw:
+        error instanceof Error
+          ? { name: error.name, stack: error.stack }
+          : error,
+    });
     return updatePronunciationAnalysisStatus({
       analysisId: input.analysisId,
       status: "failed",
-      error: mapProviderError(error),
+      error: mapped,
     });
   } finally {
     await tempRecording.cleanup();
