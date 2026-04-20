@@ -3,6 +3,12 @@
 // @MX:SPEC: SPEC-MOBILE-006
 
 import { supabase } from "./supabase";
+import {
+  inferAudioUploadMeta,
+  normalizeAudioBlobForUpload,
+} from "./audio-upload";
+import { captureException } from "./sentry";
+import * as Device from "expo-device";
 import type {
   PronunciationAnalysisJob,
   PronunciationFeedback,
@@ -65,12 +71,90 @@ export interface RequestPronunciationAnalysisInput {
   providerLocale?: string;
 }
 
+function buildSimulatorPronunciationJob(
+  input: RequestPronunciationAnalysisInput,
+): PronunciationAnalysisJob {
+  const now = new Date().toISOString();
+  return {
+    analysis_id: `simulator-${input.sentenceId}-${Date.now()}`,
+    status: "complete",
+    provider: "azure",
+    provider_locale: input.providerLocale ?? "en-US",
+    requested_at: now,
+    completed_at: now,
+    error: null,
+    result: {
+      status: "complete",
+      provider: "azure",
+      reference_text: input.referenceText,
+      recognized_text: input.referenceText,
+      overall_score: 84,
+      accuracy_score: 86,
+      fluency_score: 80,
+      completeness_score: 92,
+      prosody_score: 78,
+      summary:
+        "시뮬레이터 샘플 기준으로는 핵심 문장은 잘 전달됐지만, 강세와 문장 끝 처리에는 더 여지가 있어요.",
+      pacing_note:
+        "문장 중간은 안정적이지만 끝으로 갈수록 속도가 조금 빨라져요.",
+      chunking_note: "의미 단위마다 짧게 끊어 읽으면 더 또렷하게 들려요.",
+      stress_note: "핵심 정보가 들어 있는 단어에 강세를 조금 더 실어보세요.",
+      ending_tone_note:
+        "문장 끝을 급하게 내리지 말고 마지막 단어를 조금 더 길게 유지해보세요.",
+      clarity_note:
+        "자음이 겹치는 구간을 조금 더 분리해서 발음하면 명료도가 올라가요.",
+      next_focus:
+        "강세를 줄 단어를 먼저 정한 뒤, 마지막 단어의 길이를 살려 다시 말해보세요.",
+      confidence: 0.88,
+      word_issues: [],
+    },
+  };
+}
+
 // ---- Helpers ----
 
-async function getAuthHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+function createDebugRequestId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+type AuthHeaderDebugInfo = {
+  requestId: string;
+  sessionUserId: string | null;
+  expiresAt: number | null;
+  hasAccessToken: boolean;
+  accessTokenLength: number;
+};
+
+async function getAuthHeader(requestId: string): Promise<{
+  headers: Record<string, string>;
+  debug: AuthHeaderDebugInfo;
+}> {
+  const { data, error } = await supabase.auth.getSession();
+  const session = data.session;
+  const token = session?.access_token;
+
+  const debug: AuthHeaderDebugInfo = {
+    requestId,
+    sessionUserId: session?.user?.id ?? null,
+    expiresAt: session?.expires_at ?? null,
+    hasAccessToken: Boolean(token),
+    accessTokenLength: token?.length ?? 0,
+  };
+
+  if (error) {
+    console.warn("[AiApi] Failed to read auth session before API request:", {
+      requestId,
+      message: error.message,
+    });
+  }
+
+  return {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "X-Request-Id": requestId,
+    },
+    debug,
+  };
 }
 
 function getWebApiUrlOrThrow(): string {
@@ -79,6 +163,24 @@ function getWebApiUrlOrThrow(): string {
     throw new AiApiError("EXPO_PUBLIC_WEB_API_URL is not configured", "CONFIG");
   }
   return trimmed;
+}
+
+function getReadableRecordingUploadErrorMessage(message: string): string {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("bucket not found")) {
+    return "개발 환경의 recordings 버킷이 아직 생성되지 않았어요. 로컬 Supabase를 다시 시작하거나 마이그레이션을 적용해주세요.";
+  }
+
+  if (
+    normalized.includes("row-level security") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("not allowed")
+  ) {
+    return "녹음 업로드 권한이 없어요. 로그인 상태를 확인한 뒤 다시 시도해주세요.";
+  }
+
+  return "녹음 파일 업로드에 실패했어요. 다시 녹음한 뒤 한 번 더 시도해주세요.";
 }
 
 export function getReadableAiApiErrorMessage(error: unknown): string {
@@ -92,7 +194,7 @@ export function getReadableAiApiErrorMessage(error: unknown): string {
     }
 
     if (error.code === "UPLOAD") {
-      return "녹음 파일 업로드에 실패했어요. 다시 녹음한 뒤 한 번 더 시도해주세요.";
+      return getReadableRecordingUploadErrorMessage(error.message);
     }
 
     if (error.status === 404) {
@@ -107,6 +209,49 @@ export function getReadableAiApiErrorMessage(error: unknown): string {
   }
 
   return "분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.";
+}
+
+export function getReadablePronunciationJobError(
+  error:
+    | {
+        code?: string | null;
+        message?: string | null;
+      }
+    | null
+    | undefined,
+): string {
+  switch (error?.code) {
+    case "MISSING_CONFIG":
+      return "발음 분석 기능이 아직 프로덕션에 완전히 설정되지 않았어요. 서버 설정을 마친 뒤 다시 시도해주세요.";
+    case "MISSING_TRANSCODER":
+      return "발음 분석 서버의 오디오 변환기가 아직 준비되지 않았어요. 잠시 후 다시 시도해주세요.";
+    case "DOWNLOAD_FAILED":
+      return "업로드된 녹음 파일을 불러오지 못했어요. 다시 녹음한 뒤 한 번 더 시도해주세요.";
+    case "NO_MATCH":
+      return "음성이 충분히 인식되지 않았어요. 더 또렷하게 다시 말해보세요.";
+    case "CANCELED":
+    case "RECOGNITION_FAILED":
+      return "발음 분석 엔진이 이번 녹음을 처리하지 못했어요. 잠시 후 다시 시도해주세요.";
+    case "TRANSCODE_FAILED":
+      return "녹음 파일 형식을 변환하지 못했어요. 다시 녹음한 뒤 한 번 더 시도해주세요.";
+    default:
+      return (
+        error?.message ??
+        "발음 분석을 완료하지 못했어요. 잠시 후 다시 시도해주세요."
+      );
+  }
+}
+
+export function getReadableRecordingUploadError(error: unknown): string {
+  if (error instanceof AiApiError) {
+    return getReadableAiApiErrorMessage(error);
+  }
+
+  if (error instanceof Error) {
+    return getReadableRecordingUploadErrorMessage(error.message);
+  }
+
+  return "녹음 파일 업로드에 실패했어요. 다시 녹음한 뒤 한 번 더 시도해주세요.";
 }
 
 async function fetchWithTimeout(
@@ -148,10 +293,29 @@ async function parseJsonOrThrow<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function readBlobAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => {
+      reject(new Error("Failed to convert recording file to data URL"));
+    };
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Failed to convert recording file to data URL"));
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
 // ---- R-AI-001: POST /api/ai-tip ----
 
 export async function fetchAiTip(req: AiTipRequest): Promise<AiTipResponse> {
-  const authHeader = await getAuthHeader();
+  const { headers: authHeader } = await getAuthHeader(
+    createDebugRequestId("ai-tip"),
+  );
   const url = `${getWebApiUrlOrThrow()}/api/ai-tip`;
   const response = await fetchWithTimeout(url, {
     method: "POST",
@@ -173,7 +337,9 @@ export async function fetchAiTip(req: AiTipRequest): Promise<AiTipResponse> {
 export async function analyzeSentence(
   req: AnalyzeRequest,
 ): Promise<AnalyzeResponse> {
-  const authHeader = await getAuthHeader();
+  const { headers: authHeader } = await getAuthHeader(
+    createDebugRequestId("analyze"),
+  );
   const url = `${getWebApiUrlOrThrow()}/api/analyze`;
   const response = await fetchWithTimeout(url, {
     method: "POST",
@@ -199,31 +365,94 @@ export async function uploadRecording(
   sentenceId: string,
   _duration: number,
 ): Promise<string> {
-  // Fetch the local file as a blob
+  // @MX:NOTE: Diagnostic logs added to narrow down TestFlight upload failures.
+  //           Known risk: fetch('file://') on Hermes release builds may return
+  //           empty Blob. Keep until root cause is confirmed.
+  const uriPreview = uri.length > 80 ? `${uri.slice(0, 80)}...` : uri;
   let blob: Blob;
   try {
     const fileResponse = await fetch(uri);
     blob = await fileResponse.blob();
   } catch (err) {
+    console.error("[uploadRecording] fetch(uri) failed", {
+      uri: uriPreview,
+      err,
+    });
     throw new AiApiError(
-      err instanceof Error ? err.message : "Failed to read recording file",
+      err instanceof Error
+        ? `fetch(file) failed: ${err.message}`
+        : "Failed to read recording file",
       "UPLOAD",
     );
   }
 
+  console.warn("[uploadRecording] blob read", {
+    uri: uriPreview,
+    size: blob.size,
+    type: blob.type || "(empty)",
+  });
+
+  if (blob.size === 0) {
+    throw new AiApiError(
+      `Recording blob is empty (uri=${uriPreview}, type=${blob.type || "unknown"})`,
+      "UPLOAD",
+    );
+  }
+
+  if (!Device.isDevice) {
+    try {
+      return await readBlobAsDataUrl(blob);
+    } catch (error) {
+      throw new AiApiError(
+        error instanceof Error ? error.message : "Failed to encode recording",
+        "UPLOAD",
+      );
+    }
+  }
+
   const timestamp = Date.now();
-  const storagePath = `${userId}/${videoId}/${sentenceId}/${timestamp}.m4a`;
+  const uploadMeta = inferAudioUploadMeta(uri, blob.type);
+  const storagePath = `${userId}/${videoId}/${sentenceId}/${timestamp}.${uploadMeta.extension}`;
+  const uploadBlob = normalizeAudioBlobForUpload(blob, uploadMeta);
+
+  console.warn("[uploadRecording] upload start", {
+    storagePath,
+    contentType: uploadMeta.contentType,
+    extension: uploadMeta.extension,
+    blobSize: uploadBlob.size,
+    originalBlobType: blob.type,
+    normalizedBlobType: uploadBlob.type,
+  });
 
   const { data, error } = await supabase.storage
     .from("recordings")
-    .upload(storagePath, blob, {
-      contentType: "audio/m4a",
+    .upload(storagePath, uploadBlob, {
+      contentType: uploadMeta.contentType,
       upsert: false,
     });
 
   if (error) {
-    throw new AiApiError(error.message, "UPLOAD");
+    console.error("[uploadRecording] supabase upload failed", {
+      storagePath,
+      contentType: uploadMeta.contentType,
+      blobSize: blob.size,
+      error,
+    });
+    captureException(error, {
+      location: "uploadRecording",
+      storagePath,
+      contentType: uploadMeta.contentType,
+      blobSize: blob.size,
+      blobType: blob.type,
+      uri: uriPreview,
+    });
+    throw new AiApiError(
+      `${error.message} (path=${storagePath}, size=${blob.size}, type=${uploadMeta.contentType})`,
+      "UPLOAD",
+    );
   }
+
+  console.warn("[uploadRecording] upload success", { path: data.path });
 
   const { data: urlData } = supabase.storage
     .from("recordings")
@@ -238,7 +467,20 @@ export async function getPronunciationScore(
   recordingUrl: string,
   sentenceText: string,
 ): Promise<PronunciationResult> {
-  const authHeader = await getAuthHeader();
+  if (!Device.isDevice) {
+    return {
+      score: 84,
+      feedback:
+        "시뮬레이터에서는 샘플 발음 분석 결과를 보여주고 있어요. 실제 기기에서는 업로드한 음성을 기준으로 점수를 계산해요.",
+    };
+  }
+
+  const requestId = createDebugRequestId("pron-score");
+  const { headers: authHeader, debug } = await getAuthHeader(requestId);
+  console.log("[AiApi] Sending pronunciation score request:", {
+    ...debug,
+    webApiUrl: getWebApiUrlOrThrow(),
+  });
   const url = `${getWebApiUrlOrThrow()}/api/pronunciation`;
   const response = await fetchWithTimeout(url, {
     method: "POST",
@@ -248,13 +490,38 @@ export async function getPronunciationScore(
     },
     body: JSON.stringify({ recordingUrl, sentenceText }),
   });
+  if (!response.ok) {
+    const responseText = await response
+      .clone()
+      .text()
+      .catch(() => null);
+    console.warn("[AiApi] Pronunciation score request rejected:", {
+      ...debug,
+      status: response.status,
+      responseText,
+    });
+  }
   return parseJsonOrThrow<PronunciationResult>(response);
 }
 
 export async function requestPronunciationAnalysis(
   input: RequestPronunciationAnalysisInput,
 ): Promise<PronunciationAnalysisJob> {
-  const authHeader = await getAuthHeader();
+  if (!Device.isDevice) {
+    return buildSimulatorPronunciationJob(input);
+  }
+
+  const requestId = createDebugRequestId("pron-analysis");
+  const { headers: authHeader, debug } = await getAuthHeader(requestId);
+  console.log("[AiApi] Sending pronunciation analysis request:", {
+    ...debug,
+    source: input.source,
+    sentenceId: input.sentenceId,
+    sessionId: input.sessionId ?? null,
+    videoId: input.videoId,
+    webApiUrl: getWebApiUrlOrThrow(),
+  });
+
   const url = `${getWebApiUrlOrThrow()}/api/pronunciation/analyses`;
   const response = await fetchWithTimeout(url, {
     method: "POST",
@@ -264,13 +531,58 @@ export async function requestPronunciationAnalysis(
     },
     body: JSON.stringify(input),
   });
+  if (!response.ok) {
+    const responseText = await response
+      .clone()
+      .text()
+      .catch(() => null);
+    console.warn("[AiApi] Pronunciation analysis request rejected:", {
+      ...debug,
+      status: response.status,
+      responseText,
+    });
+  }
   return parseJsonOrThrow<PronunciationAnalysisJob>(response);
 }
 
 export async function fetchPronunciationAnalysis(
   analysisId: string,
 ): Promise<PronunciationAnalysisJob> {
-  const authHeader = await getAuthHeader();
+  if (!Device.isDevice && analysisId.startsWith("simulator-")) {
+    const now = new Date().toISOString();
+    return {
+      analysis_id: analysisId,
+      status: "complete",
+      provider: "azure",
+      provider_locale: "en-US",
+      requested_at: now,
+      completed_at: now,
+      error: null,
+      result: {
+        status: "complete",
+        provider: "azure",
+        reference_text: "",
+        recognized_text: "",
+        overall_score: 84,
+        accuracy_score: 86,
+        fluency_score: 80,
+        completeness_score: 92,
+        prosody_score: 78,
+        summary: "시뮬레이터 샘플 발음 분석 결과예요.",
+        pacing_note: "말의 속도는 전반적으로 안정적이에요.",
+        chunking_note: "의미 단위마다 나누어 읽는 감각을 유지해보세요.",
+        stress_note: "핵심 단어에 조금 더 강세를 실어보세요.",
+        ending_tone_note: "문장 끝을 또렷하게 마무리해보세요.",
+        clarity_note: "자음이 뭉치지 않도록 분리해서 발음해보세요.",
+        next_focus: "강세와 문장 끝 처리를 우선 연습해보세요.",
+        confidence: 0.88,
+        word_issues: [],
+      },
+    };
+  }
+
+  const requestId = createDebugRequestId("pron-poll");
+  const { headers: authHeader, debug } = await getAuthHeader(requestId);
   const url = `${getWebApiUrlOrThrow()}/api/pronunciation/analyses/${analysisId}`;
   const response = await fetchWithTimeout(url, {
     method: "GET",
@@ -278,6 +590,18 @@ export async function fetchPronunciationAnalysis(
       ...authHeader,
     },
   });
+  if (!response.ok) {
+    const responseText = await response
+      .clone()
+      .text()
+      .catch(() => null);
+    console.warn("[AiApi] Pronunciation analysis polling rejected:", {
+      ...debug,
+      analysisId,
+      status: response.status,
+      responseText,
+    });
+  }
   return parseJsonOrThrow<PronunciationAnalysisJob>(response);
 }
 

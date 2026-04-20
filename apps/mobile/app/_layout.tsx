@@ -11,8 +11,14 @@ import * as Linking from "expo-linking";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { configureRevenueCat, logInRevenueCat } from "@/lib/revenue-cat";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { initSentry, setUser as setSentryUser, wrap } from "@/lib/sentry";
 import "react-native-url-polyfill/auto";
 import * as Notifications from "expo-notifications";
+
+// @MX:ANCHOR: Sentry must init before any code that may throw to capture
+//             early crashes (e.g. Supabase/AuthProvider init errors).
+// @MX:REASON: Module-level init ensures it runs once before React mounts.
+initSentry();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -109,6 +115,11 @@ export function RootLayoutNav() {
     }
   }, [user?.id]);
 
+  // Tag Sentry events with the current user so errors are attributable
+  useEffect(() => {
+    setSentryUser(user ? { id: user.id, email: user.email ?? null } : null);
+  }, [user]);
+
   // Handle deep links for OAuth callback (PKCE code exchange)
   useEffect(() => {
     const handleUrl = async (url: string) => {
@@ -182,7 +193,7 @@ export function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <AuthProvider>
       <RootLayoutNav />
@@ -190,3 +201,5 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
+
+export default wrap(RootLayout);

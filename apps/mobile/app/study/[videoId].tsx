@@ -54,11 +54,13 @@ import { TransformationCarousel } from "../../src/components/study/Transformatio
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import {
   getReadableAiApiErrorMessage,
+  getReadablePronunciationJobError,
   requestPronunciationAnalysis,
   uploadRecording,
   waitForPronunciationAnalysisCompletion,
 } from "../../src/lib/ai-api";
 import { trackEvent } from "../../src/lib/analytics";
+import { captureException as captureSentryException } from "../../src/lib/sentry";
 import {
   readPronunciationAnalysisCache,
   writePronunciationAnalysisCache,
@@ -913,11 +915,28 @@ export default function StudyScreen() {
     setCurrentRecordingSentenceId(null);
     await resetRecording();
     if (user?.id && videoId) {
-      uploadRecording(uri, user.id, videoId, sid, recDuration)
-        .then((publicUrl) => {
-          setUploadedRecordingUrls((prev) => ({ ...prev, [sid]: publicUrl }));
-        })
-        .catch(() => {});
+      try {
+        const publicUrl = await uploadRecording(
+          uri,
+          user.id,
+          videoId,
+          sid,
+          recDuration,
+        );
+        setUploadedRecordingUrls((prev) => ({ ...prev, [sid]: publicUrl }));
+      } catch (err) {
+        // @MX:NOTE: Surface upload errors — previously silenced with
+        //           .catch(() => {}), which hid the real failure in TestFlight.
+        //           Also forwarded to Sentry so remote testers produce signal.
+        console.error("[study.handleConfirm] uploadRecording failed", err);
+        captureSentryException(err, {
+          location: "study.handleConfirm.uploadRecording",
+          videoId,
+          sentenceId: sid,
+          userId: user.id,
+        });
+        Alert.alert("녹음 업로드 실패", getReadableAiApiErrorMessage(err));
+      }
     }
   }, [
     currentRecordingSentenceId,
@@ -1069,8 +1088,7 @@ export default function StudyScreen() {
         });
         Alert.alert(
           "발음 분석을 완료하지 못했어요",
-          completedJob.error?.message ??
-            "잠시 후 다시 시도하면 더 정확하게 분석할 수 있어요.",
+          getReadablePronunciationJobError(completedJob.error),
         );
         return;
       }
