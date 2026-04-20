@@ -10,16 +10,17 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker builds
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   outputFileTracingRoot: path.join(__dirname, "../.."),
+  // The ffmpeg binary is copied into apps/web/bin/ffmpeg by the `prebuild`
+  // script (scripts/copy-ffmpeg.mjs). Include it in the serverless bundle
+  // for the pronunciation routes. Co-locating a copy is more reliable
+  // than tracing node_modules/ffmpeg-static because ffmpeg-static's
+  // `files` array excludes the binary and Next.js bundling rewrites
+  // its __dirname resolution.
   outputFileTracingIncludes: {
-    "/api/pronunciation/analyses/route": [
-      "../../node_modules/ffmpeg-static/ffmpeg",
-      "**/node_modules/ffmpeg-static/ffmpeg",
-    ],
-    "/api/pronunciation/analyses/[analysisId]/route": [
-      "../../node_modules/ffmpeg-static/ffmpeg",
-      "**/node_modules/ffmpeg-static/ffmpeg",
-    ],
+    "/api/pronunciation/analyses/route": ["./bin/ffmpeg"],
+    "/api/pronunciation/analyses/[analysisId]/route": ["./bin/ffmpeg"],
   },
+  serverExternalPackages: ["ffmpeg-static"],
 
   // Production optimizations
 

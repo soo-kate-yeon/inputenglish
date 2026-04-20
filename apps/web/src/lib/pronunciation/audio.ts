@@ -98,6 +98,9 @@ async function resolveFfmpegBinary(): Promise<string> {
   };
 
   add(process.env.FFMPEG_BIN);
+  // apps/web/bin/ffmpeg — copied at build time by scripts/copy-ffmpeg.mjs.
+  // Primary path on Vercel because outputFileTracingIncludes bundles this.
+  add(path.join(process.cwd(), "bin/ffmpeg"));
   add(ffmpegPath);
 
   let current = process.cwd();
