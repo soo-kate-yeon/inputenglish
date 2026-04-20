@@ -82,6 +82,74 @@ export async function downloadRecordingToTempFile(
   };
 }
 
+// @MX:NOTE: ffmpeg-static returns path.join(__dirname, 'ffmpeg'). On Vercel
+//           serverless, outputFileTracingIncludes copies the binary but
+//           __dirname in the bundled code often does not resolve to
+//           node_modules/ffmpeg-static. We probe several candidate paths
+//           and repair the exec bit if the binary lost it in transit.
+async function resolveFfmpegBinary(): Promise<string> {
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  const add = (candidate: string | null | undefined): void => {
+    if (candidate && !seen.has(candidate)) {
+      seen.add(candidate);
+      candidates.push(candidate);
+    }
+  };
+
+  add(process.env.FFMPEG_BIN);
+  add(ffmpegPath);
+
+  let current = process.cwd();
+  for (let depth = 0; depth < 6; depth += 1) {
+    add(path.join(current, "node_modules/ffmpeg-static/ffmpeg"));
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  const attempts: Array<{ path: string; result: string }> = [];
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate, fsConstants.F_OK);
+    } catch {
+      attempts.push({ path: candidate, result: "not_found" });
+      continue;
+    }
+    try {
+      await fs.access(candidate, fsConstants.X_OK);
+      attempts.push({ path: candidate, result: "ok" });
+      return candidate;
+    } catch {
+      try {
+        await fs.chmod(candidate, 0o755);
+        await fs.access(candidate, fsConstants.X_OK);
+        attempts.push({ path: candidate, result: "repaired_chmod" });
+        return candidate;
+      } catch (chmodErr) {
+        attempts.push({
+          path: candidate,
+          result: `exists_not_exec: ${chmodErr instanceof Error ? chmodErr.message : "unknown"}`,
+        });
+      }
+    }
+  }
+
+  console.error("[ensureWavInput] ffmpeg binary not resolvable", {
+    cwd: process.cwd(),
+    platform: process.platform,
+    arch: process.arch,
+    ffmpegPathFromModule: ffmpegPath,
+    attempts,
+  });
+
+  throw new PronunciationAudioError(
+    `FFmpeg binary not found. Tried: ${attempts.map((a) => `${a.path} (${a.result})`).join("; ")}`,
+    "MISSING_TRANSCODER",
+  );
+}
+
 // @MX:ANCHOR: Always transcode the incoming recording to canonical
 //             16kHz / mono / PCM_S16LE WAV before handing to Azure.
 // @MX:REASON: iOS expo-av with outputFormat=lpcm and extension=.wav does
@@ -92,22 +160,7 @@ export async function downloadRecordingToTempFile(
 //             rate/channels/bit depth to exactly what the Azure
 //             pronunciation assessment expects.
 export async function ensureWavInput(inputPath: string): Promise<string> {
-  if (!ffmpegPath) {
-    throw new PronunciationAudioError(
-      "FFmpeg binary is not available for audio transcoding",
-      "MISSING_TRANSCODER",
-    );
-  }
-  const transcoderPath = ffmpegPath;
-
-  try {
-    await fs.access(transcoderPath, fsConstants.F_OK | fsConstants.X_OK);
-  } catch {
-    throw new PronunciationAudioError(
-      `FFmpeg binary is missing or not executable at ${transcoderPath}`,
-      "MISSING_TRANSCODER",
-    );
-  }
+  const transcoderPath = await resolveFfmpegBinary();
 
   // Distinct output path to avoid overwriting the input (which may itself
   // be a .wav that ffmpeg is still reading).
