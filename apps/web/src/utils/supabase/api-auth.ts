@@ -49,6 +49,129 @@ function decodeJwtClaimsForDebug(
   }
 }
 
+function getHostFromUrlLike(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null;
+  }
+
+  try {
+    return new URL(value).host;
+  } catch {
+    return null;
+  }
+}
+
+function getNumericClaim(
+  claims: Record<string, unknown> | null,
+  key: string,
+): number | null {
+  const value = claims?.[key];
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function buildBearerRejectionDetails(
+  tokenClaims: Record<string, unknown> | null,
+): {
+  message: string;
+  debug: Record<string, unknown>;
+} {
+  const configuredSupabaseHost = getHostFromUrlLike(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? null,
+  );
+  const tokenIssuerHost = getHostFromUrlLike(tokenClaims?.iss ?? null);
+  const serviceRoleClaims = decodeJwtClaimsForDebug(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  );
+  const serviceRoleIssuerHost = getHostFromUrlLike(
+    serviceRoleClaims?.iss ?? null,
+  );
+  const tokenExpiration = getNumericClaim(tokenClaims, "exp");
+  const tokenExpired =
+    tokenExpiration !== null && tokenExpiration * 1000 <= Date.now();
+
+  if (tokenExpired) {
+    return {
+      message: "Authentication required (bearer token expired)",
+      debug: {
+        configuredSupabaseHost,
+        tokenIssuerHost,
+        serviceRoleIssuerHost,
+        tokenExpiration,
+      },
+    };
+  }
+
+  if (
+    tokenIssuerHost &&
+    configuredSupabaseHost &&
+    tokenIssuerHost !== configuredSupabaseHost
+  ) {
+    return {
+      message:
+        "Authentication required (bearer token rejected: token issuer mismatch)",
+      debug: {
+        configuredSupabaseHost,
+        tokenIssuerHost,
+        serviceRoleIssuerHost,
+        tokenExpiration,
+      },
+    };
+  }
+
+  if (
+    serviceRoleIssuerHost &&
+    configuredSupabaseHost &&
+    serviceRoleIssuerHost !== configuredSupabaseHost
+  ) {
+    return {
+      message:
+        "Authentication required (bearer token rejected: service role project mismatch)",
+      debug: {
+        configuredSupabaseHost,
+        tokenIssuerHost,
+        serviceRoleIssuerHost,
+        tokenExpiration,
+      },
+    };
+  }
+
+  if (
+    tokenIssuerHost &&
+    serviceRoleIssuerHost &&
+    tokenIssuerHost !== serviceRoleIssuerHost
+  ) {
+    return {
+      message:
+        "Authentication required (bearer token rejected: token and service role belong to different projects)",
+      debug: {
+        configuredSupabaseHost,
+        tokenIssuerHost,
+        serviceRoleIssuerHost,
+        tokenExpiration,
+      },
+    };
+  }
+
+  return {
+    message: "Authentication required (bearer token rejected)",
+    debug: {
+      configuredSupabaseHost,
+      tokenIssuerHost,
+      serviceRoleIssuerHost,
+      tokenExpiration,
+    },
+  };
+}
+
 export async function requireApiUser(
   request: NextRequest,
 ): Promise<User | NextResponse> {
@@ -73,6 +196,7 @@ export async function requireApiUser(
     }
 
     const tokenClaims = decodeJwtClaimsForDebug(token);
+    const rejectionDetails = buildBearerRejectionDetails(tokenClaims);
     const admin = createAdminClient();
     const {
       data: { user },
@@ -85,11 +209,11 @@ export async function requireApiUser(
         route,
         error: error?.message ?? null,
         tokenClaims,
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null,
+        ...rejectionDetails.debug,
       });
       return NextResponse.json(
         {
-          error: "Authentication required (bearer token rejected)",
+          error: rejectionDetails.message,
           requestId,
         },
         { status: 401, headers: { "x-request-id": requestId } },
