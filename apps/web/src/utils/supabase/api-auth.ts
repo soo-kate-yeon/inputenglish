@@ -64,7 +64,10 @@ export async function requireApiUser(
         route,
       });
       return NextResponse.json(
-        { error: "Authentication required" },
+        {
+          error: "Authentication required (bearer token missing)",
+          requestId,
+        },
         { status: 401, headers: { "x-request-id": requestId } },
       );
     }
@@ -85,7 +88,10 @@ export async function requireApiUser(
         supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? null,
       });
       return NextResponse.json(
-        { error: "Authentication required" },
+        {
+          error: "Authentication required (bearer token rejected)",
+          requestId,
+        },
         { status: 401, headers: { "x-request-id": requestId } },
       );
     }
@@ -112,7 +118,10 @@ export async function requireApiUser(
       error: error?.message ?? null,
     });
     return NextResponse.json(
-      { error: "Authentication required" },
+      {
+        error: "Authentication required (cookie session missing)",
+        requestId,
+      },
       { status: 401, headers: { "x-request-id": requestId } },
     );
   }
