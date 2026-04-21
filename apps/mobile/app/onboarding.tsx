@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -19,18 +25,24 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import type { LearningGoalMode, LearningLevelBand } from "@inputenglish/shared";
+import { SPEAKING_SITUATIONS, VIDEO_CATEGORIES } from "@inputenglish/shared";
+import type {
+  LearningGoalMode,
+  LearningLevelBand,
+  SpeakingSituation,
+  VideoCategory,
+} from "@inputenglish/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
 import { colors, font, radius, spacing } from "@/theme";
 
 type OnboardingStep = "level" | "goal" | "details" | "preparing";
-const STEP_SEQUENCE: OnboardingStep[] = [
-  "level",
-  "goal",
-  "details",
-  "preparing",
-];
+// @MX:NOTE: Speaking/pronunciation is feature-gated on main until the
+//           Azure + ffmpeg pipeline on feature/speaking-stability is
+//           stable. The "goal" step is dropped because "expression" is
+//           the only selectable goal_mode right now; re-insert it here
+//           when speaking returns.
+const STEP_SEQUENCE: OnboardingStep[] = ["level", "details", "preparing"];
 
 const LEVEL_OPTIONS: Array<{ value: LearningLevelBand; label: string }> = [
   { value: "beginner", label: "거의 한 마디도 못해요" },
@@ -100,27 +112,6 @@ const PRONUNCIATION_PEOPLE = [
     trait: "여유롭고 묵직한 연설형 억양",
     imageSource: require("../assets/images/speakers/person_12.png"),
   },
-] as const;
-
-const EXPRESSION_SITUATIONS = [
-  "일상 잡담",
-  "친구/연애",
-  "학교/업무",
-  "발표/회의",
-  "인터뷰",
-  "서비스직",
-  "자기소개/스몰토크",
-] as const;
-
-const EXPRESSION_TOPICS = [
-  "브이로그",
-  "영화 속 장면들",
-  "드라마 속 장면들",
-  "연설이나 강단 발표",
-  "정보성 팟캐스트/인터뷰",
-  "셀럽 인터뷰",
-  "최신 시사 이슈",
-  "티키타카를 배울 수 있는 팟캐스트/토크쇼",
 ] as const;
 
 const IS_TEST_ENV = process.env.NODE_ENV === "test";
@@ -359,7 +350,12 @@ export default function OnboardingScreen() {
   const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [level, setLevel] = useState<LearningLevelBand | null>(null);
-  const [goalMode, setGoalMode] = useState<LearningGoalMode | null>(null);
+  // @MX:NOTE: Pronunciation mode is feature-gated — default to expression
+  //           on main while speaking stability work continues on the
+  //           feature/speaking-stability branch.
+  const [goalMode, setGoalMode] = useState<LearningGoalMode | null>(
+    "expression",
+  );
   const [focusTags, setFocusTags] = useState<string[]>([]);
   const [expressionSituations, setExpressionSituations] = useState<string[]>(
     [],
@@ -409,6 +405,7 @@ export default function OnboardingScreen() {
       focus_tags: learningProfile.focus_tags,
       preferred_speakers: learningProfile.preferred_speakers,
       preferred_situations: learningProfile.preferred_situations,
+      preferred_video_categories: learningProfile.preferred_video_categories,
     });
 
     if (hydratedProfileKeyRef.current === profileHydrationKey) {
@@ -417,32 +414,36 @@ export default function OnboardingScreen() {
     hydratedProfileKeyRef.current = profileHydrationKey;
 
     setLevel(learningProfile.level_band);
-    setGoalMode(learningProfile.goal_mode);
+    // @MX:NOTE: Coerce any legacy "pronunciation" profile into "expression"
+    //           while the speaking feature is gated off on main. The
+    //           pronunciation-specific focus tags (preferred_speakers)
+    //           do not map onto expression's situation/topic data model,
+    //           so we reset them and let the user re-pick on the details
+    //           step. When speaking comes back, drop this coercion.
+    const effectiveGoalMode: LearningGoalMode =
+      learningProfile.goal_mode === "pronunciation" ||
+      !learningProfile.goal_mode
+        ? "expression"
+        : learningProfile.goal_mode;
+    setGoalMode(effectiveGoalMode);
 
-    if (learningProfile.goal_mode === "pronunciation") {
-      setFocusTags(
-        learningProfile.preferred_speakers.length > 0
-          ? learningProfile.preferred_speakers
-          : learningProfile.focus_tags,
-      );
-      setExpressionSituations([]);
-      setExpressionTopics([]);
-    } else if (learningProfile.goal_mode === "expression") {
+    if (learningProfile.goal_mode === "expression") {
       const situations =
         learningProfile.preferred_situations.length > 0
           ? learningProfile.preferred_situations.filter((item) =>
-              EXPRESSION_SITUATIONS.includes(
-                item as (typeof EXPRESSION_SITUATIONS)[number],
-              ),
+              SPEAKING_SITUATIONS.includes(item as SpeakingSituation),
             )
           : learningProfile.focus_tags.filter((item) =>
-              EXPRESSION_SITUATIONS.includes(
-                item as (typeof EXPRESSION_SITUATIONS)[number],
-              ),
+              SPEAKING_SITUATIONS.includes(item as SpeakingSituation),
             );
-      const topics = learningProfile.focus_tags.filter((item) =>
-        EXPRESSION_TOPICS.includes(item as (typeof EXPRESSION_TOPICS)[number]),
-      );
+      const topics =
+        learningProfile.preferred_video_categories.length > 0
+          ? learningProfile.preferred_video_categories.filter((item) =>
+              VIDEO_CATEGORIES.includes(item as VideoCategory),
+            )
+          : learningProfile.focus_tags.filter((item) =>
+              VIDEO_CATEGORIES.includes(item as VideoCategory),
+            );
       setExpressionSituations(situations);
       setExpressionTopics(topics);
       setFocusTags(dedupe([...situations, ...topics]));
@@ -462,7 +463,10 @@ export default function OnboardingScreen() {
     if (step !== "details") return;
 
     if (!goalMode) {
-      setStep("goal");
+      // goalMode is always defaulted to "expression" while speaking is
+      // gated, so this path is effectively unreachable. Kept as a safety
+      // net — route back to level instead of the removed goal step.
+      setStep("level");
     }
   }, [goalMode, step]);
 
@@ -529,15 +533,29 @@ export default function OnboardingScreen() {
     });
   };
 
+  const cancelPendingStepTransition = useCallback(() => {
+    if (transitionSwapTimeoutRef.current) {
+      clearTimeout(transitionSwapTimeoutRef.current);
+      transitionSwapTimeoutRef.current = null;
+    }
+    setIsTransitioning(false);
+    stepTransition.stopAnimation();
+    stepTransition.setValue(1);
+  }, [stepTransition]);
+
   const handleBack = () => {
     if (isSaving || step === "preparing") return;
 
     if (step === "details") {
-      transitionToStep("goal");
+      // Goal step is skipped while speaking is gated — go straight back
+      // to level.
+      transitionToStep("level");
       return;
     }
 
     if (step === "goal") {
+      // Dead fallback: goal step is removed from STEP_SEQUENCE. Kept in
+      // case some future code path lands here, route back to level.
       transitionToStep("level");
       return;
     }
@@ -548,7 +566,8 @@ export default function OnboardingScreen() {
   const handleComplete = async () => {
     if (!user || !goalMode || !level || focusTags.length === 0) return;
 
-    transitionToStep("preparing");
+    cancelPendingStepTransition();
+    setStep("preparing");
     setIsSaving(true);
 
     try {
@@ -558,10 +577,15 @@ export default function OnboardingScreen() {
       await updateLearningProfile({
         level_band: level,
         goal_mode: goalMode,
-        focus_tags: focusTags,
+        focus_tags:
+          goalMode === "expression"
+            ? dedupe([...expressionSituations, ...expressionTopics])
+            : [],
         preferred_speakers: goalMode === "pronunciation" ? focusTags : [],
         preferred_situations:
           goalMode === "expression" ? expressionSituations : [],
+        preferred_video_categories:
+          goalMode === "expression" ? expressionTopics : [],
         onboarding_completed_at: new Date().toISOString(),
       });
 
@@ -574,7 +598,8 @@ export default function OnboardingScreen() {
       router.replace("/(tabs)");
     } catch (error) {
       console.error("[Onboarding] Failed to save learning profile:", error);
-      transitionToStep("details");
+      cancelPendingStepTransition();
+      setStep("details");
     } finally {
       setIsSaving(false);
     }
@@ -692,7 +717,7 @@ export default function OnboardingScreen() {
                 주로 어떤 상황에서 영어를 많이 쓰게 될까요?
               </Text>
               <View style={styles.chipWrap}>
-                {EXPRESSION_SITUATIONS.map((tag) => (
+                {SPEAKING_SITUATIONS.map((tag) => (
                   <ChoiceChip
                     key={tag}
                     label={tag}
@@ -708,7 +733,7 @@ export default function OnboardingScreen() {
                 어떤 주제의 영상들이 있으면 하루라도 더 들어오고 싶어질까요?
               </Text>
               <View style={styles.chipWrap}>
-                {EXPRESSION_TOPICS.map((tag) => (
+                {VIDEO_CATEGORIES.map((tag) => (
                   <ChoiceChip
                     key={tag}
                     label={tag}
@@ -793,7 +818,8 @@ export default function OnboardingScreen() {
                 ]}
                 onPress={() => {
                   if (!level) return;
-                  transitionToStep("goal");
+                  // Skip the goal step (gated off with speaking).
+                  transitionToStep("details");
                 }}
                 disabled={!level}
               >
