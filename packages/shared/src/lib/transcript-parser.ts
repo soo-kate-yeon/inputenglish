@@ -39,6 +39,10 @@ export function parseTranscriptToSentences(
     );
   }
 
+  const expandedItems = transcriptItems.flatMap((item) =>
+    splitTranscriptItemByPrimaryPunctuation(item),
+  );
+
   const sentences: Sentence[] = [];
   let currentSentence = "";
   let currentStartTime = 0;
@@ -64,7 +68,7 @@ export function parseTranscriptToSentences(
     }
   };
 
-  transcriptItems.forEach((item, index) => {
+  expandedItems.forEach((item, index) => {
     // Skip items with no text
     if (!item.text) return;
 
@@ -89,7 +93,7 @@ export function parseTranscriptToSentences(
     const text = item.text.trim();
     const primaryPunctuation = /[.!?]$/.test(text);
     // Secondary punctuation check removed as requested
-    const isLastItem = index === transcriptItems.length - 1;
+    const isLastItem = index === expandedItems.length - 1;
     const currentLength = currentSentence.trim().length;
     const currentWordCount = currentSentence.trim().split(/\s+/).length;
 
@@ -110,6 +114,51 @@ export function parseTranscriptToSentences(
   });
 
   return sentences;
+}
+
+function splitTranscriptItemByPrimaryPunctuation(
+  item: TranscriptItem,
+): TranscriptItem[] {
+  const text = item.text?.trim();
+
+  if (!text) {
+    return [];
+  }
+
+  const fragments = text
+    .split(/(?<=[.!?])\s+/)
+    .map((fragment) => fragment.trim())
+    .filter(Boolean);
+
+  if (fragments.length <= 1) {
+    return [{ ...item, text }];
+  }
+
+  const totalLength = fragments.reduce(
+    (sum, fragment) => sum + fragment.length,
+    0,
+  );
+  let consumedDuration = 0;
+
+  return fragments.map((fragment, index) => {
+    const remainingDuration = Math.max(item.duration - consumedDuration, 0);
+    const fragmentDuration =
+      index === fragments.length - 1
+        ? remainingDuration
+        : totalLength > 0
+          ? (item.duration * fragment.length) / totalLength
+          : item.duration / fragments.length;
+
+    const fragmentStart = item.start + consumedDuration;
+    consumedDuration += fragmentDuration;
+
+    return {
+      ...item,
+      text: fragment,
+      start: fragmentStart,
+      duration: fragmentDuration,
+    };
+  });
 }
 
 function sanitizeYouTubeInput(input: string): string {

@@ -37,17 +37,25 @@ export const colors = {
   bgMuted: palette.neutral100,
   bgInverse: palette.neutral900,
   bgBrand: palette.neutral900,
+  bgDark: palette.black,
+  bgDarkSubtle: palette.neutral950,
+  bgDarkMuted: palette.neutral900,
 
   // Text
   text: palette.neutral900,
   textSecondary: palette.neutral500,
   textMuted: palette.neutral400,
   textInverse: palette.white,
+  textOnDark: palette.white,
+  textOnDarkSecondary: "rgba(255,255,255,0.72)",
+  textOnDarkMuted: "rgba(255,255,255,0.45)",
 
   // Borders
   border: palette.neutral200,
   borderStrong: palette.neutral300,
   borderFocus: palette.neutral700,
+  borderOnDark: "rgba(255,255,255,0.12)",
+  borderOnDarkStrong: "rgba(255,255,255,0.22)",
 
   // Interactive
   primary: palette.neutral900,

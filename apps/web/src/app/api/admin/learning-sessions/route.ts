@@ -6,6 +6,33 @@ import type { LearningSession } from "@inputenglish/shared";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function buildLearningSessionSaveError(error: unknown): string {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    const code =
+      "code" in error && typeof error.code === "string" ? error.code : "";
+    const hint =
+      "hint" in error && typeof error.hint === "string" ? error.hint : "";
+
+    if (
+      code === "42703" ||
+      code === "42P01" ||
+      error.message.includes("longform_pack_id") ||
+      error.message.includes("does not exist")
+    ) {
+      return "learning_sessions.longform_pack_id 컬럼이 아직 DB에 없습니다. 롱폼 계층 마이그레이션을 적용해주세요.";
+    }
+
+    return [error.message, hint].filter(Boolean).join(" | ");
+  }
+
+  return "Failed to save learning sessions";
+}
+
 function slugifySpeakerName(input: string): string {
   return (
     input
@@ -189,6 +216,7 @@ export async function POST(request: NextRequest) {
           ? { id: s.id }
           : {}),
         source_video_id,
+        longform_pack_id: s.longform_pack_id ?? null,
         title: s.title,
         subtitle: s.subtitle || null,
         description: s.description,
@@ -349,7 +377,7 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     console.error("[API] Session creation error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: buildLearningSessionSaveError(error) },
       { status: 500 },
     );
   }

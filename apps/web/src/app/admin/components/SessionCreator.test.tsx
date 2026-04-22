@@ -17,14 +17,57 @@ describe("SessionCreator", () => {
           },
         ]}
         videoId="video-1"
-        selectedIds={new Set()}
-        onSelectedIdsChange={() => {}}
+        shortformSelectedIds={new Set()}
+        onShortformSelectedIdsChange={() => {}}
+        longformSelectedIds={new Set()}
+        onLongformSelectedIdsChange={() => {}}
         onSessionsChange={() => {}}
       />,
     );
 
     expect(html).toContain("세션 만들기");
     expect(html).toContain("0개 생성됨");
+  });
+
+  it("renders a parent longform summary when a longform pack is provided", () => {
+    const html = renderToStaticMarkup(
+      <SessionCreator
+        sentences={[
+          {
+            id: "sentence-1",
+            text: "We saw stronger momentum this quarter.",
+            startTime: 0,
+            endTime: 3,
+            highlights: [],
+          },
+        ]}
+        videoId="video-1"
+        longformPack={{
+          id: "pack-1",
+          source_video_id: "video-1",
+          title: "창업자 철학 대담",
+          subtitle: "제품 철학이 길게 이어지는 구간이에요.",
+          description:
+            "긴 호흡으로 제품 철학과 팀 운영 얘기를 풀어가는 구간이에요.",
+          duration: 1500,
+          sentence_ids: ["sentence-1"],
+          start_time: 0,
+          end_time: 1500,
+          topic_tags: ["제품 철학", "팀 운영"],
+          content_tags: ["podcast"],
+          created_at: new Date().toISOString(),
+        }}
+        shortformSelectedIds={new Set()}
+        onShortformSelectedIdsChange={() => {}}
+        longformSelectedIds={new Set(["sentence-1"])}
+        onLongformSelectedIdsChange={() => {}}
+        onSessionsChange={() => {}}
+      />,
+    );
+
+    expect(html).toContain("포인트 쇼츠 만들기");
+    expect(html).toContain("Parent Longform");
+    expect(html).toContain("창업자 철학 대담");
   });
 
   it("shows an AI suggestion modal trigger when recommended scenes exist", () => {
@@ -47,8 +90,25 @@ describe("SessionCreator", () => {
           },
         ]}
         videoId="video-1"
-        selectedIds={new Set()}
-        onSelectedIdsChange={() => {}}
+        longformPack={{
+          id: "pack-1",
+          source_video_id: "video-1",
+          title: "창업자 철학 대담",
+          subtitle: "제품 철학이 길게 이어지는 구간이에요.",
+          description:
+            "긴 호흡으로 제품 철학과 팀 운영 얘기를 풀어가는 구간이에요.",
+          duration: 1500,
+          sentence_ids: ["sentence-1", "sentence-2"],
+          start_time: 0,
+          end_time: 1500,
+          topic_tags: ["제품 철학"],
+          content_tags: ["podcast"],
+          created_at: new Date().toISOString(),
+        }}
+        shortformSelectedIds={new Set()}
+        onShortformSelectedIdsChange={() => {}}
+        longformSelectedIds={new Set()}
+        onLongformSelectedIdsChange={() => {}}
         onSessionsChange={() => {}}
         suggestedScenes={[
           {
@@ -63,6 +123,6 @@ describe("SessionCreator", () => {
       />,
     );
 
-    expect(html).toContain("AI 추천 장면 보기 (1)");
+    expect(html).toContain("AI 추천 포인트 쇼츠 보기 (1)");
   });
 });

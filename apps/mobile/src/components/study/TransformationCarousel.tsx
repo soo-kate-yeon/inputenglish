@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Dimensions,
   FlatList,
   StyleSheet,
@@ -24,6 +25,7 @@ import type {
 } from "@inputenglish/shared";
 import {
   fetchTransformationSet,
+  getReadableTransformationUploadError,
   saveTransformationAttempt,
   uploadTransformationRecording,
 } from "../../lib/transformation-api";
@@ -230,11 +232,12 @@ export function TransformationCarousel({
         // Upload recording to Supabase Storage first, then save attempt
         let publicUrl: string | undefined;
         if (audioUri) {
-          publicUrl = await uploadTransformationRecording(
+          const uploadedUrl = await uploadTransformationRecording(
             audioUri,
             user.id,
             exercise.id,
           );
+          publicUrl = uploadedUrl ?? undefined;
         }
 
         await saveTransformationAttempt({
@@ -257,6 +260,10 @@ export function TransformationCarousel({
         }
       } catch (err) {
         console.error("[TransformationCarousel] handleConfirm error:", err);
+        Alert.alert(
+          "녹음 업로드에 실패했어요",
+          getReadableTransformationUploadError(err),
+        );
       }
     },
     [exercises, firstExerciseIndex],

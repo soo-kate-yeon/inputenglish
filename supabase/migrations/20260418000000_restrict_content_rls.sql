@@ -26,16 +26,23 @@ CREATE POLICY "Authenticated users can delete curated videos"
 -- 2. learning_sessions — restrict INSERT / UPDATE / DELETE to auth
 -- =============================================================
 DROP POLICY IF EXISTS "Anyone can insert learning sessions" ON public.learning_sessions;
+DROP POLICY IF EXISTS "Authenticated users can insert learning sessions" ON public.learning_sessions;
 CREATE POLICY "Authenticated users can insert learning sessions"
   ON public.learning_sessions FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Anyone can update learning sessions" ON public.learning_sessions;
+DROP POLICY IF EXISTS "Authenticated users can update learning sessions" ON public.learning_sessions;
+DROP POLICY IF EXISTS "Users can update their own or orphaned sessions" ON public.learning_sessions;
+DROP POLICY IF EXISTS "Creators can update their learning sessions" ON public.learning_sessions;
 CREATE POLICY "Authenticated users can update learning sessions"
   ON public.learning_sessions FOR UPDATE
   USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Anyone can delete learning sessions" ON public.learning_sessions;
+DROP POLICY IF EXISTS "Authenticated users can delete learning sessions" ON public.learning_sessions;
+DROP POLICY IF EXISTS "Users can delete their own or orphaned sessions" ON public.learning_sessions;
+DROP POLICY IF EXISTS "Creators can delete their learning sessions" ON public.learning_sessions;
 CREATE POLICY "Authenticated users can delete learning sessions"
   ON public.learning_sessions FOR DELETE
   USING (auth.uid() IS NOT NULL);

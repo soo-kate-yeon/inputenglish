@@ -2,6 +2,7 @@
 // @MX:SPEC: SPEC-MOBILE-004 - REQ-U-001, REQ-U-005, REQ-E-007, REQ-N-002
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Alert, Platform } from "react-native";
+import { Asset } from "expo-asset";
 import { Audio } from "expo-av";
 import * as Device from "expo-device";
 
@@ -22,9 +23,9 @@ export interface UseAudioRecorderReturn {
   pauseRecording: () => void;
   resetRecording: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
+  loadSimulatorSampleRecording: () => Promise<string | null>;
 }
 
-const RECORDING_OPTIONS = Audio.RecordingOptionsPresets.HIGH_QUALITY;
 const RECORDING_AUDIO_MODE = {
   allowsRecordingIOS: true,
   playsInSilentModeIOS: true,
@@ -43,7 +44,25 @@ const PLAYBACK_AUDIO_MODE = {
   shouldDuckAndroid: true,
   playThroughEarpieceAndroid: false,
 };
-
+const SIMULATOR_SAMPLE_MODULE = require("../../assets/audio/simulator-pronunciation-sample.m4a");
+const IOS_WAV_RECORDING_OPTIONS: Audio.RecordingOptions = {
+  ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+  ios: {
+    extension: ".wav",
+    outputFormat: "lpcm",
+    audioQuality: 127,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 256000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+};
+const RECORDING_OPTIONS =
+  Platform.OS === "ios"
+    ? IOS_WAV_RECORDING_OPTIONS
+    : Audio.RecordingOptionsPresets.HIGH_QUALITY;
 export default function useAudioRecorder(): UseAudioRecorderReturn {
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -57,6 +76,7 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const operationInFlightRef = useRef(false);
+  const simulatorRecordingStartedAtRef = useRef<number | null>(null);
 
   // Check permission on mount
   useEffect(() => {
@@ -106,7 +126,21 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     return status.granted;
   }, []);
 
-  const isIosSimulator = Platform.OS === "ios" && !Device.isDevice;
+  const isSimulatorDevice = !Device.isDevice;
+
+  const getSimulatorSampleUri = useCallback(async (): Promise<string> => {
+    const asset = Asset.fromModule(SIMULATOR_SAMPLE_MODULE);
+    if (!asset.localUri) {
+      await asset.downloadAsync();
+    }
+
+    const uri = asset.localUri ?? asset.uri;
+    if (!uri) {
+      throw new Error("Simulator sample audio is not available");
+    }
+
+    return uri;
+  }, []);
 
   const startRecordingAttempt = useCallback(async () => {
     await Audio.setIsEnabledAsync(true);
@@ -133,8 +167,8 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
 
   const getStartRecordingAlertMessage = useCallback(
     (message: string) => {
-      if (isIosSimulator) {
-        return "iOS 시뮬레이터에서는 오디오 녹음이 지원되지 않습니다. 실제 iPhone 기기에서 테스트해주세요.";
+      if (isSimulatorDevice) {
+        return "시뮬레이터에서는 실제 마이크 대신 샘플 음성으로 테스트가 진행돼요.";
       }
 
       if (
@@ -147,12 +181,44 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
 
       return "녹음을 시작하지 못했어요. 다른 오디오가 재생 중이면 잠시 멈춘 뒤 다시 시도해주세요.";
     },
-    [isIosSimulator],
+    [isSimulatorDevice],
   );
 
   const startRecording = useCallback(async () => {
     if (operationInFlightRef.current || recordingState === "recording") {
       return false;
+    }
+
+    if (isSimulatorDevice) {
+      operationInFlightRef.current = true;
+      setIsRecorderBusy(true);
+      setLastError(null);
+
+      try {
+        await cleanupRecording();
+        await cleanupSound();
+        await Audio.setAudioModeAsync(PLAYBACK_AUDIO_MODE);
+
+        simulatorRecordingStartedAtRef.current = Date.now();
+        setDuration(0);
+        setRecordingState("recording");
+        setAudioUri(null);
+        setPlaybackProgress(0);
+        return true;
+      } catch (error) {
+        console.error("Failed to start simulator sample recording:", error);
+        const message =
+          error instanceof Error ? error.message : "Unknown simulator error";
+        setLastError(message);
+        Alert.alert(
+          "샘플 녹음을 시작할 수 없어요",
+          "시뮬레이터용 샘플 음성을 불러오지 못했어요. 앱을 다시 실행한 뒤 한 번 더 시도해주세요.",
+        );
+        return false;
+      } finally {
+        operationInFlightRef.current = false;
+        setIsRecorderBusy(false);
+      }
     }
 
     // Check or request permission (handle null initial state)
@@ -213,6 +279,7 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   }, [
     getStartRecordingAlertMessage,
     hasPermission,
+    isSimulatorDevice,
     requestPermission,
     startRecordingAttempt,
   ]);
@@ -220,6 +287,39 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
   const stopRecording = useCallback(async () => {
     if (operationInFlightRef.current) {
       return null;
+    }
+
+    if (isSimulatorDevice && recordingState === "recording") {
+      operationInFlightRef.current = true;
+      setIsRecorderBusy(true);
+      setLastError(null);
+
+      try {
+        const uri = await getSimulatorSampleUri();
+        const startedAt = simulatorRecordingStartedAtRef.current;
+        const elapsedSeconds = startedAt
+          ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+          : 1;
+
+        simulatorRecordingStartedAtRef.current = null;
+        await Audio.setAudioModeAsync(PLAYBACK_AUDIO_MODE);
+
+        setAudioUri(uri);
+        setDuration(elapsedSeconds);
+        setRecordingState("playback");
+        setIsPlaying(false);
+        setPlaybackProgress(0);
+        return uri;
+      } catch (error) {
+        console.error("Failed to stop simulator sample recording:", error);
+        const message =
+          error instanceof Error ? error.message : "Unknown simulator error";
+        setLastError(message);
+        return null;
+      } finally {
+        operationInFlightRef.current = false;
+        setIsRecorderBusy(false);
+      }
     }
 
     if (!recordingRef.current) return null;
@@ -251,7 +351,41 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
       operationInFlightRef.current = false;
       setIsRecorderBusy(false);
     }
-  }, []);
+  }, [getSimulatorSampleUri, isSimulatorDevice, recordingState]);
+
+  const loadSimulatorSampleRecording = useCallback(async () => {
+    if (!isSimulatorDevice || operationInFlightRef.current) {
+      return null;
+    }
+
+    operationInFlightRef.current = true;
+    setIsRecorderBusy(true);
+    setLastError(null);
+
+    try {
+      await cleanupRecording();
+      await cleanupSound();
+      const uri = await getSimulatorSampleUri();
+      await Audio.setAudioModeAsync(PLAYBACK_AUDIO_MODE);
+
+      simulatorRecordingStartedAtRef.current = null;
+      setAudioUri(uri);
+      setDuration(4);
+      setRecordingState("playback");
+      setIsPlaying(false);
+      setPlaybackProgress(0);
+      return uri;
+    } catch (error) {
+      console.error("Failed to load simulator sample recording:", error);
+      const message =
+        error instanceof Error ? error.message : "Unknown simulator error";
+      setLastError(message);
+      return null;
+    } finally {
+      operationInFlightRef.current = false;
+      setIsRecorderBusy(false);
+    }
+  }, [getSimulatorSampleUri, isSimulatorDevice]);
 
   const playRecording = useCallback(async () => {
     if (!audioUri) return;
@@ -306,6 +440,7 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     try {
       await cleanupRecording();
       await cleanupSound();
+      simulatorRecordingStartedAtRef.current = null;
 
       setRecordingState("idle");
       setAudioUri(null);
@@ -334,5 +469,6 @@ export default function useAudioRecorder(): UseAudioRecorderReturn {
     pauseRecording,
     resetRecording,
     requestPermission,
+    loadSimulatorSampleRecording,
   };
 }

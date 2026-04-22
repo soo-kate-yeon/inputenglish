@@ -1,10 +1,18 @@
 import React from "react";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { INTRO_SCENES } from "../../src/lib/onboarding-intro";
+import {
+  INTRO_MEDIA_SOURCES,
+  INTRO_SCENES,
+} from "../../src/lib/onboarding-intro";
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockLoadAsync = jest.fn().mockResolvedValue([]);
+const mockFromModule = jest.fn((moduleId: number) => ({
+  localUri: `asset://${moduleId}`,
+  uri: `asset://${moduleId}`,
+}));
 let mockParams: { preview?: string; scene?: string } = {};
 let mockAuthState: any = {
   user: null,
@@ -27,6 +35,13 @@ jest.mock("../../src/contexts/AuthContext", () => ({
 
 jest.mock("../../src/lib/analytics", () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
+
+jest.mock("expo-asset", () => ({
+  Asset: {
+    loadAsync: (...args: unknown[]) => mockLoadAsync(...args),
+    fromModule: (...args: unknown[]) => mockFromModule(...args),
+  },
 }));
 
 jest.mock("../../src/components/auth/OAuthButtons", () => {
@@ -80,6 +95,8 @@ describe("IntroScreen", () => {
     mockPush.mockClear();
     mockReplace.mockClear();
     mockTrackEvent.mockClear();
+    mockLoadAsync.mockClear();
+    mockFromModule.mockClear();
     mockParams = {};
     mockAuthState = {
       user: null,
@@ -96,12 +113,18 @@ describe("IntroScreen", () => {
     jest.useRealTimers();
   });
 
-  it("tracks intro impression and keeps login CTA hidden on the first scene", () => {
-    const { queryByTestId } = render(<IntroScreen />);
+  it("tracks intro impression and keeps login CTA hidden on the first scene", async () => {
+    const { getByTestId, queryByTestId } = render(<IntroScreen />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(
       mockTrackEvent.mock.calls.some(([event]) => event === "intro_impression"),
     ).toBe(true);
+    expect(getByTestId("intro-media-scene-1")).toBeTruthy();
+    expect(mockLoadAsync).toHaveBeenCalledWith(INTRO_MEDIA_SOURCES);
     expect(queryByTestId("oauth-buttons")).toBeNull();
     expect(queryByTestId("login-form")).toBeNull();
   });
@@ -109,6 +132,10 @@ describe("IntroScreen", () => {
   it("shows login by default and opens signup sheet on the final scene", async () => {
     mockParams = { scene: String(INTRO_SCENES.length) };
     const { getByTestId, getByText, queryByTestId } = render(<IntroScreen />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     await act(async () => {
       jest.advanceTimersByTime(4000);

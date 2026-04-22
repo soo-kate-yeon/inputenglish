@@ -107,6 +107,31 @@ export const LEARNING_GOAL_MODES = ["pronunciation", "expression"] as const;
 
 export type LearningGoalMode = (typeof LEARNING_GOAL_MODES)[number];
 
+export const SPEAKING_SITUATIONS = [
+  "일상 잡담",
+  "친구/연애",
+  "학교/업무",
+  "발표/회의",
+  "인터뷰",
+  "서비스직",
+  "자기소개/스몰토크",
+] as const;
+
+export type SpeakingSituation = (typeof SPEAKING_SITUATIONS)[number];
+
+export const VIDEO_CATEGORIES = [
+  "브이로그",
+  "영화 속 장면들",
+  "드라마 속 장면들",
+  "연설이나 강단 발표",
+  "정보성 팟캐스트/인터뷰",
+  "셀럽 인터뷰",
+  "최신 시사 이슈",
+  "티키타카를 배울 수 있는 팟캐스트/토크쇼",
+] as const;
+
+export type VideoCategory = (typeof VIDEO_CATEGORIES)[number];
+
 export interface LearningProfile {
   user_id: string;
   level_band: LearningLevelBand | null;
@@ -114,6 +139,7 @@ export interface LearningProfile {
   focus_tags: string[];
   preferred_speakers: string[];
   preferred_situations: string[];
+  preferred_video_categories: string[];
   onboarding_completed_at: string | null;
   updated_at?: string | null;
 }
@@ -305,6 +331,7 @@ export interface PlaybookEntry {
 export interface LearningSession {
   id: string;
   source_video_id: string;
+  longform_pack_id?: string | null;
   title: string;
   subtitle?: string;
   description?: string;
@@ -340,10 +367,75 @@ export interface SceneRecommendation {
   reason: string;
   learningPoints: string[];
   estimatedDuration: number; // seconds
+  difficulty?: "beginner" | "intermediate" | "advanced";
 }
 
 export interface SceneAnalysisResponse {
   scenes: SceneRecommendation[];
+  totalAnalyzed: number;
+}
+
+export interface LongformContext {
+  longform_pack_id?: string;
+  speaker_snapshot: string;
+  conversation_type: string;
+  core_topics: string[];
+  why_this_segment: string;
+  listening_takeaway: string;
+  generated_by?: string;
+  updated_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LongformPack {
+  id: string;
+  source_video_id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  duration: number;
+  sentence_ids: string[];
+  start_time: number;
+  end_time: number;
+  primary_speaker_id?: string | null;
+  primary_speaker_name?: string | null;
+  primary_speaker_slug?: string | null;
+  primary_speaker_description?: string | null;
+  primary_speaker_avatar_url?: string | null;
+  speaker_summary?: string | null;
+  talk_summary?: string | null;
+  topic_tags?: string[];
+  content_tags?: string[];
+  created_at: string;
+  created_by?: string | null;
+  updated_at?: string;
+  context?: LongformContext | null;
+  shorts?: LearningSession[];
+}
+
+export interface LongformRecommendation {
+  startIndex: number;
+  endIndex: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  reason: string;
+  speakerSummary: string;
+  conversationType: string;
+  topicTags: string[];
+  contentTags: string[];
+  estimatedDuration: number;
+}
+
+export interface ShortRecommendation extends SceneRecommendation {
+  patternFocus: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+}
+
+export interface ContentStructureAnalysisResponse {
+  longform: LongformRecommendation;
+  shorts: ShortRecommendation[];
   totalAnalyzed: number;
 }
 

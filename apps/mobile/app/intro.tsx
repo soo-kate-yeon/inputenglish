@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Dimensions,
@@ -16,6 +22,7 @@ import {
   Vibration,
   View,
 } from "react-native";
+import { Asset } from "expo-asset";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomSheet from "@/components/common/BottomSheet";
@@ -24,7 +31,11 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { SignupForm } from "@/components/auth/SignupForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
-import { INTRO_SCENES, type IntroScene } from "@/lib/onboarding-intro";
+import {
+  INTRO_MEDIA_SOURCES,
+  INTRO_SCENES,
+  type IntroScene,
+} from "@/lib/onboarding-intro";
 import { colors, font, radius, shadow, spacing } from "@/theme";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -41,6 +52,7 @@ function IntroSceneCard({
   onOpenSignupPress,
   onTypingTick,
   bottomInset,
+  mediaReady,
 }: {
   scene: IntroScene;
   isActive: boolean;
@@ -48,12 +60,23 @@ function IntroSceneCard({
   onOpenSignupPress: () => void;
   onTypingTick: () => void;
   bottomInset: number;
+  mediaReady: boolean;
 }) {
   const [visibleTitle, setVisibleTitle] = useState(isActive ? "" : scene.title);
   const [signupSheetVisible, setSignupSheetVisible] = useState(false);
   const bodyOpacity = useRef(new Animated.Value(1)).current;
   const ctaOpacity = useRef(new Animated.Value(isActive ? 0 : 1)).current;
   const lastTypingTickRef = useRef(0);
+  const resolvedMediaSource = useMemo(() => {
+    if (!scene.mediaSource) return undefined;
+    if (!mediaReady) return scene.mediaSource;
+
+    const asset = Asset.fromModule(scene.mediaSource);
+    const assetUri = asset.localUri ?? asset.uri;
+
+    return assetUri ? { uri: assetUri } : scene.mediaSource;
+  }, [mediaReady, scene.mediaSource]);
+  const isLoginScene = isFinalScene && scene.showLoginCta;
 
   useEffect(() => {
     if (!isActive) {
@@ -107,6 +130,91 @@ function IntroSceneCard({
     scene.title,
   ]);
 
+  if (isLoginScene) {
+    return (
+      <KeyboardAvoidingView
+        style={styles.sceneFrame}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          style={styles.loginSceneScroll}
+          contentContainerStyle={[
+            styles.loginSceneContent,
+            {
+              paddingBottom: spacing["3xl"] + bottomInset,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.sceneHeader, styles.loginSceneHeader]}>
+            <Text style={styles.sceneTitle}>{visibleTitle}</Text>
+          </View>
+
+          <Animated.View style={[styles.sceneBody, { opacity: bodyOpacity }]}>
+            {scene.citation ? (
+              <Text
+                style={[
+                  styles.sceneCitation,
+                  scene.id === "scene-2" && styles.sceneCitationCompact,
+                ]}
+              >
+                출처: {scene.citation}
+              </Text>
+            ) : null}
+          </Animated.View>
+
+          {isActive ? (
+            <Animated.View
+              style={[styles.authStackWrap, { opacity: ctaOpacity }]}
+            >
+              <View style={styles.authStackContent}>
+                <OAuthButtons />
+
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <View style={styles.dividerTextWrap}>
+                    <Text style={styles.dividerText}>또는</Text>
+                  </View>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <LoginForm />
+
+                <View style={styles.footer}>
+                  <Text style={styles.footerText}>
+                    아직 계정이 없으신가요?{" "}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setSignupSheetVisible(true);
+                      onOpenSignupPress();
+                    }}
+                  >
+                    <Text style={styles.footerLink}>회원가입</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </Animated.View>
+          ) : null}
+
+          <BottomSheet
+            visible={signupSheetVisible}
+            onClose={() => setSignupSheetVisible(false)}
+          >
+            <View style={styles.signupSheetContent}>
+              <Text style={styles.signupSheetTitle}>이메일로 회원가입</Text>
+              <Text style={styles.signupSheetBody}>
+                몇 가지 정보만 입력하면 바로 시작할 수 있어요.
+              </Text>
+              <SignupForm />
+            </View>
+          </BottomSheet>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
   return (
     <View
       style={[
@@ -120,24 +228,23 @@ function IntroSceneCard({
         <Text style={styles.sceneTitle}>{visibleTitle}</Text>
       </View>
 
-      {!(isFinalScene && scene.showLoginCta) ? (
-        <View style={styles.mediaWrap}>
-          <View style={styles.mediaPlaceholder}>
-            {scene.mediaSource ? (
-              <Image
-                source={scene.mediaSource}
-                style={styles.mediaImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.mediaFallbackContent}>
-                <Text style={styles.mediaBadge}>IMAGE / VIDEO</Text>
-                <Text style={styles.mediaLabel}>{scene.mediaLabel}</Text>
-              </View>
-            )}
-          </View>
+      <View style={styles.mediaWrap}>
+        <View style={styles.mediaPlaceholder}>
+          {scene.mediaSource ? (
+            <Image
+              source={resolvedMediaSource}
+              style={styles.mediaImage}
+              resizeMode="cover"
+              testID={`intro-media-${scene.id}`}
+            />
+          ) : (
+            <View style={styles.mediaFallbackContent}>
+              <Text style={styles.mediaBadge}>IMAGE / VIDEO</Text>
+              <Text style={styles.mediaLabel}>{scene.mediaLabel}</Text>
+            </View>
+          )}
         </View>
-      ) : null}
+      </View>
 
       <Animated.View style={[styles.sceneBody, { opacity: bodyOpacity }]}>
         {scene.citation ? (
@@ -158,45 +265,6 @@ function IntroSceneCard({
             옆으로 밀어서 다음 페이지 보기
           </Text>
         </View>
-      ) : null}
-
-      {isFinalScene && scene.showLoginCta && isActive ? (
-        <Animated.View style={[styles.authStackWrap, { opacity: ctaOpacity }]}>
-          <View style={styles.authStackSpacer} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
-            <ScrollView
-              contentContainerStyle={styles.authStackContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <OAuthButtons />
-
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <View style={styles.dividerTextWrap}>
-                  <Text style={styles.dividerText}>또는</Text>
-                </View>
-                <View style={styles.dividerLine} />
-              </View>
-
-              <LoginForm />
-
-              <View style={styles.footer}>
-                <Text style={styles.footerText}>아직 계정이 없으신가요? </Text>
-                <Pressable
-                  onPress={() => {
-                    setSignupSheetVisible(true);
-                    onOpenSignupPress();
-                  }}
-                >
-                  <Text style={styles.footerLink}>회원가입</Text>
-                </Pressable>
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </Animated.View>
       ) : null}
 
       <BottomSheet
@@ -223,6 +291,7 @@ export default function IntroScreen() {
   const insets = useSafeAreaInsets();
   const { user, learningProfile, isInitialized, isProfileLoading } = useAuth();
   const lastHapticAtRef = useRef(0);
+  const [mediaReady, setMediaReady] = useState(false);
   const [activeIndex, setActiveIndex] = useState(() => {
     const parsedIndex = Number(scene ?? "1") - 1;
     if (!Number.isFinite(parsedIndex)) return 0;
@@ -250,6 +319,24 @@ export default function IntroScreen() {
     learningProfile?.onboarding_completed_at,
     user,
   ]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    Asset.loadAsync(INTRO_MEDIA_SOURCES)
+      .then(() => {
+        if (mounted) {
+          setMediaReady(true);
+        }
+      })
+      .catch((error) => {
+        console.warn("[Intro] Failed to preload intro artwork:", error);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     trackEvent("intro_impression", {
@@ -310,6 +397,7 @@ export default function IntroScreen() {
               onOpenSignupPress={handleOpenSignupPress}
               onTypingTick={playTypingTick}
               bottomInset={insets.bottom}
+              mediaReady={mediaReady}
             />
           </View>
         )}
@@ -335,6 +423,9 @@ const styles = StyleSheet.create({
     minHeight: TITLE_BLOCK_HEIGHT,
     justifyContent: "flex-start",
     paddingHorizontal: spacing.lg,
+  },
+  loginSceneHeader: {
+    minHeight: 112,
   },
   sceneTitle: {
     color: colors.text,
@@ -413,12 +504,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   authStackWrap: {
-    flex: 1,
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
   },
-  authStackSpacer: {
+  loginSceneScroll: {
     flex: 1,
-    minHeight: spacing.xl,
+  },
+  loginSceneContent: {
+    flexGrow: 1,
+    paddingTop: spacing.xl,
   },
   authStackContent: {
     gap: spacing.md,

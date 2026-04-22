@@ -287,6 +287,17 @@ export default function ProfileScreen() {
         day: "numeric",
       })
     : null;
+  const lastSignInDate = user?.last_sign_in_at
+    ? new Date(user.last_sign_in_at).toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : null;
+  const identityMetaItems = [
+    joinDate ? `가입일 ${joinDate}` : null,
+    lastSignInDate ? `마지막 로그인 ${lastSignInDate}` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -310,8 +321,14 @@ export default function ProfileScreen() {
             <Text style={styles.identityEmail} numberOfLines={1}>
               {user?.email ?? "로그인이 필요합니다"}
             </Text>
-            {joinDate ? (
-              <Text style={styles.identityMeta}>가입일 {joinDate}</Text>
+            {identityMetaItems.length > 0 ? (
+              <View style={styles.identityMetaBlock}>
+                {identityMetaItems.map((item) => (
+                  <Text key={item} style={styles.identityMetaLine}>
+                    {item}
+                  </Text>
+                ))}
+              </View>
             ) : null}
           </View>
         </View>
@@ -359,9 +376,19 @@ export default function ProfileScreen() {
               last
               right={
                 <Text style={styles.settingValue} numberOfLines={2}>
-                  {learningProfile?.focus_tags?.length
-                    ? learningProfile.focus_tags.join(", ")
-                    : "아직 설정 안됨"}
+                  {learningProfile?.goal_mode === "pronunciation" &&
+                  learningProfile.preferred_speakers.length > 0
+                    ? learningProfile.preferred_speakers.join(", ")
+                    : learningProfile?.goal_mode === "expression" &&
+                        (learningProfile.preferred_situations.length > 0 ||
+                          learningProfile.preferred_video_categories.length > 0)
+                      ? [
+                          ...learningProfile.preferred_situations,
+                          ...learningProfile.preferred_video_categories,
+                        ].join(", ")
+                      : learningProfile?.focus_tags?.length
+                        ? learningProfile.focus_tags.join(", ")
+                        : "아직 설정 안됨"}
                 </Text>
               }
             />
@@ -548,7 +575,7 @@ const styles = StyleSheet.create({
   // Identity row (no plan badge — banner handles it now)
   identityRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
   },
   avatar: {
@@ -567,7 +594,8 @@ const styles = StyleSheet.create({
   },
   identityInfo: {
     flex: 1,
-    gap: 3,
+    gap: 6,
+    paddingTop: 2,
   },
   identityEmail: {
     fontSize: 17,
@@ -575,10 +603,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: 0.1,
   },
-  identityMeta: {
+  identityMetaBlock: {
+    gap: 2,
+  },
+  identityMetaLine: {
     fontSize: 13,
     color: colors.textSecondary,
     letterSpacing: 0.2,
+    flexShrink: 1,
   },
 
   // Group (label + surface)

@@ -13,6 +13,8 @@ interface ScriptLineProps {
   isLooping: boolean;
   isSaved: boolean;
   scriptHidden: boolean;
+  showActions?: boolean;
+  tone?: "light" | "dark";
   showTranslation?: boolean;
   onTap: (sentence: Sentence) => void;
   onLongPress?: (sentence: Sentence) => void;
@@ -28,6 +30,8 @@ function ScriptLine({
   isLooping,
   isSaved,
   scriptHidden,
+  showActions = true,
+  tone = "light",
   showTranslation = false,
   onTap,
   onLongPress,
@@ -36,7 +40,12 @@ function ScriptLine({
 }: ScriptLineProps) {
   return (
     <TouchableOpacity
-      style={[styles.container, isActive && styles.containerActive]}
+      style={[
+        styles.container,
+        tone === "dark" && styles.containerDark,
+        isActive && styles.containerActive,
+        isActive && tone === "dark" && styles.containerDarkActive,
+      ]}
       onPress={() => onTap(sentence)}
       onLongPress={onLongPress ? () => onLongPress(sentence) : undefined}
       delayLongPress={400}
@@ -46,24 +55,44 @@ function ScriptLine({
         <Text
           style={[
             styles.text,
+            tone === "dark" && styles.textDark,
             isActive && styles.textActive,
+            isActive && tone === "dark" && styles.textDarkActive,
             scriptHidden && styles.textHidden,
+            scriptHidden && tone === "dark" && styles.textHiddenDark,
           ]}
         >
           {scriptHidden ? "• • •" : sentence.text}
         </Text>
         {showTranslation && sentence.translation ? (
           <Text
-            style={[styles.translation, isActive && styles.translationActive]}
+            style={[
+              styles.translation,
+              tone === "dark" && styles.translationDark,
+              isActive && styles.translationActive,
+              isActive && tone === "dark" && styles.translationDarkActive,
+            ]}
           >
             {sentence.translation}
           </Text>
         ) : null}
       </View>
-      <View style={styles.actions}>
-        <LoopToggle active={isLooping} onPress={() => onLoopToggle(sentence)} />
-        <SaveToggle active={isSaved} onPress={() => onSaveToggle(sentence)} />
-      </View>
+      {showActions ? (
+        <View style={styles.actions}>
+          <LoopToggle
+            active={isLooping}
+            tinted={tone === "dark"}
+            onPress={() => onLoopToggle(sentence)}
+          />
+          <SaveToggle
+            active={isSaved}
+            tinted={tone === "dark"}
+            onPress={() => onSaveToggle(sentence)}
+          />
+        </View>
+      ) : (
+        <View style={styles.actionsSpacer} />
+      )}
     </TouchableOpacity>
   );
 }
@@ -80,6 +109,14 @@ const styles = StyleSheet.create({
   },
 
   containerActive: {},
+  containerDark: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderOnDark,
+    backgroundColor: "transparent",
+  },
+  containerDarkActive: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
 
   content: {
     flex: 1,
@@ -93,15 +130,22 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontWeight: font.weight.regular,
   },
+  textDark: {
+    color: colors.textOnDarkMuted,
+  },
   textActive: {
     color: colors.text,
-    fontWeight: font.weight.bold,
-    fontSize: font.size.lg,
-    lineHeight: 30,
+    fontWeight: font.weight.medium,
+  },
+  textDarkActive: {
+    color: colors.textOnDark,
   },
   textHidden: {
     color: colors.border,
     letterSpacing: 4,
+  },
+  textHiddenDark: {
+    color: colors.borderOnDarkStrong,
   },
 
   translation: {
@@ -112,11 +156,21 @@ const styles = StyleSheet.create({
   translationActive: {
     color: colors.textSecondary,
   },
+  translationDark: {
+    color: colors.textOnDarkSecondary,
+  },
+  translationDarkActive: {
+    color: colors.textOnDarkSecondary,
+  },
 
   actions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingTop: 2,
+  },
+  actionsSpacer: {
+    width: 72,
+    flexShrink: 0,
   },
 });

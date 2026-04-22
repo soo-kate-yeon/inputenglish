@@ -1,4 +1,4 @@
-import type { ImageSourcePropType } from "react-native";
+export type IntroMediaSource = number;
 
 export type IntroScene = {
   id: string;
@@ -12,12 +12,12 @@ export type IntroScene = {
   //           the actual scene artwork. Passing the require() result directly
   //           to <Image source={...}> lets Metro resolve the bundled asset
   //           synchronously in both dev and production.
-  mediaSource?: ImageSourcePropType;
+  mediaSource?: IntroMediaSource;
   citation?: string;
   showLoginCta?: boolean;
 };
 
-const INTRO_MEDIA_SOURCES: ImageSourcePropType[] = [
+export const INTRO_MEDIA_SOURCES: IntroMediaSource[] = [
   require("../../assets/images/onboarding/onboarding_1.png"),
   require("../../assets/images/onboarding/onboarding_2.png"),
   require("../../assets/images/onboarding/onboarding_3.png"),
@@ -72,20 +72,6 @@ export const INTRO_SCENES: IntroScene[] = [
       "그 수천 번으로 향하는 과정을 돕기 위해 인풋영어(InputEnglish)를 만들었어요.",
     mediaLabel: "셀럽 인터뷰와 실무 인터뷰를 상징하는 placeholder",
     mediaSource: INTRO_MEDIA_SOURCES[5],
-  },
-  {
-    id: "scene-7",
-    title:
-      "영어를 좀 하세요? 잘됐네요. 연습 기능으로 문장을 만들어보세요. 업계 리드급들의 최신 인터뷰로 역량 업그레이드까지 하시고요.",
-    mediaLabel: "실무 인터뷰와 고급 인풋을 상징하는 placeholder",
-    mediaSource: INTRO_MEDIA_SOURCES[6],
-  },
-  {
-    id: "scene-8",
-    title:
-      "영어를 못하세요? 잘 오셨어요. 일단 그냥 매일 듣고 읽고, 따라해보세요. 공부하기 싫으면 좋아하는 셀럽 인터뷰나 영화라도 보러 오세요.",
-    mediaLabel: "셀럽 인터뷰와 영화 장면을 상징하는 placeholder",
-    mediaSource: INTRO_MEDIA_SOURCES[7],
   },
   {
     id: "scene-9",

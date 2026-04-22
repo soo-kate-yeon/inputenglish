@@ -8,6 +8,8 @@ import type {
   CuratedVideo,
   FeaturedSpeaker,
   Genre,
+  LongformContext,
+  LongformPack,
   PlaybookEntry,
   PlaybookMasteryStatus,
   PracticeAttempt,
@@ -17,6 +19,7 @@ import type {
   SessionContext,
   SessionRoleRelevance,
   SessionSourceType,
+  Sentence,
   Speaker,
 } from "@inputenglish/shared";
 import { buildDefaultPracticePrompts } from "./professional-practice";
@@ -45,6 +48,7 @@ export async function fetchCuratedVideos(): Promise<VideoListItem[]> {
 export interface SessionListItem {
   id: string;
   source_video_id: string;
+  longform_pack_id?: string | null;
   title: string;
   subtitle?: string;
   description?: string;
@@ -58,31 +62,89 @@ export interface SessionListItem {
   channel_name?: string;
   source_type?: SessionSourceType;
   genre?: Genre;
+  video_categories?: string[];
+  speaking_situations?: string[];
   role_relevance?: SessionRoleRelevance[];
   premium_required?: boolean;
   expected_takeaway?: string;
   context?: SessionContext | null;
+  primary_speaker_name?: string;
+  primary_speaker_slug?: string;
+  speaker_names?: string[];
 }
 
 const SESSION_SELECT =
-  "id, source_video_id, title, subtitle, description, duration, difficulty, thumbnail_url, order_index, source_type, genre, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+  "id, source_video_id, longform_pack_id, title, subtitle, description, duration, start_time, end_time, sentence_ids, difficulty, thumbnail_url, order_index, source_type, genre, video_categories, speaking_situations, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+
+const LONGFORM_PACK_SELECT = `
+  id,
+  source_video_id,
+  title,
+  subtitle,
+  description,
+  duration,
+  sentence_ids,
+  start_time,
+  end_time,
+  primary_speaker_id,
+  speaker_summary,
+  talk_summary,
+  topic_tags,
+  content_tags,
+  created_at,
+  created_by,
+  updated_at,
+  context:longform_contexts (
+    longform_pack_id,
+    speaker_snapshot,
+    conversation_type,
+    core_topics,
+    why_this_segment,
+    listening_takeaway,
+    generated_by,
+    updated_by,
+    created_at,
+    updated_at
+  )
+` as const;
+
+interface SessionSpeakerMeta {
+  primaryName?: string;
+  primarySlug?: string;
+  speakerNames: string[];
+}
 
 const FEED_PAGE_SIZE = 20;
 
 function mapSessionRow(
   s: any,
   video?: { thumbnail_url?: string; channel_name?: string } | null,
+  speakerMeta?: SessionSpeakerMeta,
 ): SessionListItem {
   return {
     id: s.id,
     source_video_id: s.source_video_id,
+    longform_pack_id:
+      typeof s.longform_pack_id === "string" ? s.longform_pack_id : null,
     title: s.title,
     subtitle: s.subtitle || undefined,
     description: s.description || undefined,
     duration: Number(s.duration),
+    start_time:
+      typeof s.start_time === "number" ? Number(s.start_time) : undefined,
+    end_time: typeof s.end_time === "number" ? Number(s.end_time) : undefined,
+    sentence_ids: Array.isArray(s.sentence_ids)
+      ? (s.sentence_ids as string[])
+      : [],
     difficulty: s.difficulty as SessionListItem["difficulty"],
     source_type: s.source_type as SessionListItem["source_type"],
     genre: s.genre as SessionListItem["genre"],
+    video_categories: Array.isArray(s.video_categories)
+      ? (s.video_categories as string[])
+      : [],
+    speaking_situations: Array.isArray(s.speaking_situations)
+      ? (s.speaking_situations as string[])
+      : [],
     role_relevance:
       (s.role_relevance as SessionListItem["role_relevance"]) || [],
     premium_required: Boolean(s.premium_required),
@@ -92,12 +154,52 @@ function mapSessionRow(
       `https://img.youtube.com/vi/${s.source_video_id}/hqdefault.jpg`,
     order_index: s.order_index,
     channel_name: video?.channel_name || undefined,
+    primary_speaker_name: speakerMeta?.primaryName,
+    primary_speaker_slug: speakerMeta?.primarySlug,
+    speaker_names: speakerMeta?.speakerNames ?? [],
     expected_takeaway:
       (Array.isArray(s.session_contexts)
         ? s.session_contexts[0]?.expected_takeaway
         : (s.session_contexts as { expected_takeaway?: string } | null)
             ?.expected_takeaway) || undefined,
   };
+}
+
+function resolveSentenceRange(
+  transcript: Sentence[],
+  sentenceIds: string[],
+  startTime: number,
+  endTime: number,
+): Sentence[] {
+  if (sentenceIds.length > 0) {
+    const matched = sentenceIds
+      .map((sentenceId) =>
+        transcript.find((sentence) => sentence.id === sentenceId),
+      )
+      .filter((sentence): sentence is Sentence => Boolean(sentence));
+
+    if (matched.length > 0) {
+      return matched;
+    }
+
+    return [];
+  }
+
+  return transcript.filter((sentence) => {
+    return sentence.endTime >= startTime && sentence.startTime <= endTime;
+  });
+}
+
+export interface LongformPackDetail extends Omit<
+  LongformPack,
+  "shorts" | "context"
+> {
+  context: LongformContext | null;
+  shorts: SessionListItem[];
+  source_video: CuratedVideo;
+  transcript: Sentence[];
+  channel_name?: string;
+  thumbnail_url?: string;
 }
 
 async function enrichWithVideos(
@@ -112,6 +214,58 @@ async function enrichWithVideos(
   return new Map((videos ?? []).map((v) => [v.video_id, v]));
 }
 
+async function enrichWithSpeakers(
+  sessions: { source_video_id: string }[],
+): Promise<Map<string, SessionSpeakerMeta>> {
+  const videoIds = [...new Set(sessions.map((s) => s.source_video_id))];
+  if (videoIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("video_speakers")
+    .select("video_id, is_primary, speakers(name, slug)")
+    .in("video_id", videoIds);
+
+  if (error) throw error;
+
+  const speakerMap = new Map<string, SessionSpeakerMeta>();
+
+  for (const row of data ?? []) {
+    const videoId = row.video_id as string | undefined;
+    const speakerRow = Array.isArray(row.speakers)
+      ? row.speakers[0]
+      : row.speakers;
+    const speakerName =
+      speakerRow && typeof speakerRow.name === "string"
+        ? speakerRow.name
+        : undefined;
+    const speakerSlug =
+      speakerRow && typeof speakerRow.slug === "string"
+        ? speakerRow.slug
+        : undefined;
+
+    if (!videoId || !speakerName) continue;
+
+    const current = speakerMap.get(videoId) ?? {
+      primaryName: undefined,
+      primarySlug: undefined,
+      speakerNames: [],
+    };
+
+    if (!current.speakerNames.includes(speakerName)) {
+      current.speakerNames.push(speakerName);
+    }
+
+    if (row.is_primary || !current.primaryName) {
+      current.primaryName = speakerName;
+      current.primarySlug = speakerSlug;
+    }
+
+    speakerMap.set(videoId, current);
+  }
+
+  return speakerMap;
+}
+
 export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   const { data: sessions, error: sessionsError } = await supabase
     .from("learning_sessions")
@@ -122,7 +276,14 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   if (!sessions || sessions.length === 0) return [];
 
   const videoMap = await enrichWithVideos(sessions);
-  return sessions.map((s) => mapSessionRow(s, videoMap.get(s.source_video_id)));
+  const speakerMap = await enrichWithSpeakers(sessions);
+  return sessions.map((s) =>
+    mapSessionRow(
+      s,
+      videoMap.get(s.source_video_id),
+      speakerMap.get(s.source_video_id),
+    ),
+  );
 }
 
 export interface FeedFilters {
@@ -164,8 +325,13 @@ export async function fetchLearningSessionsPaginated(
     return { sessions: [], hasMore: false };
 
   const videoMap = await enrichWithVideos(sessions);
+  const speakerMap = await enrichWithSpeakers(sessions);
   const mapped = sessions.map((s) =>
-    mapSessionRow(s, videoMap.get(s.source_video_id)),
+    mapSessionRow(
+      s,
+      videoMap.get(s.source_video_id),
+      speakerMap.get(s.source_video_id),
+    ),
   );
 
   return { sessions: mapped, hasMore: sessions.length === FEED_PAGE_SIZE };
@@ -203,10 +369,15 @@ export async function fetchContinueLearning(
   if (!sessions || sessions.length === 0) return [];
 
   const videoMap = await enrichWithVideos(sessions);
+  const speakerMap = await enrichWithSpeakers(sessions);
   const sessionMap = new Map(
     sessions.map((s) => [
       s.id,
-      mapSessionRow(s, videoMap.get(s.source_video_id)),
+      mapSessionRow(
+        s,
+        videoMap.get(s.source_video_id),
+        speakerMap.get(s.source_video_id),
+      ),
     ]),
   );
 
@@ -229,10 +400,15 @@ export async function fetchSessionsByIds(
   if (!sessions || sessions.length === 0) return [];
 
   const videoMap = await enrichWithVideos(sessions);
+  const speakerMap = await enrichWithSpeakers(sessions);
   const sessionMap = new Map(
     sessions.map((s) => [
       s.id,
-      mapSessionRow(s, videoMap.get(s.source_video_id)),
+      mapSessionRow(
+        s,
+        videoMap.get(s.source_video_id),
+        speakerMap.get(s.source_video_id),
+      ),
     ]),
   );
 
@@ -251,6 +427,7 @@ export async function fetchLearningSessionDetail(
       `
         id,
         source_video_id,
+        longform_pack_id,
         title,
         subtitle,
         description,
@@ -263,6 +440,8 @@ export async function fetchLearningSessionDetail(
         order_index,
         source_type,
         genre,
+        video_categories,
+        speaking_situations,
         role_relevance,
         premium_required,
         context:session_contexts (
@@ -285,6 +464,11 @@ export async function fetchLearningSessionDetail(
   if (error) throw error;
   if (!data) return null;
 
+  const speakerMap = await enrichWithSpeakers([
+    { source_video_id: data.source_video_id },
+  ]);
+  const speakerMeta = speakerMap.get(data.source_video_id);
+
   const context = Array.isArray(data.context)
     ? (data.context[0] as SessionContext | undefined)
     : (data.context as SessionContext | null);
@@ -292,6 +476,8 @@ export async function fetchLearningSessionDetail(
   return {
     id: data.id,
     source_video_id: data.source_video_id,
+    longform_pack_id:
+      typeof data.longform_pack_id === "string" ? data.longform_pack_id : null,
     title: data.title,
     subtitle: data.subtitle || undefined,
     description: data.description || undefined,
@@ -310,9 +496,18 @@ export async function fetchLearningSessionDetail(
     order_index: data.order_index,
     source_type: data.source_type as SessionListItem["source_type"],
     genre: data.genre as SessionListItem["genre"],
+    video_categories: Array.isArray(data.video_categories)
+      ? (data.video_categories as string[])
+      : [],
+    speaking_situations: Array.isArray(data.speaking_situations)
+      ? (data.speaking_situations as string[])
+      : [],
     role_relevance:
       (data.role_relevance as SessionListItem["role_relevance"]) || [],
     premium_required: Boolean(data.premium_required),
+    primary_speaker_name: speakerMeta?.primaryName,
+    primary_speaker_slug: speakerMeta?.primarySlug,
+    speaker_names: speakerMeta?.speakerNames ?? [],
     context: context
       ? {
           ...context,
@@ -321,6 +516,123 @@ export async function fetchLearningSessionDetail(
         }
       : null,
   };
+}
+
+export async function fetchLongformPackDetail(
+  packId: string,
+): Promise<LongformPackDetail | null> {
+  try {
+    const { data: packData, error: packError } = await supabase
+      .from("longform_packs")
+      .select(LONGFORM_PACK_SELECT)
+      .eq("id", packId)
+      .maybeSingle();
+
+    if (packError) throw packError;
+    if (!packData) return null;
+
+    const [videoResult, shortsResult, speakerResult] = await Promise.all([
+      supabase
+        .from("curated_videos")
+        .select("*")
+        .eq("video_id", packData.source_video_id)
+        .single(),
+      supabase
+        .from("learning_sessions")
+        .select(SESSION_SELECT)
+        .eq("longform_pack_id", packId)
+        .order("order_index", { ascending: true }),
+      packData.primary_speaker_id
+        ? supabase
+            .from("speakers")
+            .select("name, slug, headline, avatar_url")
+            .eq("id", packData.primary_speaker_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (videoResult.error) throw videoResult.error;
+    if (shortsResult.error) throw shortsResult.error;
+    if (speakerResult.error) throw speakerResult.error;
+
+    const sourceVideo = videoResult.data as CuratedVideo;
+    const rawShorts = shortsResult.data ?? [];
+    const context = Array.isArray(packData.context)
+      ? ((packData.context[0] ?? null) as LongformContext | null)
+      : ((packData.context ?? null) as LongformContext | null);
+    const videoMap = await enrichWithVideos(rawShorts);
+    const speakerMap = await enrichWithSpeakers(rawShorts);
+    const transcript = resolveSentenceRange(
+      sourceVideo?.transcript ?? [],
+      Array.isArray(packData.sentence_ids) ? packData.sentence_ids : [],
+      Number(packData.start_time ?? 0),
+      Number(packData.end_time ?? 0),
+    );
+
+    return {
+      id: packData.id,
+      source_video_id: packData.source_video_id,
+      title: packData.title,
+      subtitle: packData.subtitle || undefined,
+      description: packData.description || undefined,
+      duration: Number(packData.duration),
+      sentence_ids: Array.isArray(packData.sentence_ids)
+        ? (packData.sentence_ids as string[])
+        : [],
+      start_time: Number(packData.start_time),
+      end_time: Number(packData.end_time),
+      primary_speaker_id: packData.primary_speaker_id ?? null,
+      primary_speaker_name: speakerResult.data?.name ?? null,
+      primary_speaker_slug: speakerResult.data?.slug ?? null,
+      primary_speaker_description: speakerResult.data?.headline ?? null,
+      primary_speaker_avatar_url: speakerResult.data?.avatar_url ?? null,
+      speaker_summary: packData.speaker_summary ?? null,
+      talk_summary: packData.talk_summary ?? null,
+      topic_tags: Array.isArray(packData.topic_tags)
+        ? (packData.topic_tags as string[])
+        : [],
+      content_tags: Array.isArray(packData.content_tags)
+        ? (packData.content_tags as string[])
+        : [],
+      created_at: packData.created_at,
+      created_by: packData.created_by ?? null,
+      updated_at: packData.updated_at ?? undefined,
+      context: context
+        ? {
+            ...context,
+            core_topics: Array.isArray(context.core_topics)
+              ? context.core_topics
+              : [],
+          }
+        : null,
+      shorts: rawShorts.map((session) =>
+        mapSessionRow(
+          session,
+          videoMap.get(session.source_video_id),
+          speakerMap.get(session.source_video_id),
+        ),
+      ),
+      source_video: sourceVideo,
+      transcript,
+      channel_name: sourceVideo.channel_name,
+      thumbnail_url:
+        sourceVideo.thumbnail_url ||
+        `https://img.youtube.com/vi/${packData.source_video_id}/hqdefault.jpg`,
+    };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("longform_packs") ||
+        error.message.includes("longform_contexts") ||
+        error.message.includes("longform_pack_id"))
+    ) {
+      throw new Error(
+        "롱폼 계층용 DB 스키마가 아직 반영되지 않았어요. 최신 마이그레이션을 먼저 적용해주세요.",
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function fetchCuratedVideo(

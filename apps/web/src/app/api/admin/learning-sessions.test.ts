@@ -6,6 +6,13 @@ const selectEq = vi.fn(() => Promise.resolve({ data: [{ id: "existing-1" }] }));
 const upsertSelect = vi.fn(() => Promise.resolve({ error: null }));
 const contextUpsert = vi.fn(() => Promise.resolve({ error: null }));
 
+vi.mock("@/utils/supabase/admin-auth", () => ({
+  requireAdmin: vi.fn(async () => ({
+    id: "admin-user",
+    email: "admin@example.com",
+  })),
+}));
+
 const adminClient = {
   from: vi.fn((table: string) => {
     if (table === "learning_sessions") {
@@ -60,6 +67,7 @@ describe("POST /api/admin/learning-sessions", () => {
             {
               id: "11111111-1111-4111-8111-111111111111",
               source_video_id: "video-1",
+              longform_pack_id: "22222222-2222-4222-8222-222222222222",
               title: "데모로 배우는 지표 설명하는 법",
               description: "설명 흐름을 연습해요.",
               start_time: 0,

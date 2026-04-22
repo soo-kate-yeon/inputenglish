@@ -49,6 +49,7 @@ export function RootLayoutNav() {
     if (user && isProfileLoading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const inIntro = segments[0] === "intro";
     const inOnboarding = segments[0] === "onboarding";
     const isOnboardingEditMode = edit === "1";
     const hasCompletedOnboarding = Boolean(
@@ -63,7 +64,7 @@ export function RootLayoutNav() {
     if (
       user &&
       hasCompletedOnboarding &&
-      (inAuthGroup || (inOnboarding && !isOnboardingEditMode))
+      (inAuthGroup || inIntro || (inOnboarding && !isOnboardingEditMode))
     ) {
       router.replace("/(tabs)");
     }
@@ -167,6 +168,12 @@ export function RootLayoutNav() {
             headerShadowVisible: false,
             headerBackButtonDisplayMode: "minimal",
             gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="longform/[packId]"
+          options={{
+            headerShown: false,
           }}
         />
         <Stack.Screen

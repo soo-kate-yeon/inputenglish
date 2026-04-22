@@ -56,9 +56,18 @@ DO $$ BEGIN CREATE POLICY "Users can update their own sessions" ON public.sessio
 DO $$ BEGIN CREATE POLICY "Users can delete their own sessions" ON public.sessions FOR DELETE USING (auth.uid() = user_id); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Unique constraint
-DO $$ BEGIN
-  ALTER TABLE public.sessions ADD CONSTRAINT sessions_user_video_unique UNIQUE (user_id, video_id);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'sessions_user_video_unique'
+      AND conrelid = 'public.sessions'::regclass
+  ) THEN
+    ALTER TABLE public.sessions
+      ADD CONSTRAINT sessions_user_video_unique UNIQUE (user_id, video_id);
+  END IF;
+END $$;
 
 -- 3. Highlights table
 CREATE TABLE IF NOT EXISTS public.highlights (

@@ -7,7 +7,7 @@ import storage from "./mmkv";
 import { supabase } from "./supabase";
 
 const PROFILE_SELECT =
-  "id, level_band, goal_mode, focus_tags, preferred_speakers, preferred_situations, onboarding_completed_at, updated_at" as const;
+  "id, level_band, goal_mode, focus_tags, preferred_speakers, preferred_situations, preferred_video_categories, onboarding_completed_at, updated_at" as const;
 
 function profileCacheKey(userId: string) {
   return `learning-profile:${userId}`;
@@ -26,6 +26,9 @@ function mapRowToLearningProfile(row: any): LearningProfile {
     focus_tags: normalizeStringArray(row.focus_tags),
     preferred_speakers: normalizeStringArray(row.preferred_speakers),
     preferred_situations: normalizeStringArray(row.preferred_situations),
+    preferred_video_categories: normalizeStringArray(
+      row.preferred_video_categories,
+    ),
     onboarding_completed_at: row.onboarding_completed_at ?? null,
     updated_at: row.updated_at ?? null,
   };
@@ -85,6 +88,9 @@ export async function updateLearningProfile(
       : {}),
     ...(patch.preferred_situations !== undefined
       ? { preferred_situations: patch.preferred_situations }
+      : {}),
+    ...(patch.preferred_video_categories !== undefined
+      ? { preferred_video_categories: patch.preferred_video_categories }
       : {}),
     ...(patch.onboarding_completed_at !== undefined
       ? { onboarding_completed_at: patch.onboarding_completed_at }
