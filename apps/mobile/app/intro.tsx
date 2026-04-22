@@ -123,9 +123,9 @@ function IntroSceneCard({
       {!(isFinalScene && scene.showLoginCta) ? (
         <View style={styles.mediaWrap}>
           <View style={styles.mediaPlaceholder}>
-            {scene.mediaUri ? (
+            {scene.mediaSource ? (
               <Image
-                source={{ uri: scene.mediaUri }}
+                source={scene.mediaSource}
                 style={styles.mediaImage}
                 resizeMode="cover"
               />
