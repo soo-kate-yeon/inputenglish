@@ -331,6 +331,7 @@ export interface PlaybookEntry {
 export interface LearningSession {
   id: string;
   source_video_id: string;
+  longform_pack_id?: string | null;
   title: string;
   subtitle?: string;
   description?: string;
@@ -366,10 +367,75 @@ export interface SceneRecommendation {
   reason: string;
   learningPoints: string[];
   estimatedDuration: number; // seconds
+  difficulty?: "beginner" | "intermediate" | "advanced";
 }
 
 export interface SceneAnalysisResponse {
   scenes: SceneRecommendation[];
+  totalAnalyzed: number;
+}
+
+export interface LongformContext {
+  longform_pack_id?: string;
+  speaker_snapshot: string;
+  conversation_type: string;
+  core_topics: string[];
+  why_this_segment: string;
+  listening_takeaway: string;
+  generated_by?: string;
+  updated_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LongformPack {
+  id: string;
+  source_video_id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  duration: number;
+  sentence_ids: string[];
+  start_time: number;
+  end_time: number;
+  primary_speaker_id?: string | null;
+  primary_speaker_name?: string | null;
+  primary_speaker_slug?: string | null;
+  primary_speaker_description?: string | null;
+  primary_speaker_avatar_url?: string | null;
+  speaker_summary?: string | null;
+  talk_summary?: string | null;
+  topic_tags?: string[];
+  content_tags?: string[];
+  created_at: string;
+  created_by?: string | null;
+  updated_at?: string;
+  context?: LongformContext | null;
+  shorts?: LearningSession[];
+}
+
+export interface LongformRecommendation {
+  startIndex: number;
+  endIndex: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  reason: string;
+  speakerSummary: string;
+  conversationType: string;
+  topicTags: string[];
+  contentTags: string[];
+  estimatedDuration: number;
+}
+
+export interface ShortRecommendation extends SceneRecommendation {
+  patternFocus: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+}
+
+export interface ContentStructureAnalysisResponse {
+  longform: LongformRecommendation;
+  shorts: ShortRecommendation[];
   totalAnalyzed: number;
 }
 

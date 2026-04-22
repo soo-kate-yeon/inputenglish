@@ -9,6 +9,7 @@ import {
   type SessionRoleRelevance,
   type SessionSourceType,
 } from "@inputenglish/shared";
+import { rewriteCopyToKoreanIfNeeded } from "../utils/korean-copy";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -138,10 +139,13 @@ You are writing session copy for an English speaking practice app.
 Users watch short clips from real English content and practice speaking patterns from them.
 
 Voice & tone:
-- 한국어로 작성. 구어체 허용 (~거든요, ~인데요, ~해요, ~이에요)
+- 한국어로 작성. 구어체 허용 (~거든요, ~인데요, ~어요, ~예요)
+- title, subtitle, description은 사용자에게 바로 노출되는 문구다. 자연스러운 한국어 UX writing으로 쓸 것
+- 고유명사나 작은따옴표 안의 핵심 영어 표현 외에는 영어 설명문을 그대로 남기지 마라
 - 짧고 직접적. 한 문장에 하나의 정보만.
 - 담백하고 건조하게. 감탄사, 과장, 동기부여 금지.
 - 기본 전제: 업무/회의/프로젝트는 수많은 장면 중 하나일 뿐이다. 영상이나 대사가 실제로 그렇지 않다면 먼저 그 프레임을 씌우지 마라.
+- 어미는 가능하면 '~어요/~예요'로 맞춰라. '~해요'보다 서비스 안 다른 카피와 어울리는 부드러운 톤을 우선한다.
 
 금지 표현 (이런 단어가 나오면 다시 써라):
 - "효과적인", "전략적으로", "핵심 역량", "활용하여"
@@ -182,11 +186,11 @@ Title rules:
 Subtitle rules:
 - 완성된 한국어 문장으로 쓸 것. 명사구나 어구로 끊으면 안 됨.
 - 영어 표현(작은따옴표로 감싸기)을 포함한 완성 문장.
-- ~해요, ~연습해요, ~말하기를 익혀요 같은 서술어로 마무리.
+- '~어요/~예요' 계열 서술어로 마무리.
 - 구체적 상황 + 영어 표현 + 말하기 행위가 한 문장에 담기면 이상적.
-- 좋은 예: "더 좋은 기회에 'said no to' 패턴으로 거절하는 말하기를 연습해요."
-- 좋은 예: "숫자를 꺼낼 때 'We're seeing'으로 단정을 피하는 법을 연습해요."
-- 좋은 예: "처음 만난 사람한테 'So tell me about...'으로 자연스럽게 말 꺼내는 연습이에요."
+- 좋은 예: "더 좋은 기회에 'said no to' 패턴으로 거절하는 흐름을 익히는 구간이에요."
+- 좋은 예: "숫자를 꺼낼 때 'We're seeing'으로 단정을 피하는 흐름을 익히는 구간이에요."
+- 좋은 예: "처음 만난 사람한테 'So tell me about...'으로 자연스럽게 말을 꺼내는 연습이에요."
 - 나쁜 예: "'said no to' 패턴으로 거절하기" (← 문장 미완성)
 - 나쁜 예: "단정 피하는 관찰형 표현" (← 명사구, 서술어 없음)
 
@@ -259,7 +263,15 @@ Return ONLY valid JSON:
         SESSION_ROLE_RELEVANCE.includes(role as SessionRoleRelevance),
     );
 
-    if (autofillData.roleRelevance.length === 0) {
+    autofillData = await rewriteCopyToKoreanIfNeeded({
+      model,
+      payload: autofillData,
+      fieldPaths: ["title", "subtitle", "description"],
+      instructions:
+        "title, subtitle, description만 자연스러운 한국어 UX writing으로 다듬어라. 작은따옴표 안의 핵심 영어 표현은 유지해도 된다. 가능하면 문장 끝은 `~어요/~예요` 톤으로 정리해라.",
+    });
+
+    if ((autofillData.roleRelevance ?? []).length === 0) {
       autofillData.roleRelevance = ["pm"];
     }
 

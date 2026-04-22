@@ -7,6 +7,7 @@ import {
   type Sentence,
   type SessionContext,
 } from "@inputenglish/shared";
+import { rewriteCopyToKoreanIfNeeded } from "../utils/korean-copy";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -57,8 +58,11 @@ export async function POST(request: NextRequest) {
 
 톤:
 - 옆에서 짧게 설명하듯. 교과서 말투 금지.
-- 구어체 OK (~거든요, ~인데요, ~이에요, ~해요)
+- 구어체 OK (~거든요, ~인데요, ~이에요, ~어요)
 - 한 필드에 한 가지 정보만. 짧게.
+- subtitle과 각 한국어 설명 필드는 자연스러운 한국어 UX writing으로 쓸 것
+- 고유명사나 작은따옴표 안의 영어 표현 외에는 영어 설명문을 그대로 남기지 마라
+- 문장 끝은 가능하면 '~어요/~예요'로 정리해라. '~해요'보다 조금 더 부드러운 톤을 우선한다.
 
 금지 표현:
 - "효과적으로", "전략적으로", "활용하여", "핵심 역량"
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
 - "학습자는", "본 세션에서는"
 - "비즈니스 영어", "업무 영어", "커뮤니케이션 스킬", "글로벌 역량"
 - "직장인", "오피스", "프로페셔널"
-- ~다 로 끝나는 문어체 종결 (→ ~이에요, ~거든요, ~해요 로 바꿀 것)
+- ~다 로 끝나는 문어체 종결 (→ ~이에요, ~거든요, ~어요 로 바꿀 것)
 
 세션 제목: ${title}
 세션 설명: ${description ?? ""}
@@ -124,10 +128,10 @@ subtitle — 완성된 한국어 문장. 변형연습 타깃 패턴이 있으면
   규칙:
   - 완성된 한국어 문장으로 쓸 것. 명사구나 어구로 끊으면 안 됨.
   - 영어 표현(작은따옴표로 감싸기)을 포함한 완성 문장.
-  - ~해요, ~연습해요, ~말하기를 익혀요 같은 서술어로 마무리.
+  - '~어요/~예요' 계열 서술어로 마무리.
   - 구체적 상황 + 영어 표현 + 말하기 행위가 한 문장에 담기면 이상적.
-  좋은 예: "더 좋은 기회에 'said no to' 패턴으로 거절하는 말하기를 연습해요."
-  좋은 예: "숫자를 꺼낼 때 'We're seeing'으로 단정을 피하는 법을 연습해요."
+  좋은 예: "더 좋은 기회에 'said no to' 패턴으로 거절하는 흐름을 익히는 구간이에요."
+  좋은 예: "숫자를 꺼낼 때 'We're seeing'으로 단정을 피하는 흐름을 익히는 구간이에요."
   나쁜 예: "'said no to' 패턴으로 거절하기" (← 문장 미완성)
 
 Return ONLY valid JSON:
@@ -218,7 +222,7 @@ Return ONLY valid JSON:
         ? rawParsed.subtitle.trim()
         : undefined;
 
-    return NextResponse.json({
+    const responsePayload = {
       context: {
         reusable_scenarios: reusableScenarios,
         key_vocabulary: keyVocabulary,
@@ -228,7 +232,23 @@ Return ONLY valid JSON:
         generated_by: "gemini",
       } satisfies SessionContext,
       subtitle,
+    };
+
+    const localizedPayload = await rewriteCopyToKoreanIfNeeded({
+      model,
+      payload: responsePayload,
+      fieldPaths: [
+        "context.reusable_scenarios",
+        "context.grammar_rhetoric_note",
+        "context.expected_takeaway",
+        "context.common_mistakes",
+        "subtitle",
+      ],
+      instructions:
+        "한국어 설명 필드만 자연스럽게 다듬어라. key_vocabulary.expression/example은 영어 학습 데이터이므로 바꾸지 마라. 설명 문장 끝은 가능하면 `~어요/~예요` 톤으로 정리해라.",
     });
+
+    return NextResponse.json(localizedPayload);
   } catch (error: unknown) {
     console.error("Session context generation API error:", error);
     return NextResponse.json(

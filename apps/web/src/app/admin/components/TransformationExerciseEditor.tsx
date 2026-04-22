@@ -3,17 +3,10 @@
 import React, { useState, useEffect } from "react";
 import type {
   Sentence,
+  TransformationSet,
   TransformationExercise,
   DialogLine,
 } from "@inputenglish/shared";
-
-interface TransformationSet {
-  id?: string;
-  target_pattern: string;
-  pattern_type: string;
-  pattern_rationale?: string;
-  source_sentence_ids?: string[];
-}
 
 interface TransformationExerciseEditorProps {
   sessionId: string;
@@ -21,6 +14,8 @@ interface TransformationExerciseEditorProps {
   isSaved?: boolean;
   onSaved?: (setId: string) => void;
   onPatternGenerated?: (pattern: string) => void;
+  seedSet?: Partial<TransformationSet> | null;
+  seedExercises?: Partial<TransformationExercise>[];
 }
 
 function ExerciseAccordion({
@@ -303,12 +298,13 @@ export function TransformationExerciseEditor({
   isSaved = true,
   onSaved,
   onPatternGenerated,
+  seedSet = null,
+  seedExercises = [],
 }: TransformationExerciseEditorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [generatedSet, setGeneratedSet] = useState<TransformationSet | null>(
-    null,
-  );
+  const [generatedSet, setGeneratedSet] =
+    useState<Partial<TransformationSet> | null>(null);
   const [exercises, setExercises] = useState<Partial<TransformationExercise>[]>(
     [],
   );
@@ -350,6 +346,22 @@ export function TransformationExerciseEditor({
     };
   }, [sessionId, isSaved]);
 
+  useEffect(() => {
+    if (!seedSet) return;
+
+    setGeneratedSet({
+      id: seedSet.id ?? `draft-${sessionId}`,
+      target_pattern: seedSet.target_pattern ?? "",
+      pattern_type: seedSet.pattern_type ?? "declarative",
+      pattern_rationale: seedSet.pattern_rationale,
+      source_sentence_ids: seedSet.source_sentence_ids ?? [],
+    });
+    setExercises(seedExercises ?? []);
+    if (seedSet.target_pattern) {
+      onPatternGenerated?.(seedSet.target_pattern);
+    }
+  }, [seedSet, seedExercises, onPatternGenerated]);
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
@@ -369,7 +381,7 @@ export function TransformationExerciseEditor({
       }
 
       const data = (await response.json()) as {
-        set: TransformationSet;
+        set: Partial<TransformationSet>;
         exercises: Partial<TransformationExercise>[];
       };
       setGeneratedSet({
@@ -415,7 +427,7 @@ export function TransformationExerciseEditor({
     }
   };
 
-  if (!isSaved) {
+  if (!isSaved && !generatedSet && exercises.length === 0) {
     return (
       <div
         style={{
@@ -500,6 +512,22 @@ export function TransformationExerciseEditor({
           {savedMessage}
         </div>
       )}
+
+      {!isSaved && (generatedSet || exercises.length > 0) ? (
+        <div
+          style={{
+            padding: "8px 12px",
+            backgroundColor: "#fffbeb",
+            border: "1px solid #fde68a",
+            color: "#92400e",
+            fontSize: 12,
+            lineHeight: 1.6,
+          }}
+        >
+          세션 저장 전 임시 생성본이에요. 세션을 먼저 저장하면 이 변형문제를
+          바로 저장할 수 있어요.
+        </div>
+      ) : null}
 
       {/* Generated set metadata */}
       {generatedSet && (
@@ -662,7 +690,7 @@ export function TransformationExerciseEditor({
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !isSaved}
             style={{
               marginTop: 12,
               width: "100%",
@@ -670,12 +698,16 @@ export function TransformationExerciseEditor({
               fontSize: 12,
               fontWeight: 600,
               border: "1px solid #171717",
-              backgroundColor: isSaving ? "#f5f5f5" : "#171717",
-              color: isSaving ? "#525252" : "#ffffff",
-              cursor: isSaving ? "not-allowed" : "pointer",
+              backgroundColor: isSaving || !isSaved ? "#f5f5f5" : "#171717",
+              color: isSaving || !isSaved ? "#525252" : "#ffffff",
+              cursor: isSaving || !isSaved ? "not-allowed" : "pointer",
             }}
           >
-            {isSaving ? "저장 중..." : "저장하기"}
+            {isSaving
+              ? "저장 중..."
+              : !isSaved
+                ? "세션 저장 후 저장 가능"
+                : "저장하기"}
           </button>
         </div>
       )}

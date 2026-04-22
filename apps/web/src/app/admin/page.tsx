@@ -7,7 +7,9 @@ import type {
   Sentence,
   LearningSession,
   SceneRecommendation,
-  SceneAnalysisResponse,
+  ContentStructureAnalysisResponse,
+  LongformPack,
+  LongformRecommendation,
 } from "@inputenglish/shared";
 import { useSentenceEditor } from "./hooks/useSentenceEditor";
 import { useTranscriptFetch } from "./hooks/useTranscriptFetch";
@@ -42,6 +44,8 @@ function parseTimeToSeconds(input: string): number {
   if (parts.length === 2) return parts[0] * 60 + parts[1];
   return Number(trimmed) || 0;
 }
+
+type SelectionTarget = "shortform" | "longform";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -90,12 +94,21 @@ function AdminPageContent() {
   const [highlightedSentenceIds, setHighlightedSentenceIds] = useState<
     Set<string>
   >(new Set());
+  const [selectionTarget, setSelectionTarget] =
+    useState<SelectionTarget>("shortform");
   const [selectedSentenceIds, setSelectedSentenceIds] = useState<Set<string>>(
     new Set(),
   );
+  const [selectedLongformSentenceIds, setSelectedLongformSentenceIds] =
+    useState<Set<string>>(new Set());
 
   const handleSentenceSelect = (id: string) => {
-    setSelectedSentenceIds((prev) => {
+    const setSelection =
+      selectionTarget === "longform"
+        ? setSelectedLongformSentenceIds
+        : setSelectedSentenceIds;
+
+    setSelection((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -114,6 +127,7 @@ function AdminPageContent() {
   const [analyzedScenes, setAnalyzedScenes] = useState<SceneRecommendation[]>(
     [],
   );
+  const [longformDraft, setLongformDraft] = useState<LongformPack | null>(null);
 
   const getVideoId = () => extractVideoId(youtubeUrl);
 
@@ -127,6 +141,37 @@ function AdminPageContent() {
 
   const handleTimeUpdate = (time: number) => {
     setCurrentTime(time);
+  };
+
+  const buildLongformDraftFromRecommendation = (
+    recommendation: LongformRecommendation,
+  ): LongformPack | null => {
+    const longformSentences = sentences.slice(
+      recommendation.startIndex,
+      recommendation.endIndex + 1,
+    );
+
+    if (longformSentences.length === 0) {
+      return null;
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      source_video_id: getVideoId() || "",
+      title: recommendation.title,
+      subtitle: recommendation.subtitle,
+      description: recommendation.description,
+      duration: recommendation.estimatedDuration,
+      sentence_ids: longformSentences.map((sentence) => sentence.id),
+      start_time: longformSentences[0].startTime,
+      end_time: longformSentences[longformSentences.length - 1].endTime,
+      speaker_summary: recommendation.speakerSummary,
+      talk_summary: recommendation.conversationType,
+      topic_tags: recommendation.topicTags,
+      content_tags: recommendation.contentTags,
+      created_at: new Date().toISOString(),
+      context: null,
+    };
   };
 
   // --- Edit Mode & Draft Logic ---
@@ -159,6 +204,41 @@ function AdminPageContent() {
             setSentences(data.transcript || []);
             setLastSyncTime(data.snippet_end_time || 0);
             console.log("Loaded video for editing:", data.title);
+
+            const { data: longformData } = await supabase
+              .from("longform_packs")
+              .select(
+                `
+                *,
+                context:longform_contexts (
+                  longform_pack_id,
+                  speaker_snapshot,
+                  conversation_type,
+                  core_topics,
+                  why_this_segment,
+                  listening_takeaway,
+                  generated_by,
+                  updated_by,
+                  created_at,
+                  updated_at
+                )
+              `,
+              )
+              .eq("source_video_id", editId)
+              .maybeSingle();
+
+            if (longformData) {
+              setLongformDraft({
+                ...longformData,
+                duration: Number(longformData.duration),
+                context: Array.isArray(longformData.context)
+                  ? (longformData.context[0] ?? null)
+                  : (longformData.context ?? null),
+              } as LongformPack);
+              setSelectedLongformSentenceIds(
+                new Set(longformData.sentence_ids ?? []),
+              );
+            }
 
             const { data: sessionData } = await supabase
               .from("learning_sessions")
@@ -219,6 +299,28 @@ function AdminPageContent() {
 
     init();
   }, [editId]);
+
+  useEffect(() => {
+    const validSentenceIds = new Set(sentences.map((sentence) => sentence.id));
+
+    setSelectedSentenceIds((prev) => {
+      const next = new Set(
+        Array.from(prev).filter((sentenceId) =>
+          validSentenceIds.has(sentenceId),
+        ),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+
+    setSelectedLongformSentenceIds((prev) => {
+      const next = new Set(
+        Array.from(prev).filter((sentenceId) =>
+          validSentenceIds.has(sentenceId),
+        ),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+  }, [sentences]);
 
   // --- CMS List Logic ---
   const [showList, setShowList] = useState(false);
@@ -289,11 +391,19 @@ function AdminPageContent() {
   const handleAnalyzeScenes = async () => {
     setAnalyzingScenes(true);
     try {
-      const response = await fetch("/api/admin/analyze-scenes", {
+      const primarySpeakerName =
+        createdSessions.find((session) => session.primary_speaker_name)
+          ?.primary_speaker_name ?? undefined;
+
+      const response = await fetch("/api/admin/analyze-content-structure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ sentences }),
+        body: JSON.stringify({
+          sentences,
+          videoTitle: title || undefined,
+          primarySpeakerName,
+        }),
       });
 
       if (!response.ok) {
@@ -301,8 +411,11 @@ function AdminPageContent() {
         throw new Error(error.error || "Failed to analyze scenes");
       }
 
-      const data: SceneAnalysisResponse = await response.json();
-      setAnalyzedScenes(data.scenes);
+      const data: ContentStructureAnalysisResponse = await response.json();
+      setAnalyzedScenes(data.shorts);
+      const nextLongform = buildLongformDraftFromRecommendation(data.longform);
+      setLongformDraft(nextLongform);
+      setSelectedLongformSentenceIds(new Set(nextLongform?.sentence_ids ?? []));
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
@@ -531,6 +644,41 @@ function AdminPageContent() {
         throw dbError;
       }
 
+      let longformPackId: string | null = longformDraft?.id ?? null;
+
+      if (longformDraft) {
+        const longformResponse = await fetch("/api/admin/longform-packs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            source_video_id: videoId,
+            longformPack: {
+              ...longformDraft,
+              source_video_id: videoId,
+            },
+          }),
+        });
+
+        if (!longformResponse.ok) {
+          const errorData = await longformResponse.json();
+          throw new Error(errorData.error || "Failed to save longform pack");
+        }
+
+        const longformPayload = (await longformResponse.json()) as {
+          longform_pack_id: string;
+        };
+        longformPackId = longformPayload.longform_pack_id;
+        setLongformDraft((prev) =>
+          prev
+            ? {
+                ...prev,
+                id: longformPayload.longform_pack_id,
+              }
+            : prev,
+        );
+      }
+
       if (createdSessions.length > 0) {
         const primarySpeakerSession = createdSessions.find(
           (session) =>
@@ -542,7 +690,10 @@ function AdminPageContent() {
           credentials: "include",
           body: JSON.stringify({
             source_video_id: videoId,
-            sessions: createdSessions,
+            sessions: createdSessions.map((session) => ({
+              ...session,
+              longform_pack_id: longformPackId,
+            })),
             primarySpeakerId: primarySpeakerSession?.primary_speaker_id ?? null,
             primarySpeakerName:
               primarySpeakerSession?.primary_speaker_name ?? "",
@@ -571,6 +722,7 @@ function AdminPageContent() {
           setYoutubeUrl("");
           setSentences([]);
           setCreatedSessions([]);
+          setLongformDraft(null);
           setLastSyncTime(0);
         }
       }, 2000);
@@ -785,7 +937,10 @@ function AdminPageContent() {
             loading={loading}
             rawScript={rawScript}
             highlightedSentenceIds={highlightedSentenceIds}
-            selectedSentenceIds={selectedSentenceIds}
+            selectionTarget={selectionTarget}
+            shortformSelectedSentenceIds={selectedSentenceIds}
+            longformSelectedSentenceIds={selectedLongformSentenceIds}
+            onSelectionTargetChange={setSelectionTarget}
             onSentenceSelect={handleSentenceSelect}
             onParseScript={handleParseScript}
             onAnalyzeScenes={handleAnalyzeScenes}
@@ -805,8 +960,12 @@ function AdminPageContent() {
             sentences={sentences}
             videoId={getVideoId() || ""}
             videoTitle={title}
-            selectedIds={selectedSentenceIds}
-            onSelectedIdsChange={setSelectedSentenceIds}
+            longformPack={longformDraft}
+            onLongformPackChange={setLongformDraft}
+            shortformSelectedIds={selectedSentenceIds}
+            onShortformSelectedIdsChange={setSelectedSentenceIds}
+            longformSelectedIds={selectedLongformSentenceIds}
+            onLongformSelectedIdsChange={setSelectedLongformSentenceIds}
             onSessionsChange={setCreatedSessions}
             onHighlightedSentencesChange={setHighlightedSentenceIds}
             initialSessions={createdSessions}

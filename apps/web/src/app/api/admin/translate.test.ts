@@ -85,4 +85,93 @@ describe("POST /api/admin/translate", () => {
       "전 부문에서 탄력이 붙고 있어요.",
     ]);
   });
+
+  it("splits large translation requests into multiple batches", async () => {
+    generateContent
+      .mockResolvedValueOnce({
+        response: {
+          text: () =>
+            JSON.stringify(
+              Array.from({ length: 12 }, (_, index) => `번역 ${index + 1}`),
+            ),
+        },
+      })
+      .mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify(["번역 13"]),
+        },
+      });
+
+    const { POST } = await import("./translate/route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/translate", {
+        method: "POST",
+        body: JSON.stringify({
+          sentences: Array.from(
+            { length: 13 },
+            (_, index) => `Sentence ${index + 1}`,
+          ),
+        }),
+      }) as never,
+    );
+
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(generateContent).toHaveBeenCalledTimes(2);
+    expect(payload.translations).toHaveLength(13);
+    expect(payload.meta.batchCount).toBe(2);
+  });
+
+  it("falls back to smaller chunks when a large batch aborts", async () => {
+    const abortError = new Error("This operation was aborted");
+    abortError.name = "AbortError";
+
+    generateContent
+      .mockRejectedValueOnce(abortError)
+      .mockResolvedValueOnce({
+        response: {
+          text: () =>
+            JSON.stringify(["하나", "둘", "셋", "넷", "다섯", "여섯"]),
+        },
+      })
+      .mockResolvedValueOnce({
+        response: {
+          text: () =>
+            JSON.stringify(["일곱", "여덟", "아홉", "열", "열하나", "열둘"]),
+        },
+      });
+
+    const { POST } = await import("./translate/route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/translate", {
+        method: "POST",
+        body: JSON.stringify({
+          sentences: Array.from(
+            { length: 12 },
+            (_, index) => `Sentence ${index + 1}`,
+          ),
+        }),
+      }) as never,
+    );
+
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(generateContent).toHaveBeenCalledTimes(3);
+    expect(payload.translations).toEqual([
+      "하나",
+      "둘",
+      "셋",
+      "넷",
+      "다섯",
+      "여섯",
+      "일곱",
+      "여덟",
+      "아홉",
+      "열",
+      "열하나",
+      "열둘",
+    ]);
+  });
 });

@@ -1,12 +1,17 @@
 import type { Sentence } from "@inputenglish/shared";
 import { SentenceItem } from "./SentenceItem";
 
+type SelectionTarget = "shortform" | "longform";
+
 interface SentenceListEditorProps {
   sentences: Sentence[];
   loading: boolean;
   rawScript: string;
   highlightedSentenceIds?: Set<string>;
-  selectedSentenceIds?: Set<string>;
+  selectionTarget: SelectionTarget;
+  shortformSelectedSentenceIds?: Set<string>;
+  longformSelectedSentenceIds?: Set<string>;
+  onSelectionTargetChange: (target: SelectionTarget) => void;
   onSentenceSelect?: (id: string) => void;
   onParseScript: () => void;
   onAnalyzeScenes: () => void;
@@ -34,7 +39,10 @@ export function SentenceListEditor({
   loading,
   rawScript,
   highlightedSentenceIds,
-  selectedSentenceIds,
+  selectionTarget,
+  shortformSelectedSentenceIds,
+  longformSelectedSentenceIds,
+  onSelectionTargetChange,
   onSentenceSelect,
   onParseScript,
   onAnalyzeScenes,
@@ -48,6 +56,13 @@ export function SentenceListEditor({
   onMergeWithPrevious,
   onPlayFrom,
 }: SentenceListEditorProps) {
+  const activeSelectedSentenceIds =
+    selectionTarget === "longform"
+      ? longformSelectedSentenceIds
+      : shortformSelectedSentenceIds;
+  const activeSelectionCount = activeSelectedSentenceIds?.size ?? 0;
+  const activeSelectionLabel = selectionTarget === "longform" ? "롱폼" : "쇼츠";
+
   return (
     <div
       className="flex flex-col overflow-hidden min-h-0"
@@ -69,6 +84,37 @@ export function SentenceListEditor({
         <span className="text-xs font-bold" style={{ color: "#0a0a0a" }}>
           Step 2: Parsed Sentences ({sentences.length})
         </span>
+        <div className="flex items-center" style={{ gap: 4 }}>
+          {(
+            [
+              [
+                "shortform",
+                "쇼츠 선택",
+                shortformSelectedSentenceIds?.size ?? 0,
+              ],
+              ["longform", "롱폼 선택", longformSelectedSentenceIds?.size ?? 0],
+            ] as const
+          ).map(([target, label, count]) => {
+            const active = selectionTarget === target;
+            return (
+              <button
+                key={target}
+                type="button"
+                onClick={() => onSelectionTargetChange(target)}
+                className="text-xs transition-colors"
+                style={{
+                  padding: "2px 8px",
+                  border: active ? "1px solid #0a0a0a" : "1px solid #d4d4d4",
+                  backgroundColor: active ? "#0a0a0a" : "#ffffff",
+                  color: active ? "#ffffff" : "#525252",
+                  cursor: "pointer",
+                }}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
         <button
           onClick={onParseScript}
           disabled={loading || !rawScript.trim()}
@@ -97,39 +143,39 @@ export function SentenceListEditor({
         </button>
         <button
           onClick={onAnalyzeScenes}
-          disabled={analyzingScenes || sentences.length < 5}
+          disabled={analyzingScenes || sentences.length < 20}
           className="text-xs uppercase tracking-wide transition-colors"
           style={{
             backgroundColor:
-              analyzingScenes || sentences.length < 5 ? "#d4d4d4" : "#8b5cf6",
+              analyzingScenes || sentences.length < 20 ? "#d4d4d4" : "#8b5cf6",
             color: "#ffffff",
             padding: "2px 8px",
             border: "none",
             cursor:
-              analyzingScenes || sentences.length < 5
+              analyzingScenes || sentences.length < 20
                 ? "not-allowed"
                 : "pointer",
           }}
-          title="AI가 세션으로 만들 가치가 높은 실무 말하기 장면 3개를 추천합니다"
+          title="AI가 롱폼 1개와 포인트 쇼츠 3~4개를 추천합니다"
           onMouseEnter={(e) => {
-            if (!analyzingScenes && sentences.length >= 5) {
+            if (!analyzingScenes && sentences.length >= 20) {
               e.currentTarget.style.backgroundColor = "#7c3aed";
             }
           }}
           onMouseLeave={(e) => {
-            if (!analyzingScenes && sentences.length >= 5) {
+            if (!analyzingScenes && sentences.length >= 20) {
               e.currentTarget.style.backgroundColor = "#8b5cf6";
             }
           }}
         >
-          {analyzingScenes ? "분석 중..." : "AI 세션 장면 분석"}
+          {analyzingScenes ? "분석 중..." : "AI 롱폼/쇼츠 분석"}
         </button>
         {onTranslateSelected && (
           <button
             onClick={() => {
               const ids =
-                selectedSentenceIds && selectedSentenceIds.size > 0
-                  ? Array.from(selectedSentenceIds)
+                activeSelectedSentenceIds && activeSelectedSentenceIds.size > 0
+                  ? Array.from(activeSelectedSentenceIds)
                   : sentences.map((s) => s.id);
               onTranslateSelected(ids);
             }}
@@ -147,9 +193,9 @@ export function SentenceListEditor({
                   : "pointer",
             }}
             title={
-              selectedSentenceIds && selectedSentenceIds.size > 0
-                ? `선택된 ${selectedSentenceIds.size}개 문장을 한국어로 번역`
-                : "전체 문장을 한국어로 번역"
+              activeSelectionCount > 0
+                ? `선택된 ${activeSelectionCount}개 ${activeSelectionLabel} 문장을 한국어로 번역`
+                : `${activeSelectionLabel} 선택이 없어서 전체 문장을 한국어로 번역`
             }
             onMouseEnter={(e) => {
               if (!translating && sentences.length > 0) {
@@ -164,9 +210,9 @@ export function SentenceListEditor({
           >
             {translating
               ? "번역 중..."
-              : selectedSentenceIds && selectedSentenceIds.size > 0
-                ? `Translate (${selectedSentenceIds.size})`
-                : "Translate All"}
+              : activeSelectionCount > 0
+                ? `${activeSelectionLabel} ${activeSelectionCount}개 번역`
+                : "전체 번역"}
           </button>
         )}
       </div>
@@ -178,7 +224,7 @@ export function SentenceListEditor({
             sentence={s}
             index={idx}
             highlighted={highlightedSentenceIds?.has(s.id)}
-            selected={selectedSentenceIds?.has(s.id)}
+            selected={activeSelectedSentenceIds?.has(s.id)}
             onSelect={onSentenceSelect}
             onUpdateTime={onUpdateTime}
             onUpdateText={onUpdateText}
