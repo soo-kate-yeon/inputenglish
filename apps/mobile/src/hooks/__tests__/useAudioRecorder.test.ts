@@ -7,13 +7,11 @@ const mockRecording = {
   prepareToRecordAsync: jest.fn().mockResolvedValue(undefined),
   startAsync: jest.fn().mockResolvedValue(undefined),
   stopAndUnloadAsync: jest.fn().mockResolvedValue(undefined),
-  getStatusAsync: jest
-    .fn()
-    .mockResolvedValue({
-      canRecord: true,
-      isRecording: false,
-      durationMillis: 0,
-    }),
+  getStatusAsync: jest.fn().mockResolvedValue({
+    canRecord: true,
+    isRecording: false,
+    durationMillis: 0,
+  }),
   getURI: jest.fn().mockReturnValue("file:///mock/recording.m4a"),
   setOnRecordingStatusUpdate: jest.fn(),
 };
@@ -39,6 +37,7 @@ jest.mock("expo-av", () => ({
     },
     requestPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
     getPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+    setIsEnabledAsync: jest.fn().mockResolvedValue(undefined),
     setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
     AndroidOutputFormat: { MPEG_4: 2 },
     AndroidAudioEncoder: { AAC: 3 },
@@ -50,6 +49,20 @@ jest.mock("expo-av", () => ({
   },
 }));
 
+jest.mock("expo-device", () => ({
+  isDevice: true,
+}));
+
+jest.mock("expo-asset", () => ({
+  Asset: {
+    fromModule: jest.fn(() => ({
+      localUri: "file:///mock/simulator-sample.m4a",
+      uri: "file:///mock/simulator-sample.m4a",
+      downloadAsync: jest.fn().mockResolvedValue(undefined),
+    })),
+  },
+}));
+
 import useAudioRecorder from "../useAudioRecorder";
 
 describe("useAudioRecorder", () => {
@@ -57,8 +70,10 @@ describe("useAudioRecorder", () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     const { Audio } = require("expo-av");
+    const Device = require("expo-device");
     Audio.getPermissionsAsync.mockResolvedValue({ granted: true });
     Audio.requestPermissionsAsync.mockResolvedValue({ granted: true });
+    Device.isDevice = true;
   });
 
   afterEach(() => {

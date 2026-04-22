@@ -13,6 +13,7 @@ interface ScriptLineProps {
   isLooping: boolean;
   isSaved: boolean;
   scriptHidden: boolean;
+  showActions?: boolean;
   tone?: "light" | "dark";
   showTranslation?: boolean;
   onTap: (sentence: Sentence) => void;
@@ -29,6 +30,7 @@ function ScriptLine({
   isLooping,
   isSaved,
   scriptHidden,
+  showActions = true,
   tone = "light",
   showTranslation = false,
   onTap,
@@ -75,18 +77,22 @@ function ScriptLine({
           </Text>
         ) : null}
       </View>
-      <View style={styles.actions}>
-        <LoopToggle
-          active={isLooping}
-          tinted={tone === "dark"}
-          onPress={() => onLoopToggle(sentence)}
-        />
-        <SaveToggle
-          active={isSaved}
-          tinted={tone === "dark"}
-          onPress={() => onSaveToggle(sentence)}
-        />
-      </View>
+      {showActions ? (
+        <View style={styles.actions}>
+          <LoopToggle
+            active={isLooping}
+            tinted={tone === "dark"}
+            onPress={() => onLoopToggle(sentence)}
+          />
+          <SaveToggle
+            active={isSaved}
+            tinted={tone === "dark"}
+            onPress={() => onSaveToggle(sentence)}
+          />
+        </View>
+      ) : (
+        <View style={styles.actionsSpacer} />
+      )}
     </TouchableOpacity>
   );
 }
@@ -162,5 +168,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     paddingTop: 2,
+  },
+  actionsSpacer: {
+    width: 72,
+    flexShrink: 0,
   },
 });

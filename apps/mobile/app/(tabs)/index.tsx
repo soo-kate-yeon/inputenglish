@@ -9,16 +9,19 @@ import {
   ActivityIndicator,
   FlatList,
   LayoutChangeEvent,
-  Modal,
+  LayoutAnimation,
+  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
+  UIManager,
   View,
   type ViewToken,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import type { CuratedVideo } from "@inputenglish/shared";
 import type { SessionListItem } from "@/lib/api";
 import {
@@ -31,7 +34,10 @@ import { useSubscription } from "@/hooks/useSubscription";
 import ShortSessionCard from "@/components/shorts/ShortSessionCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRecentSessionIds, recordSessionVisit } from "@/lib/recent-sessions";
-import { getSessionPressDestination } from "@/lib/session-access";
+import {
+  getLongformPressDestination,
+  getSessionPressDestination,
+} from "@/lib/session-access";
 import {
   getSavedShortSessionIds,
   toggleSavedShortSession,
@@ -45,9 +51,8 @@ type VideoLoadState = {
 };
 
 const FALLBACK_VIEWPORT_HEIGHT = 720;
-const SHORTS_HEADER_HEIGHT = 202;
-const ACTIVE_SESSION_META_HEIGHT = 166;
-
+const SHORTS_OVERLAY_HEIGHT = 220;
+const SHORTS_SCRIPT_BOTTOM_INSET = 112;
 function scoreSession(
   session: SessionListItem,
   options: {
@@ -143,8 +148,7 @@ export default function HomeScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [scriptVisible, setScriptVisible] = useState(true);
   const [showTranslation, setShowTranslation] = useState(false);
-  const [isDescriptionOverlayOpen, setIsDescriptionOverlayOpen] =
-    useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [videoCache, setVideoCache] = useState<Record<string, CuratedVideo>>(
     {},
   );
@@ -323,6 +327,15 @@ export default function HomeScreen() {
     : "";
 
   useEffect(() => {
+    if (
+      Platform.OS === "android" &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  useEffect(() => {
     activeIndexRef.current = activeIndex;
   }, [activeIndex]);
 
@@ -342,6 +355,10 @@ export default function HomeScreen() {
       flatListRef.current?.scrollToOffset({ animated: false, offset: 0 });
     }
   }, [activeIndex, currentFeed.length, updateActiveIndex]);
+
+  useEffect(() => {
+    setIsDescriptionExpanded(false);
+  }, [activeSession?.id]);
 
   useEffect(() => {
     const nearbySessions = [
@@ -440,16 +457,20 @@ export default function HomeScreen() {
   const handleOpenLongSession = useCallback(() => {
     if (!activeSession) return;
 
-    trackEvent("shorts_long_session_fallback_used", {
-      sessionId: activeSession.id,
-      videoId: activeSession.source_video_id,
-    });
     trackEvent("shorts_to_long_session_opened", {
       sessionId: activeSession.id,
       videoId: activeSession.source_video_id,
-      strategy: "current_session_fallback",
+      strategy: activeSession.longform_pack_id
+        ? "longform_pack"
+        : "current_session_fallback",
     });
-    router.push(getSessionPressDestination(activeSession, plan));
+    if (!activeSession.longform_pack_id) {
+      trackEvent("shorts_long_session_fallback_used", {
+        sessionId: activeSession.id,
+        videoId: activeSession.source_video_id,
+      });
+    }
+    router.push(getLongformPressDestination(activeSession, plan));
   }, [activeSession, plan]);
 
   const handleToggleFeedMode = useCallback((nextMode: FeedMode) => {
@@ -465,6 +486,7 @@ export default function HomeScreen() {
           shouldLoad={Math.abs(index - activeIndex) <= 1}
           scriptVisible={scriptVisible}
           showTranslation={showTranslation}
+          bottomOverlayInset={SHORTS_SCRIPT_BOTTOM_INSET}
           video={videoCache[item.source_video_id] ?? null}
           videoState={
             videoLoadState[item.source_video_id] ?? {
@@ -632,131 +654,6 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
           </View>
-
-          {activeSession ? (
-            <View style={styles.activeSessionHeader}>
-              <Text style={styles.activeSessionTitle} numberOfLines={2}>
-                {activeSession.title}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${activeSession.title} 설명 전체 보기`}
-                onPress={() => setIsDescriptionOverlayOpen(true)}
-              >
-                <Text style={styles.activeSessionDescription} numberOfLines={2}>
-                  {activeSessionDescription}
-                </Text>
-              </Pressable>
-              <View style={styles.activeSessionActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${activeSession.title} 쇼츠 저장`}
-                  style={styles.actionItem}
-                  onPress={handleToggleActiveShortSave}
-                >
-                  <View
-                    style={[
-                      styles.iconButton,
-                      isActiveSessionSaved && styles.iconButtonActive,
-                    ]}
-                  >
-                    <Ionicons
-                      name={
-                        isActiveSessionSaved ? "bookmark" : "bookmark-outline"
-                      }
-                      size={18}
-                      color={
-                        isActiveSessionSaved ? colors.bgDark : colors.textOnDark
-                      }
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.actionLabel,
-                      isActiveSessionSaved && styles.actionLabelActive,
-                    ]}
-                  >
-                    저장
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="스크립트 토글"
-                  style={styles.actionItem}
-                  onPress={() => setScriptVisible((current) => !current)}
-                >
-                  <View
-                    style={[
-                      styles.iconButton,
-                      scriptVisible && styles.iconButtonActive,
-                    ]}
-                  >
-                    <Ionicons
-                      name={
-                        scriptVisible
-                          ? "chatbox-ellipses"
-                          : "chatbox-ellipses-outline"
-                      }
-                      size={18}
-                      color={scriptVisible ? colors.bgDark : colors.textOnDark}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.actionLabel,
-                      scriptVisible && styles.actionLabelActive,
-                    ]}
-                  >
-                    스크립트
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="번역 토글"
-                  style={styles.actionItem}
-                  onPress={() => setShowTranslation((current) => !current)}
-                >
-                  <View
-                    style={[
-                      styles.iconButton,
-                      showTranslation && styles.iconButtonActive,
-                    ]}
-                  >
-                    <Ionicons
-                      name={showTranslation ? "globe" : "globe-outline"}
-                      size={18}
-                      color={
-                        showTranslation ? colors.bgDark : colors.textOnDark
-                      }
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.actionLabel,
-                      showTranslation && styles.actionLabelActive,
-                    ]}
-                  >
-                    번역
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${activeSession.title} 롱세션 열기`}
-                  style={styles.actionItem}
-                  onPress={handleOpenLongSession}
-                >
-                  <View style={styles.iconButton}>
-                    <Ionicons
-                      name="ellipsis-horizontal"
-                      size={18}
-                      color={colors.textOnDark}
-                    />
-                  </View>
-                  <Text style={styles.actionLabel}>더보기</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.feedViewport} onLayout={handleFeedLayout}>
@@ -783,28 +680,162 @@ export default function HomeScreen() {
             maxToRenderPerBatch={3}
             removeClippedSubviews={false}
           />
+          {activeSession ? (
+            <View pointerEvents="box-none" style={styles.activeSessionOverlay}>
+              <LinearGradient
+                colors={[
+                  "rgba(5,7,12,0)",
+                  "rgba(5,7,12,0.18)",
+                  "rgba(5,7,12,0.72)",
+                  "rgba(5,7,12,0.94)",
+                ]}
+                locations={[0, 0.32, 0.72, 1]}
+                style={styles.activeSessionGradient}
+                pointerEvents="none"
+              />
+              <View style={styles.activeSessionOverlayContent}>
+                <View style={styles.activeSessionCopy}>
+                  <Text style={styles.activeSessionTitle} numberOfLines={2}>
+                    {activeSession.title}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${activeSession.title} 설명 ${
+                      isDescriptionExpanded ? "접기" : "펼치기"
+                    }`}
+                    onPress={() => {
+                      LayoutAnimation.configureNext(
+                        LayoutAnimation.Presets.easeInEaseOut,
+                      );
+                      setIsDescriptionExpanded((current) => !current);
+                    }}
+                  >
+                    <Text
+                      style={styles.activeSessionDescription}
+                      numberOfLines={isDescriptionExpanded ? undefined : 2}
+                    >
+                      {activeSessionDescription}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.activeSessionActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${activeSession.title} 쇼츠 저장`}
+                    style={styles.actionItem}
+                    onPress={handleToggleActiveShortSave}
+                  >
+                    <View
+                      style={[
+                        styles.iconButton,
+                        isActiveSessionSaved && styles.iconButtonActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          isActiveSessionSaved ? "bookmark" : "bookmark-outline"
+                        }
+                        size={18}
+                        color={
+                          isActiveSessionSaved
+                            ? colors.bgDark
+                            : colors.textOnDark
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        isActiveSessionSaved && styles.actionLabelActive,
+                      ]}
+                    >
+                      저장
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="스크립트 토글"
+                    style={styles.actionItem}
+                    onPress={() => setScriptVisible((current) => !current)}
+                  >
+                    <View
+                      style={[
+                        styles.iconButton,
+                        scriptVisible && styles.iconButtonActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          scriptVisible
+                            ? "chatbox-ellipses"
+                            : "chatbox-ellipses-outline"
+                        }
+                        size={18}
+                        color={
+                          scriptVisible ? colors.bgDark : colors.textOnDark
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        scriptVisible && styles.actionLabelActive,
+                      ]}
+                    >
+                      스크립트
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="번역 토글"
+                    style={styles.actionItem}
+                    onPress={() => setShowTranslation((current) => !current)}
+                  >
+                    <View
+                      style={[
+                        styles.iconButton,
+                        showTranslation && styles.iconButtonActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={showTranslation ? "globe" : "globe-outline"}
+                        size={18}
+                        color={
+                          showTranslation ? colors.bgDark : colors.textOnDark
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        showTranslation && styles.actionLabelActive,
+                      ]}
+                    >
+                      번역
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${activeSession.title} 전체 듣기 열기`}
+                    style={styles.actionItem}
+                    onPress={handleOpenLongSession}
+                  >
+                    <View style={styles.iconButton}>
+                      <Ionicons
+                        name="arrow-forward"
+                        size={18}
+                        color={colors.textOnDark}
+                      />
+                    </View>
+                    <Text style={styles.actionLabel}>전체 듣기</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          ) : null}
         </View>
       </View>
-      <Modal
-        visible={isDescriptionOverlayOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsDescriptionOverlayOpen(false)}
-      >
-        <Pressable
-          style={styles.descriptionOverlayBackdrop}
-          onPress={() => setIsDescriptionOverlayOpen(false)}
-        >
-          <View style={styles.descriptionOverlayCard}>
-            <Text style={styles.descriptionOverlayTitle}>
-              {activeSession?.title}
-            </Text>
-            <Text style={styles.descriptionOverlayBody}>
-              {activeSessionDescription}
-            </Text>
-          </View>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -823,8 +854,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgDark,
   },
   topHeader: {
-    gap: spacing.sm,
-    height: SHORTS_HEADER_HEIGHT,
+    gap: spacing.xs,
   },
   titleTabs: {
     flexDirection: "row",
@@ -848,10 +878,35 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textOnDarkSecondary,
   },
-  activeSessionHeader: {
-    height: ACTIVE_SESSION_META_HEIGHT,
-    gap: 2,
+  feedViewport: {
+    flex: 1,
+    minHeight: 0,
+    position: "relative",
+  },
+  activeSessionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+  },
+  activeSessionGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: SHORTS_OVERLAY_HEIGHT,
+  },
+  activeSessionOverlayContent: {
+    flexDirection: "row",
+    alignItems: "flex-end",
     justifyContent: "space-between",
+    gap: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingRight: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  activeSessionCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   activeSessionTitle: {
     fontSize: font.size.base,
@@ -865,10 +920,9 @@ const styles = StyleSheet.create({
     color: colors.textOnDarkSecondary,
   },
   activeSessionActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: "column",
+    alignItems: "center",
     gap: spacing.md,
-    paddingTop: spacing.md,
   },
   actionItem: {
     alignItems: "center",
@@ -896,10 +950,6 @@ const styles = StyleSheet.create({
   },
   actionLabelActive: {
     color: colors.textOnDark,
-  },
-  feedViewport: {
-    flex: 1,
-    minHeight: 0,
   },
   feedPage: {
     width: "100%",
@@ -948,32 +998,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.bgDark,
     fontWeight: font.weight.semibold,
-  },
-  descriptionOverlayBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.72)",
-    paddingHorizontal: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  descriptionOverlayCard: {
-    width: "100%",
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderOnDarkStrong,
-    backgroundColor: colors.bgDarkSubtle,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  descriptionOverlayTitle: {
-    fontSize: font.size.base,
-    lineHeight: 24,
-    color: colors.textOnDark,
-    fontWeight: font.weight.bold,
-  },
-  descriptionOverlayBody: {
-    fontSize: font.size.base,
-    lineHeight: 26,
-    color: colors.textOnDarkSecondary,
   },
 });

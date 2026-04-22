@@ -93,6 +93,22 @@ describe("RootLayoutNav onboarding redirects", () => {
     });
   });
 
+  it("sends signed-in users from intro to tabs after login when onboarding is complete", async () => {
+    mockSegments = ["intro"];
+    mockAuthState = {
+      ...mockAuthState,
+      learningProfile: {
+        onboarding_completed_at: "2026-04-18T10:00:00.000Z",
+      },
+    };
+
+    render(<RootLayoutNav />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+  });
+
   it("allows onboarding edit mode without forcing tabs redirect", async () => {
     mockSegments = ["onboarding"];
     mockSearchParams = { edit: "1" };

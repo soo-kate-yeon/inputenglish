@@ -36,6 +36,7 @@ interface ShortSessionCardProps {
   shouldLoad: boolean;
   scriptVisible: boolean;
   showTranslation: boolean;
+  bottomOverlayInset?: number;
   video: CuratedVideo | null;
   videoState: {
     status: "idle" | "loading" | "loaded" | "error";
@@ -80,6 +81,7 @@ export default function ShortSessionCard({
   shouldLoad,
   scriptVisible,
   showTranslation,
+  bottomOverlayInset = 0,
   video,
   videoState,
   onRetryVideoLoad,
@@ -588,6 +590,7 @@ export default function ShortSessionCard({
           style={[
             styles.scriptContent,
             {
+              paddingBottom: spacing.xl + bottomOverlayInset,
               transform: [{ translateY: -transcriptOffset }],
             },
           ]}
@@ -616,6 +619,7 @@ export default function ShortSessionCard({
                   )}
                   tone="dark"
                   scriptHidden={false}
+                  showActions={false}
                   showTranslation={showTranslation}
                   onTap={handleSentencePress}
                   onLoopToggle={handleLoopToggle}

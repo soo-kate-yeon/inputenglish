@@ -4,7 +4,7 @@ import type { Plan } from "./revenue-cat";
 
 type SessionAccessTarget = Pick<
   SessionListItem,
-  "id" | "source_video_id" | "premium_required"
+  "id" | "source_video_id" | "premium_required" | "longform_pack_id"
 >;
 
 export function getSessionPressDestination(
@@ -16,4 +16,19 @@ export function getSessionPressDestination(
   }
 
   return `/study/${session.source_video_id}?sessionId=${session.id}` as Href;
+}
+
+export function getLongformPressDestination(
+  session: SessionAccessTarget,
+  plan: Plan,
+): Href {
+  if (session.premium_required && plan === "FREE") {
+    return "/paywall";
+  }
+
+  if (session.longform_pack_id) {
+    return `/longform/${session.longform_pack_id}?entryShortId=${session.id}` as Href;
+  }
+
+  return getSessionPressDestination(session, plan);
 }

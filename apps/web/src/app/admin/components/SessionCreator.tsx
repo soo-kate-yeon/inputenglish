@@ -149,6 +149,60 @@ function resolveSpeakerChoice(
   };
 }
 
+function getSentencesInRange(
+  allSentences: Sentence[],
+  startTime: number,
+  endTime: number,
+): Sentence[] {
+  return allSentences
+    .filter(
+      (sentence) =>
+        sentence.startTime >= startTime - 0.05 &&
+        sentence.endTime <= endTime + 0.05,
+    )
+    .sort((a, b) => a.startTime - b.startTime);
+}
+
+function syncLongformSelectionWithSessionOverwrite(
+  longformPack: LongformPack,
+  allSentences: Sentence[],
+  previousSession: LearningSession,
+  replacementSentences: Sentence[],
+): LongformPack {
+  const preservedSentences = allSentences.filter((sentence) => {
+    if (!longformPack.sentence_ids.includes(sentence.id)) return false;
+
+    const overlapsPreviousSession =
+      sentence.startTime >= previousSession.start_time - 0.05 &&
+      sentence.endTime <= previousSession.end_time + 0.05;
+
+    return !overlapsPreviousSession;
+  });
+
+  const nextSentences = [...preservedSentences, ...replacementSentences]
+    .filter(
+      (sentence, index, all) =>
+        all.findIndex((candidate) => candidate.id === sentence.id) === index,
+    )
+    .sort((a, b) => a.startTime - b.startTime);
+
+  if (nextSentences.length === 0) {
+    return longformPack;
+  }
+
+  const nextStartTime = nextSentences[0].startTime;
+  const nextEndTime = nextSentences[nextSentences.length - 1].endTime;
+
+  return {
+    ...longformPack,
+    sentence_ids: nextSentences.map((sentence) => sentence.id),
+    start_time: nextStartTime,
+    end_time: nextEndTime,
+    duration: Math.max(0, nextEndTime - nextStartTime),
+    updated_at: new Date().toISOString(),
+  };
+}
+
 interface SessionCreatorProps {
   sentences: Sentence[];
   videoId: string;
@@ -237,8 +291,6 @@ export function SessionCreator({
     useState("");
   const [editContext, setEditContext] =
     useState<SessionContext>(createEmptyContext());
-  const [isEditGeneratingContext, setIsEditGeneratingContext] = useState(false);
-  const [isEditAutofilling, setIsEditAutofilling] = useState(false);
   const [isEditGeneratingAll, setIsEditGeneratingAll] = useState(false);
   const [editTransformationPattern, setEditTransformationPattern] = useState<
     string | null
@@ -390,13 +442,11 @@ export function SessionCreator({
 
       const updatedSessions = prev.map((session) => {
         // Find all sentences that overlap with this session's time range
-        const currentSentences = sentences
-          .filter(
-            (s) =>
-              s.startTime >= session.start_time - 0.05 &&
-              s.endTime <= session.end_time + 0.05,
-          )
-          .sort((a, b) => a.startTime - b.startTime);
+        const currentSentences = getSentencesInRange(
+          sentences,
+          session.start_time,
+          session.end_time,
+        );
 
         if (currentSentences.length === 0) return session;
 
@@ -424,6 +474,38 @@ export function SessionCreator({
       return hasChanges ? updatedSessions : prev;
     });
   }, [sentences]); // Trigger when sentences array changes
+
+  useEffect(() => {
+    if (!longformPack) return;
+
+    const currentSentences = getSentencesInRange(
+      sentences,
+      longformPack.start_time,
+      longformPack.end_time,
+    );
+
+    if (currentSentences.length === 0) return;
+
+    const nextIds = currentSentences.map((sentence) => sentence.id);
+    const hasChanges =
+      nextIds.length !== longformPack.sentence_ids.length ||
+      nextIds.some((id, index) => id !== longformPack.sentence_ids[index]);
+
+    if (!hasChanges) return;
+
+    updateLongformPack({
+      ...longformPack,
+      sentence_ids: nextIds,
+      start_time: currentSentences[0].startTime,
+      end_time: currentSentences[currentSentences.length - 1].endTime,
+      duration: Math.max(
+        0,
+        currentSentences[currentSentences.length - 1].endTime -
+          currentSentences[0].startTime,
+      ),
+      updated_at: new Date().toISOString(),
+    });
+  }, [longformPack, sentences]);
 
   // DB에 실제로 저장된 세션 ID 집합
   const persistedSessionIds = useMemo(
@@ -597,6 +679,11 @@ export function SessionCreator({
 
   const handleOverwriteSessionSentences = (sessionId: string) => {
     if (sortedSelectedSentences.length === 0) return;
+    const targetSession = createdSessions.find(
+      (session) => session.id === sessionId,
+    );
+    if (!targetSession) return;
+
     const start = sortedSelectedSentences[0].startTime;
     const end =
       sortedSelectedSentences[sortedSelectedSentences.length - 1].endTime;
@@ -614,6 +701,25 @@ export function SessionCreator({
           : s,
       ),
     );
+
+    const sessionBelongsToLongform =
+      !!longformPack &&
+      (targetSession.longform_pack_id === longformPack.id ||
+        targetSession.sentence_ids.some((sentenceId) =>
+          longformPack.sentence_ids.includes(sentenceId),
+        ));
+
+    if (longformPack && sessionBelongsToLongform) {
+      updateLongformPack(
+        syncLongformSelectionWithSessionOverwrite(
+          longformPack,
+          sentences,
+          targetSession,
+          sortedSelectedSentences,
+        ),
+      );
+    }
+
     onShortformSelectedIdsChange(new Set());
   };
 
@@ -733,92 +839,6 @@ export function SessionCreator({
     setCreatedSessions((prev) => [...prev, newSession]);
     onShortformSelectedIdsChange(new Set());
     handleOpenEditSheet(newSession);
-  };
-
-  const handleAutofillEdit = async () => {
-    if (!editingSession) return;
-    const sessionSentences = sentences.filter((s) =>
-      editingSession.sentence_ids.includes(s.id),
-    );
-    if (sessionSentences.length === 0) return;
-
-    setIsEditAutofilling(true);
-    try {
-      const response = await fetch("/api/admin/autofill-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          sentences: sessionSentences,
-          videoTitle,
-          targetPattern: editTransformationPattern ?? undefined,
-          primarySpeakerName: editPrimarySpeakerName.trim() || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || "Failed to autofill session details",
-        );
-      }
-
-      const data = await response.json();
-      setEditTitle(data.title);
-      setEditSubtitle(data.subtitle || "");
-      setEditDescription(data.description);
-      setEditSourceType(data.sourceType || "podcast");
-      setEditGenre(data.genre ?? undefined);
-      setEditRoleRelevance(data.roleRelevance || ["pm"]);
-      setEditPremiumRequired(Boolean(data.premiumRequired));
-    } catch (error) {
-      console.error("Autofill error:", error);
-      alert("AI 자동 완성에 실패했습니다. 다시 시도해주세요.");
-    } finally {
-      setIsEditAutofilling(false);
-    }
-  };
-
-  const handleGenerateEditContext = async () => {
-    if (!editingSession || !editTitle.trim()) return;
-    const sessionSentences = sentences.filter((s) =>
-      editingSession.sentence_ids.includes(s.id),
-    );
-    if (sessionSentences.length === 0) return;
-
-    setIsEditGeneratingContext(true);
-    try {
-      const response = await fetch("/api/admin/generate-session-context", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          title: editTitle,
-          description: editDescription,
-          sentences: sessionSentences,
-          targetPattern: editTransformationPattern ?? undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate context");
-      }
-
-      const data = (await response.json()) as {
-        context: SessionContext;
-        subtitle?: string;
-      };
-      setEditContext(data.context);
-      if (data.subtitle) {
-        setEditSubtitle(data.subtitle);
-      }
-    } catch (error) {
-      console.error("Context generation error:", error);
-      alert("프리러닝 컨텍스트 생성에 실패했습니다. 다시 시도해주세요.");
-    } finally {
-      setIsEditGeneratingContext(false);
-    }
   };
 
   const handleGenerateAllForEdit = async () => {
@@ -2302,54 +2322,27 @@ export function SessionCreator({
                   >
                     기본 정보
                   </span>
-                  <div className="flex items-center" style={{ gap: 8 }}>
-                    <button
-                      type="button"
-                      onClick={handleGenerateAllForEdit}
-                      disabled={isEditGeneratingAll}
-                      className="flex items-center"
-                      style={{
-                        gap: 4,
-                        padding: "3px 10px",
-                        backgroundColor: isEditGeneratingAll
-                          ? "#d4d4d4"
-                          : "#2563eb",
-                        color: "#ffffff",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        border: "none",
-                        cursor: isEditGeneratingAll ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      {isEditGeneratingAll ? "생성 중..." : "AI 한 번에 생성"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAutofillEdit}
-                      disabled={isEditAutofilling}
-                      className="flex items-center"
-                      style={{
-                        gap: 4,
-                        padding: "3px 10px",
-                        backgroundColor: isEditAutofilling
-                          ? "#d4d4d4"
-                          : "#8b5cf6",
-                        color: "#ffffff",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        border: "none",
-                        cursor: isEditAutofilling ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      {isEditAutofilling
-                        ? "생성 중..."
-                        : editTransformationPattern
-                          ? `기본정보 채우기 ('${editTransformationPattern}' 기반)`
-                          : "기본정보 채우기"}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAllForEdit}
+                    disabled={isEditGeneratingAll}
+                    className="flex items-center"
+                    style={{
+                      gap: 4,
+                      padding: "3px 10px",
+                      backgroundColor: isEditGeneratingAll
+                        ? "#d4d4d4"
+                        : "#2563eb",
+                      color: "#ffffff",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: "none",
+                      cursor: isEditGeneratingAll ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    {isEditGeneratingAll ? "생성 중..." : "AI 채우기"}
+                  </button>
                 </div>
                 <input
                   type="text"
@@ -2612,32 +2605,6 @@ export function SessionCreator({
                   >
                     프리러닝 컨텍스트
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleGenerateEditContext}
-                    disabled={isEditGeneratingContext || !editTitle.trim()}
-                    style={{
-                      padding: "4px 12px",
-                      border: "none",
-                      backgroundColor:
-                        isEditGeneratingContext || !editTitle.trim()
-                          ? "#d4d4d4"
-                          : "#2563eb",
-                      color: "#ffffff",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      cursor:
-                        isEditGeneratingContext || !editTitle.trim()
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    {isEditGeneratingContext
-                      ? "생성 중..."
-                      : editTransformationPattern
-                        ? `AI 컨텍스트 생성 ('${editTransformationPattern}' 기반)`
-                        : "AI 컨텍스트 생성"}
-                  </button>
                 </div>
 
                 <label className="flex flex-col" style={{ gap: 6 }}>

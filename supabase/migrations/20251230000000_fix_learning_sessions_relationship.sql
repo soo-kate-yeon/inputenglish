@@ -5,7 +5,8 @@
 -- We use a name that describes the constraint
 DO $$ 
 BEGIN
-    IF NOT EXISTS (
+    IF to_regclass('public.curated_videos') IS NOT NULL
+       AND NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'curated_videos_video_id_unique'
     ) THEN
         ALTER TABLE public.curated_videos ADD CONSTRAINT curated_videos_video_id_unique UNIQUE (video_id);
@@ -16,7 +17,8 @@ END $$;
 -- This allows PostgREST to perform joins (embedding)
 DO $$ 
 BEGIN
-    IF NOT EXISTS (
+    IF to_regclass('public.curated_videos') IS NOT NULL
+       AND NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'learning_sessions_source_video_id_fkey'
     ) THEN
         ALTER TABLE public.learning_sessions

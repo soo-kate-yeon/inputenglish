@@ -44,6 +44,7 @@ END;
 $$ language 'plpgsql';
 
 -- Add trigger for updated_at
+DROP TRIGGER IF EXISTS update_learning_sessions_updated_at ON public.learning_sessions;
 CREATE TRIGGER update_learning_sessions_updated_at
     BEFORE UPDATE ON public.learning_sessions
     FOR EACH ROW
@@ -63,24 +64,32 @@ CREATE INDEX IF NOT EXISTS learning_sessions_order_idx
 ALTER TABLE public.learning_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Public read access (all users can view published sessions)
-CREATE POLICY "Anyone can view learning sessions"
-  ON public.learning_sessions FOR SELECT
-  USING (true);
+DO $$ BEGIN
+  CREATE POLICY "Anyone can view learning sessions"
+    ON public.learning_sessions FOR SELECT
+    USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Only authenticated users can insert (admins will be checked in app layer)
-CREATE POLICY "Authenticated users can insert learning sessions"
-  ON public.learning_sessions FOR INSERT
-  WITH CHECK (auth.uid() IS NOT NULL);
+DO $$ BEGIN
+  CREATE POLICY "Authenticated users can insert learning sessions"
+    ON public.learning_sessions FOR INSERT
+    WITH CHECK (auth.uid() IS NOT NULL);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Only creators or admins can update (admin check in app layer)
-CREATE POLICY "Creators can update their learning sessions"
-  ON public.learning_sessions FOR UPDATE
-  USING (auth.uid() = created_by);
+DO $$ BEGIN
+  CREATE POLICY "Creators can update their learning sessions"
+    ON public.learning_sessions FOR UPDATE
+    USING (auth.uid() = created_by);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Only creators or admins can delete (admin check in app layer)
-CREATE POLICY "Creators can delete their learning sessions"
-  ON public.learning_sessions FOR DELETE
-  USING (auth.uid() = created_by);
+DO $$ BEGIN
+  CREATE POLICY "Creators can delete their learning sessions"
+    ON public.learning_sessions FOR DELETE
+    USING (auth.uid() = created_by);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Add comment for documentation
 COMMENT ON TABLE public.learning_sessions IS 'Stores extracted learning sessions (short clips) from curated videos';

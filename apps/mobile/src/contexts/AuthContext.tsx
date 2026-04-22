@@ -128,6 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             focus_tags: [],
             preferred_speakers: [],
             preferred_situations: [],
+            preferred_video_categories: [],
             onboarding_completed_at: null,
             updated_at: null,
           });

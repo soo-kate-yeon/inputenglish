@@ -8,6 +8,8 @@ import type {
   CuratedVideo,
   FeaturedSpeaker,
   Genre,
+  LongformContext,
+  LongformPack,
   PlaybookEntry,
   PlaybookMasteryStatus,
   PracticeAttempt,
@@ -17,6 +19,7 @@ import type {
   SessionContext,
   SessionRoleRelevance,
   SessionSourceType,
+  Sentence,
   Speaker,
 } from "@inputenglish/shared";
 import { buildDefaultPracticePrompts } from "./professional-practice";
@@ -45,6 +48,7 @@ export async function fetchCuratedVideos(): Promise<VideoListItem[]> {
 export interface SessionListItem {
   id: string;
   source_video_id: string;
+  longform_pack_id?: string | null;
   title: string;
   subtitle?: string;
   description?: string;
@@ -70,7 +74,39 @@ export interface SessionListItem {
 }
 
 const SESSION_SELECT =
-  "id, source_video_id, title, subtitle, description, duration, start_time, end_time, sentence_ids, difficulty, thumbnail_url, order_index, source_type, genre, video_categories, speaking_situations, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+  "id, source_video_id, longform_pack_id, title, subtitle, description, duration, start_time, end_time, sentence_ids, difficulty, thumbnail_url, order_index, source_type, genre, video_categories, speaking_situations, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+
+const LONGFORM_PACK_SELECT = `
+  id,
+  source_video_id,
+  title,
+  subtitle,
+  description,
+  duration,
+  sentence_ids,
+  start_time,
+  end_time,
+  primary_speaker_id,
+  speaker_summary,
+  talk_summary,
+  topic_tags,
+  content_tags,
+  created_at,
+  created_by,
+  updated_at,
+  context:longform_contexts (
+    longform_pack_id,
+    speaker_snapshot,
+    conversation_type,
+    core_topics,
+    why_this_segment,
+    listening_takeaway,
+    generated_by,
+    updated_by,
+    created_at,
+    updated_at
+  )
+` as const;
 
 interface SessionSpeakerMeta {
   primaryName?: string;
@@ -88,6 +124,8 @@ function mapSessionRow(
   return {
     id: s.id,
     source_video_id: s.source_video_id,
+    longform_pack_id:
+      typeof s.longform_pack_id === "string" ? s.longform_pack_id : null,
     title: s.title,
     subtitle: s.subtitle || undefined,
     description: s.description || undefined,
@@ -125,6 +163,43 @@ function mapSessionRow(
         : (s.session_contexts as { expected_takeaway?: string } | null)
             ?.expected_takeaway) || undefined,
   };
+}
+
+function resolveSentenceRange(
+  transcript: Sentence[],
+  sentenceIds: string[],
+  startTime: number,
+  endTime: number,
+): Sentence[] {
+  if (sentenceIds.length > 0) {
+    const matched = sentenceIds
+      .map((sentenceId) =>
+        transcript.find((sentence) => sentence.id === sentenceId),
+      )
+      .filter((sentence): sentence is Sentence => Boolean(sentence));
+
+    if (matched.length > 0) {
+      return matched;
+    }
+
+    return [];
+  }
+
+  return transcript.filter((sentence) => {
+    return sentence.endTime >= startTime && sentence.startTime <= endTime;
+  });
+}
+
+export interface LongformPackDetail extends Omit<
+  LongformPack,
+  "shorts" | "context"
+> {
+  context: LongformContext | null;
+  shorts: SessionListItem[];
+  source_video: CuratedVideo;
+  transcript: Sentence[];
+  channel_name?: string;
+  thumbnail_url?: string;
 }
 
 async function enrichWithVideos(
@@ -352,6 +427,7 @@ export async function fetchLearningSessionDetail(
       `
         id,
         source_video_id,
+        longform_pack_id,
         title,
         subtitle,
         description,
@@ -400,6 +476,8 @@ export async function fetchLearningSessionDetail(
   return {
     id: data.id,
     source_video_id: data.source_video_id,
+    longform_pack_id:
+      typeof data.longform_pack_id === "string" ? data.longform_pack_id : null,
     title: data.title,
     subtitle: data.subtitle || undefined,
     description: data.description || undefined,
@@ -438,6 +516,123 @@ export async function fetchLearningSessionDetail(
         }
       : null,
   };
+}
+
+export async function fetchLongformPackDetail(
+  packId: string,
+): Promise<LongformPackDetail | null> {
+  try {
+    const { data: packData, error: packError } = await supabase
+      .from("longform_packs")
+      .select(LONGFORM_PACK_SELECT)
+      .eq("id", packId)
+      .maybeSingle();
+
+    if (packError) throw packError;
+    if (!packData) return null;
+
+    const [videoResult, shortsResult, speakerResult] = await Promise.all([
+      supabase
+        .from("curated_videos")
+        .select("*")
+        .eq("video_id", packData.source_video_id)
+        .single(),
+      supabase
+        .from("learning_sessions")
+        .select(SESSION_SELECT)
+        .eq("longform_pack_id", packId)
+        .order("order_index", { ascending: true }),
+      packData.primary_speaker_id
+        ? supabase
+            .from("speakers")
+            .select("name, slug, headline, avatar_url")
+            .eq("id", packData.primary_speaker_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (videoResult.error) throw videoResult.error;
+    if (shortsResult.error) throw shortsResult.error;
+    if (speakerResult.error) throw speakerResult.error;
+
+    const sourceVideo = videoResult.data as CuratedVideo;
+    const rawShorts = shortsResult.data ?? [];
+    const context = Array.isArray(packData.context)
+      ? ((packData.context[0] ?? null) as LongformContext | null)
+      : ((packData.context ?? null) as LongformContext | null);
+    const videoMap = await enrichWithVideos(rawShorts);
+    const speakerMap = await enrichWithSpeakers(rawShorts);
+    const transcript = resolveSentenceRange(
+      sourceVideo?.transcript ?? [],
+      Array.isArray(packData.sentence_ids) ? packData.sentence_ids : [],
+      Number(packData.start_time ?? 0),
+      Number(packData.end_time ?? 0),
+    );
+
+    return {
+      id: packData.id,
+      source_video_id: packData.source_video_id,
+      title: packData.title,
+      subtitle: packData.subtitle || undefined,
+      description: packData.description || undefined,
+      duration: Number(packData.duration),
+      sentence_ids: Array.isArray(packData.sentence_ids)
+        ? (packData.sentence_ids as string[])
+        : [],
+      start_time: Number(packData.start_time),
+      end_time: Number(packData.end_time),
+      primary_speaker_id: packData.primary_speaker_id ?? null,
+      primary_speaker_name: speakerResult.data?.name ?? null,
+      primary_speaker_slug: speakerResult.data?.slug ?? null,
+      primary_speaker_description: speakerResult.data?.headline ?? null,
+      primary_speaker_avatar_url: speakerResult.data?.avatar_url ?? null,
+      speaker_summary: packData.speaker_summary ?? null,
+      talk_summary: packData.talk_summary ?? null,
+      topic_tags: Array.isArray(packData.topic_tags)
+        ? (packData.topic_tags as string[])
+        : [],
+      content_tags: Array.isArray(packData.content_tags)
+        ? (packData.content_tags as string[])
+        : [],
+      created_at: packData.created_at,
+      created_by: packData.created_by ?? null,
+      updated_at: packData.updated_at ?? undefined,
+      context: context
+        ? {
+            ...context,
+            core_topics: Array.isArray(context.core_topics)
+              ? context.core_topics
+              : [],
+          }
+        : null,
+      shorts: rawShorts.map((session) =>
+        mapSessionRow(
+          session,
+          videoMap.get(session.source_video_id),
+          speakerMap.get(session.source_video_id),
+        ),
+      ),
+      source_video: sourceVideo,
+      transcript,
+      channel_name: sourceVideo.channel_name,
+      thumbnail_url:
+        sourceVideo.thumbnail_url ||
+        `https://img.youtube.com/vi/${packData.source_video_id}/hqdefault.jpg`,
+    };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("longform_packs") ||
+        error.message.includes("longform_contexts") ||
+        error.message.includes("longform_pack_id"))
+    ) {
+      throw new Error(
+        "롱폼 계층용 DB 스키마가 아직 반영되지 않았어요. 최신 마이그레이션을 먼저 적용해주세요.",
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function fetchCuratedVideo(
