@@ -58,20 +58,32 @@ export interface SessionListItem {
   channel_name?: string;
   source_type?: SessionSourceType;
   genre?: Genre;
+  video_categories?: string[];
+  speaking_situations?: string[];
   role_relevance?: SessionRoleRelevance[];
   premium_required?: boolean;
   expected_takeaway?: string;
   context?: SessionContext | null;
+  primary_speaker_name?: string;
+  primary_speaker_slug?: string;
+  speaker_names?: string[];
 }
 
 const SESSION_SELECT =
-  "id, source_video_id, title, subtitle, description, duration, difficulty, thumbnail_url, order_index, source_type, genre, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+  "id, source_video_id, title, subtitle, description, duration, start_time, end_time, sentence_ids, difficulty, thumbnail_url, order_index, source_type, genre, video_categories, speaking_situations, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+
+interface SessionSpeakerMeta {
+  primaryName?: string;
+  primarySlug?: string;
+  speakerNames: string[];
+}
 
 const FEED_PAGE_SIZE = 20;
 
 function mapSessionRow(
   s: any,
   video?: { thumbnail_url?: string; channel_name?: string } | null,
+  speakerMeta?: SessionSpeakerMeta,
 ): SessionListItem {
   return {
     id: s.id,
@@ -80,9 +92,21 @@ function mapSessionRow(
     subtitle: s.subtitle || undefined,
     description: s.description || undefined,
     duration: Number(s.duration),
+    start_time:
+      typeof s.start_time === "number" ? Number(s.start_time) : undefined,
+    end_time: typeof s.end_time === "number" ? Number(s.end_time) : undefined,
+    sentence_ids: Array.isArray(s.sentence_ids)
+      ? (s.sentence_ids as string[])
+      : [],
     difficulty: s.difficulty as SessionListItem["difficulty"],
     source_type: s.source_type as SessionListItem["source_type"],
     genre: s.genre as SessionListItem["genre"],
+    video_categories: Array.isArray(s.video_categories)
+      ? (s.video_categories as string[])
+      : [],
+    speaking_situations: Array.isArray(s.speaking_situations)
+      ? (s.speaking_situations as string[])
+      : [],
     role_relevance:
       (s.role_relevance as SessionListItem["role_relevance"]) || [],
     premium_required: Boolean(s.premium_required),
@@ -92,6 +116,9 @@ function mapSessionRow(
       `https://img.youtube.com/vi/${s.source_video_id}/hqdefault.jpg`,
     order_index: s.order_index,
     channel_name: video?.channel_name || undefined,
+    primary_speaker_name: speakerMeta?.primaryName,
+    primary_speaker_slug: speakerMeta?.primarySlug,
+    speaker_names: speakerMeta?.speakerNames ?? [],
     expected_takeaway:
       (Array.isArray(s.session_contexts)
         ? s.session_contexts[0]?.expected_takeaway
@@ -112,6 +139,58 @@ async function enrichWithVideos(
   return new Map((videos ?? []).map((v) => [v.video_id, v]));
 }
 
+async function enrichWithSpeakers(
+  sessions: { source_video_id: string }[],
+): Promise<Map<string, SessionSpeakerMeta>> {
+  const videoIds = [...new Set(sessions.map((s) => s.source_video_id))];
+  if (videoIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("video_speakers")
+    .select("video_id, is_primary, speakers(name, slug)")
+    .in("video_id", videoIds);
+
+  if (error) throw error;
+
+  const speakerMap = new Map<string, SessionSpeakerMeta>();
+
+  for (const row of data ?? []) {
+    const videoId = row.video_id as string | undefined;
+    const speakerRow = Array.isArray(row.speakers)
+      ? row.speakers[0]
+      : row.speakers;
+    const speakerName =
+      speakerRow && typeof speakerRow.name === "string"
+        ? speakerRow.name
+        : undefined;
+    const speakerSlug =
+      speakerRow && typeof speakerRow.slug === "string"
+        ? speakerRow.slug
+        : undefined;
+
+    if (!videoId || !speakerName) continue;
+
+    const current = speakerMap.get(videoId) ?? {
+      primaryName: undefined,
+      primarySlug: undefined,
+      speakerNames: [],
+    };
+
+    if (!current.speakerNames.includes(speakerName)) {
+      current.speakerNames.push(speakerName);
+    }
+
+    if (row.is_primary || !current.primaryName) {
+      current.primaryName = speakerName;
+      current.primarySlug = speakerSlug;
+    }
+
+    speakerMap.set(videoId, current);
+  }
+
+  return speakerMap;
+}
+
 export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   const { data: sessions, error: sessionsError } = await supabase
     .from("learning_sessions")
@@ -122,7 +201,14 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   if (!sessions || sessions.length === 0) return [];
 
   const videoMap = await enrichWithVideos(sessions);
-  return sessions.map((s) => mapSessionRow(s, videoMap.get(s.source_video_id)));
+  const speakerMap = await enrichWithSpeakers(sessions);
+  return sessions.map((s) =>
+    mapSessionRow(
+      s,
+      videoMap.get(s.source_video_id),
+      speakerMap.get(s.source_video_id),
+    ),
+  );
 }
 
 export interface FeedFilters {
@@ -164,8 +250,13 @@ export async function fetchLearningSessionsPaginated(
     return { sessions: [], hasMore: false };
 
   const videoMap = await enrichWithVideos(sessions);
+  const speakerMap = await enrichWithSpeakers(sessions);
   const mapped = sessions.map((s) =>
-    mapSessionRow(s, videoMap.get(s.source_video_id)),
+    mapSessionRow(
+      s,
+      videoMap.get(s.source_video_id),
+      speakerMap.get(s.source_video_id),
+    ),
   );
 
   return { sessions: mapped, hasMore: sessions.length === FEED_PAGE_SIZE };
@@ -203,10 +294,15 @@ export async function fetchContinueLearning(
   if (!sessions || sessions.length === 0) return [];
 
   const videoMap = await enrichWithVideos(sessions);
+  const speakerMap = await enrichWithSpeakers(sessions);
   const sessionMap = new Map(
     sessions.map((s) => [
       s.id,
-      mapSessionRow(s, videoMap.get(s.source_video_id)),
+      mapSessionRow(
+        s,
+        videoMap.get(s.source_video_id),
+        speakerMap.get(s.source_video_id),
+      ),
     ]),
   );
 
@@ -229,10 +325,15 @@ export async function fetchSessionsByIds(
   if (!sessions || sessions.length === 0) return [];
 
   const videoMap = await enrichWithVideos(sessions);
+  const speakerMap = await enrichWithSpeakers(sessions);
   const sessionMap = new Map(
     sessions.map((s) => [
       s.id,
-      mapSessionRow(s, videoMap.get(s.source_video_id)),
+      mapSessionRow(
+        s,
+        videoMap.get(s.source_video_id),
+        speakerMap.get(s.source_video_id),
+      ),
     ]),
   );
 
@@ -263,6 +364,8 @@ export async function fetchLearningSessionDetail(
         order_index,
         source_type,
         genre,
+        video_categories,
+        speaking_situations,
         role_relevance,
         premium_required,
         context:session_contexts (
@@ -284,6 +387,11 @@ export async function fetchLearningSessionDetail(
 
   if (error) throw error;
   if (!data) return null;
+
+  const speakerMap = await enrichWithSpeakers([
+    { source_video_id: data.source_video_id },
+  ]);
+  const speakerMeta = speakerMap.get(data.source_video_id);
 
   const context = Array.isArray(data.context)
     ? (data.context[0] as SessionContext | undefined)
@@ -310,9 +418,18 @@ export async function fetchLearningSessionDetail(
     order_index: data.order_index,
     source_type: data.source_type as SessionListItem["source_type"],
     genre: data.genre as SessionListItem["genre"],
+    video_categories: Array.isArray(data.video_categories)
+      ? (data.video_categories as string[])
+      : [],
+    speaking_situations: Array.isArray(data.speaking_situations)
+      ? (data.speaking_situations as string[])
+      : [],
     role_relevance:
       (data.role_relevance as SessionListItem["role_relevance"]) || [],
     premium_required: Boolean(data.premium_required),
+    primary_speaker_name: speakerMeta?.primaryName,
+    primary_speaker_slug: speakerMeta?.primarySlug,
+    speaker_names: speakerMeta?.speakerNames ?? [],
     context: context
       ? {
           ...context,

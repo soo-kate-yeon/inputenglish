@@ -1,3 +1,4 @@
+import { SPEAKING_SITUATIONS, VIDEO_CATEGORIES } from "@inputenglish/shared";
 import type {
   CuratedVideo,
   LearningGoalMode,
@@ -42,8 +43,8 @@ interface CachedDailyInputQueue {
 }
 
 const DAILY_INPUT_CACHE_PREFIX = "daily_input_queue";
-const DAILY_INPUT_CACHE_VERSION = 2;
-const MAX_DAILY_INPUT_ITEMS = 3;
+const DAILY_INPUT_CACHE_VERSION = 3;
+const MAX_DAILY_INPUT_ITEMS = 5;
 
 const EXPRESSION_HINTS: Record<
   string,
@@ -245,6 +246,7 @@ function getProfileHash(profile: LearningProfile): string {
     focus_tags: sortStrings(profile.focus_tags),
     preferred_speakers: sortStrings(profile.preferred_speakers),
     preferred_situations: sortStrings(profile.preferred_situations),
+    preferred_video_categories: sortStrings(profile.preferred_video_categories),
   });
 }
 
@@ -269,10 +271,40 @@ function getSessionSearchText(session: SessionListItem): string {
     session.description,
     session.channel_name,
     session.expected_takeaway,
+    session.primary_speaker_name,
+    ...(session.speaker_names ?? []),
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function normalizeTextArray(values: string[] | null | undefined): string[] {
+  return (values ?? []).map((value) => normalizeText(value)).filter(Boolean);
+}
+
+function getPreferredExpressionSituations(profile: LearningProfile): string[] {
+  if (profile.preferred_situations.length > 0) {
+    return profile.preferred_situations;
+  }
+
+  return profile.focus_tags.filter((tag) =>
+    SPEAKING_SITUATIONS.includes(tag as any),
+  );
+}
+
+function getPreferredVideoCategories(profile: LearningProfile): string[] {
+  if (profile.preferred_video_categories.length > 0) {
+    return profile.preferred_video_categories;
+  }
+
+  return profile.focus_tags.filter((tag) =>
+    VIDEO_CATEGORIES.includes(tag as any),
+  );
 }
 
 function scoreLevelFit(
@@ -292,16 +324,35 @@ function scoreLevelFit(
 function scorePronunciationSession(
   session: SessionListItem,
   profile: LearningProfile,
-): number {
+): {
+  total: number;
+  exactSpeakerMatch: boolean;
+} {
   let score = 0;
   const searchText = getSessionSearchText(session);
   const preferredTags =
     profile.preferred_speakers.length > 0
       ? profile.preferred_speakers
       : profile.focus_tags;
+  const normalizedPrimarySpeaker = normalizeText(session.primary_speaker_name);
+  const normalizedSpeakerNames = normalizeTextArray(session.speaker_names);
+  let exactSpeakerMatch = false;
 
   for (const tag of preferredTags) {
     const hint = PRONUNCIATION_HINTS[tag];
+    const normalizedTag = normalizeText(tag);
+
+    if (normalizedTag && normalizedPrimarySpeaker === normalizedTag) {
+      exactSpeakerMatch = true;
+      score += 18;
+    } else if (
+      normalizedTag &&
+      normalizedSpeakerNames.includes(normalizedTag)
+    ) {
+      exactSpeakerMatch = true;
+      score += 12;
+    }
+
     if (hint?.sourceTypes?.includes(session.source_type)) score += 3;
     for (const keyword of hint?.titleKeywords ?? []) {
       if (searchText.includes(keyword)) score += 1;
@@ -313,25 +364,51 @@ function scorePronunciationSession(
     score += 1;
   }
 
-  return score;
+  return {
+    total: score,
+    exactSpeakerMatch,
+  };
 }
 
 function scoreExpressionSession(
   session: SessionListItem,
   profile: LearningProfile,
-): number {
+): {
+  total: number;
+  exactCategoryMatch: boolean;
+  exactSituationMatch: boolean;
+} {
   let score = 0;
   const searchText = getSessionSearchText(session);
+  const preferredSituations = getPreferredExpressionSituations(profile);
+  const preferredCategories = getPreferredVideoCategories(profile);
+  const sessionSituations = normalizeTextArray(session.speaking_situations);
+  const sessionCategories = normalizeTextArray(session.video_categories);
+  let exactCategoryMatch = false;
+  let exactSituationMatch = false;
   const preferredTags = [
     ...new Set(
       [
-        ...(profile.preferred_situations.length > 0
-          ? profile.preferred_situations
-          : []),
+        ...preferredSituations,
+        ...preferredCategories,
         ...profile.focus_tags,
       ].filter(Boolean),
     ),
   ];
+
+  for (const category of preferredCategories) {
+    if (sessionCategories.includes(normalizeText(category))) {
+      exactCategoryMatch = true;
+      score += 14;
+    }
+  }
+
+  for (const situation of preferredSituations) {
+    if (sessionSituations.includes(normalizeText(situation))) {
+      exactSituationMatch = true;
+      score += 12;
+    }
+  }
 
   for (const tag of preferredTags) {
     const hint = EXPRESSION_HINTS[tag];
@@ -347,24 +424,50 @@ function scoreExpressionSession(
     score += 1;
   }
 
-  return score;
+  return {
+    total: score,
+    exactCategoryMatch,
+    exactSituationMatch,
+  };
 }
 
 function scoreSessionForProfile(
   session: SessionListItem,
   profile: LearningProfile,
-): number {
+): {
+  total: number;
+  exactSpeakerMatch: boolean;
+  exactCategoryMatch: boolean;
+  exactSituationMatch: boolean;
+} {
   const baseScore = scoreLevelFit(session, profile.level_band);
 
   if (profile.goal_mode === "pronunciation") {
-    return baseScore + scorePronunciationSession(session, profile);
+    const pronunciationScore = scorePronunciationSession(session, profile);
+    return {
+      total: baseScore + pronunciationScore.total,
+      exactSpeakerMatch: pronunciationScore.exactSpeakerMatch,
+      exactCategoryMatch: false,
+      exactSituationMatch: false,
+    };
   }
 
   if (profile.goal_mode === "expression") {
-    return baseScore + scoreExpressionSession(session, profile);
+    const expressionScore = scoreExpressionSession(session, profile);
+    return {
+      total: baseScore + expressionScore.total,
+      exactSpeakerMatch: false,
+      exactCategoryMatch: expressionScore.exactCategoryMatch,
+      exactSituationMatch: expressionScore.exactSituationMatch,
+    };
   }
 
-  return baseScore;
+  return {
+    total: baseScore,
+    exactSpeakerMatch: false,
+    exactCategoryMatch: false,
+    exactSituationMatch: false,
+  };
 }
 
 function pickSentence(
@@ -375,7 +478,11 @@ function pickSentence(
   const transcript = video.transcript ?? [];
   if (transcript.length === 0) return null;
 
-  if (allowedSentenceIds && allowedSentenceIds.length > 0) {
+  if (allowedSentenceIds !== undefined) {
+    if (allowedSentenceIds.length === 0) {
+      return null;
+    }
+
     for (const sentenceId of allowedSentenceIds) {
       const matched = transcript.find((sentence) => sentence.id === sentenceId);
       if (matched) return matched;
@@ -427,13 +534,13 @@ async function materializeQueueItem(
   const video = await fetchCuratedVideo(session.source_video_id);
   const transformationSet =
     mode === "expression" ? await fetchTransformationSet(session.id) : null;
-  const sentence = pickSentence(
-    session,
-    video,
+  const sentenceAnchorIds =
     mode === "expression"
       ? (transformationSet?.source_sentence_ids ?? [])
-      : undefined,
-  );
+      : mode === "pronunciation"
+        ? (session.sentence_ids ?? [])
+        : undefined;
+  const sentence = pickSentence(session, video, sentenceAnchorIds);
 
   if (mode === "expression" && (!transformationSet || !sentence)) {
     return null;
@@ -486,9 +593,31 @@ async function generateDailyInputQueue(
   const rankedCandidates = [...sessions]
     .filter((session) => !reviewSessionIds.has(session.id))
     .sort((left, right) => {
-      const scoreDiff =
-        scoreSessionForProfile(right, profile) -
-        scoreSessionForProfile(left, profile);
+      const leftScore = scoreSessionForProfile(left, profile);
+      const rightScore = scoreSessionForProfile(right, profile);
+
+      if (leftScore.exactSpeakerMatch !== rightScore.exactSpeakerMatch) {
+        return (
+          Number(rightScore.exactSpeakerMatch) -
+          Number(leftScore.exactSpeakerMatch)
+        );
+      }
+
+      if (leftScore.exactCategoryMatch !== rightScore.exactCategoryMatch) {
+        return (
+          Number(rightScore.exactCategoryMatch) -
+          Number(leftScore.exactCategoryMatch)
+        );
+      }
+
+      if (leftScore.exactSituationMatch !== rightScore.exactSituationMatch) {
+        return (
+          Number(rightScore.exactSituationMatch) -
+          Number(leftScore.exactSituationMatch)
+        );
+      }
+
+      const scoreDiff = rightScore.total - leftScore.total;
       if (scoreDiff !== 0) return scoreDiff;
       return left.order_index - right.order_index;
     });

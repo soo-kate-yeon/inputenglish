@@ -18,14 +18,14 @@ const ICONS: Record<
     inactive: keyof typeof Ionicons.glyphMap;
   }
 > = {
-  index: { active: "home", inactive: "home-outline" },
+  index: { active: "play-circle", inactive: "play-circle-outline" },
   explore: { active: "compass", inactive: "compass-outline" },
   archive: { active: "albums", inactive: "albums-outline" },
   profile: { active: "person", inactive: "person-outline" },
 };
 
 const LABELS: Record<string, string> = {
-  index: "홈",
+  index: "쇼츠",
   explore: "탐색",
   archive: "보관함",
   profile: "프로필",
@@ -36,10 +36,15 @@ export default function FloatingTabBar({
   navigation,
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const isDarkModeBar = state.routes[state.index]?.name === "index";
 
   return (
     <View
-      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}
+      style={[
+        styles.container,
+        isDarkModeBar && styles.containerDark,
+        { paddingBottom: Math.max(insets.bottom, 8) },
+      ]}
     >
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
@@ -72,9 +77,24 @@ export default function FloatingTabBar({
             <Ionicons
               name={isFocused ? iconSet.active : iconSet.inactive}
               size={24}
-              color={isFocused ? colors.text : colors.textMuted}
+              color={
+                isDarkModeBar
+                  ? isFocused
+                    ? colors.textOnDark
+                    : colors.textOnDarkMuted
+                  : isFocused
+                    ? colors.text
+                    : colors.textMuted
+              }
             />
-            <Text style={[styles.label, isFocused && styles.labelActive]}>
+            <Text
+              style={[
+                styles.label,
+                isDarkModeBar && styles.labelDark,
+                isFocused && styles.labelActive,
+                isDarkModeBar && isFocused && styles.labelDarkActive,
+              ]}
+            >
               {LABELS[route.name]}
             </Text>
           </TouchableOpacity>
@@ -102,6 +122,21 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  containerDark: {
+    backgroundColor: colors.bgDark,
+    borderTopColor: colors.borderOnDark,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.bgDark,
+        shadowOffset: { width: 0, height: -1 },
+        shadowOpacity: 0.24,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
   tab: {
     flex: 1,
     alignItems: "center",
@@ -116,8 +151,14 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.medium,
     color: colors.textMuted,
   },
+  labelDark: {
+    color: colors.textOnDarkMuted,
+  },
   labelActive: {
     color: colors.text,
     fontWeight: font.weight.semibold,
+  },
+  labelDarkActive: {
+    color: colors.textOnDark,
   },
 });

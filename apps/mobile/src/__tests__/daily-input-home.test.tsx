@@ -3,21 +3,25 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
-const mockGetDailyInputQueue = jest.fn();
+const mockFetchLearningSessionsPaginated = jest.fn();
+const mockFetchSessionsByIds = jest.fn();
 const mockFetchCuratedVideo = jest.fn();
-const mockUploadPronunciationRecording = jest.fn();
-const mockRequestPronunciationAnalysis = jest.fn();
-const mockWaitForPronunciationAnalysisCompletion = jest.fn();
-const mockReadPronunciationAnalysisCache = jest.fn();
-const mockWritePronunciationAnalysisCache = jest.fn();
-const mockUploadTransformationRecording = jest.fn();
-const mockSaveTransformationAttempt = jest.fn();
-const mockStartRecording = jest.fn();
-const mockStopRecording = jest.fn();
-const mockPlayRecording = jest.fn();
-const mockPauseRecording = jest.fn();
-const mockResetRecording = jest.fn();
+const mockRecordSessionVisit = jest.fn();
+const mockAddSavedSentence = jest.fn();
+const mockRemoveSavedSentence = jest.fn();
+
 let mockPlan: "FREE" | "PREMIUM" = "PREMIUM";
+let mockSavedShortEntries: Array<{
+  sessionId: string;
+  videoId: string;
+  savedAt: number;
+}> = [];
+let mockSavedSentences: Array<{
+  id: string;
+  sentenceId: string;
+  videoId: string;
+}> = [];
+
 const mockAuthState = {
   user: { id: "user-1" },
   learningProfile: {
@@ -25,22 +29,12 @@ const mockAuthState = {
     level_band: "conversation",
     goal_mode: "expression",
     focus_tags: ["회의/업데이트"],
-    preferred_speakers: [],
+    preferred_speakers: ["Aubrey Plaza"],
     preferred_situations: ["회의/업데이트"],
+    preferred_video_categories: ["셀럽 인터뷰"],
     onboarding_completed_at: "2026-04-18T00:00:00.000Z",
   },
   isProfileLoading: false,
-};
-const mockRecorderState = {
-  recordingState: "idle",
-  audioUri: null,
-  duration: 0,
-  isPlaying: false,
-  startRecording: (...args: unknown[]) => mockStartRecording(...args),
-  stopRecording: (...args: unknown[]) => mockStopRecording(...args),
-  playRecording: (...args: unknown[]) => mockPlayRecording(...args),
-  pauseRecording: (...args: unknown[]) => mockPauseRecording(...args),
-  resetRecording: (...args: unknown[]) => mockResetRecording(...args),
 };
 
 jest.mock("expo-router", () => {
@@ -58,48 +52,56 @@ jest.mock("expo-router", () => {
   };
 });
 
+jest.mock("react-native/Libraries/Lists/FlatList", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+
+  const MockFlatList = React.forwardRef(
+    (
+      props: {
+        data?: unknown[];
+        renderItem: (info: { item: unknown; index: number }) => React.ReactNode;
+        keyExtractor?: (item: unknown, index: number) => string;
+        onLayout?: (event: {
+          nativeEvent: { layout: { height: number; width: number } };
+        }) => void;
+      },
+      ref: React.ForwardedRef<{ scrollToOffset: jest.Mock }>,
+    ) => {
+      React.useImperativeHandle(ref, () => ({
+        scrollToOffset: jest.fn(),
+      }));
+
+      React.useEffect(() => {
+        props.onLayout?.({
+          nativeEvent: { layout: { height: 720, width: 390 } },
+        });
+      }, [props]);
+
+      return React.createElement(
+        View,
+        null,
+        (props.data ?? []).map((item, index) =>
+          React.createElement(
+            React.Fragment,
+            {
+              key: props.keyExtractor
+                ? props.keyExtractor(item, index)
+                : String(index),
+            },
+            props.renderItem({ item, index }),
+          ),
+        ),
+      );
+    },
+  );
+
+  MockFlatList.displayName = "MockFlatList";
+  return MockFlatList;
+});
+
 jest.mock("../../src/contexts/AuthContext", () => ({
   useAuth: jest.fn(() => mockAuthState),
-}));
-
-jest.mock("../../src/lib/daily-input", () => ({
-  getDailyInputQueue: (...args: unknown[]) => mockGetDailyInputQueue(...args),
-}));
-
-jest.mock("../../src/lib/transformation-api", () => ({
-  uploadTransformationRecording: (...args: unknown[]) =>
-    mockUploadTransformationRecording(...args),
-  saveTransformationAttempt: (...args: unknown[]) =>
-    mockSaveTransformationAttempt(...args),
-}));
-
-jest.mock("../../src/lib/ai-api", () => ({
-  uploadRecording: (...args: unknown[]) =>
-    mockUploadPronunciationRecording(...args),
-  requestPronunciationAnalysis: (...args: unknown[]) =>
-    mockRequestPronunciationAnalysis(...args),
-  waitForPronunciationAnalysisCompletion: (...args: unknown[]) =>
-    mockWaitForPronunciationAnalysisCompletion(...args),
-}));
-
-jest.mock("../../src/lib/pronunciation-analysis-cache", () => ({
-  readPronunciationAnalysisCache: (...args: unknown[]) =>
-    mockReadPronunciationAnalysisCache(...args),
-  writePronunciationAnalysisCache: (...args: unknown[]) =>
-    mockWritePronunciationAnalysisCache(...args),
-}));
-
-jest.mock("../../src/lib/api", () => ({
-  fetchCuratedVideo: (...args: unknown[]) => mockFetchCuratedVideo(...args),
-}));
-
-jest.mock("../../src/lib/analytics", () => ({
-  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-}));
-
-jest.mock("../../src/hooks/useAudioRecorder", () => ({
-  __esModule: true,
-  default: jest.fn(() => mockRecorderState),
 }));
 
 jest.mock("../../src/hooks/useSubscription", () => ({
@@ -111,397 +113,255 @@ jest.mock("../../src/hooks/useSubscription", () => ({
   })),
 }));
 
+jest.mock("../../src/lib/api", () => ({
+  fetchLearningSessionsPaginated: (...args: unknown[]) =>
+    mockFetchLearningSessionsPaginated(...args),
+  fetchSessionsByIds: (...args: unknown[]) => mockFetchSessionsByIds(...args),
+  fetchCuratedVideo: (...args: unknown[]) => mockFetchCuratedVideo(...args),
+}));
+
+jest.mock("../../src/lib/recent-sessions", () => ({
+  getRecentSessionIds: jest.fn(() => []),
+  recordSessionVisit: (...args: unknown[]) => mockRecordSessionVisit(...args),
+}));
+
+jest.mock("../../src/lib/saved-shorts", () => ({
+  getSavedShortSessionIds: jest.fn(() =>
+    mockSavedShortEntries.map((entry) => entry.sessionId),
+  ),
+  toggleSavedShortSession: jest.fn((sessionId: string, videoId: string) => {
+    const exists = mockSavedShortEntries.some(
+      (entry) => entry.sessionId === sessionId,
+    );
+
+    if (exists) {
+      mockSavedShortEntries = mockSavedShortEntries.filter(
+        (entry) => entry.sessionId !== sessionId,
+      );
+      return { saved: false, entries: mockSavedShortEntries };
+    }
+
+    mockSavedShortEntries = [
+      {
+        sessionId,
+        videoId,
+        savedAt: Date.now(),
+      },
+      ...mockSavedShortEntries,
+    ];
+
+    return { saved: true, entries: mockSavedShortEntries };
+  }),
+}));
+
+jest.mock("../../src/lib/analytics", () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
+
+jest.mock("../../src/lib/stores", () => ({
+  appStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      savedSentences: mockSavedSentences,
+      addSavedSentence: (...args: unknown[]) => mockAddSavedSentence(...args),
+      removeSavedSentence: (...args: unknown[]) =>
+        mockRemoveSavedSentence(...args),
+    }),
+}));
+
 jest.mock("../../src/components/player/YouTubePlayer", () => {
   const React = require("react");
   const { View } = require("react-native");
   const MockPlayer = React.forwardRef(
-    (props: { startSeconds?: number }, _ref: unknown) =>
-      React.createElement(View, {
+    (
+      props: {
+        videoId: string;
+        startSeconds?: number;
+        onReady?: () => void;
+      },
+      ref: React.ForwardedRef<{ seekTo: jest.Mock }>,
+    ) => {
+      React.useEffect(() => {
+        props.onReady?.();
+      }, [props]);
+
+      React.useImperativeHandle(ref, () => ({
+        seekTo: jest.fn(),
+        getCurrentTime: jest.fn().mockResolvedValue(0),
+        getDuration: jest.fn().mockResolvedValue(120),
+      }));
+
+      return React.createElement(View, {
         testID: "youtube-player",
-        accessibilityLabel: `youtube-player:${props.startSeconds ?? 0}`,
-      }),
+        accessibilityLabel: `youtube-player:${props.videoId}:${props.startSeconds ?? 0}`,
+      });
+    },
   );
-  MockPlayer.displayName = "YouTubePlayer";
+  MockPlayer.displayName = "MockYouTubePlayer";
   return { __esModule: true, default: MockPlayer };
 });
 
-describe("Daily input home", () => {
+describe("Shorts home", () => {
+  const session = {
+    id: "session-1",
+    source_video_id: "video-1",
+    title: "Quarterly Wrap-up Podcast",
+    subtitle: "Business Daily",
+    description: "Best moments from the episode",
+    duration: 180,
+    start_time: 12,
+    end_time: 48,
+    sentence_ids: ["sentence-1"],
+    difficulty: "intermediate" as const,
+    order_index: 1,
+    source_type: "podcast" as const,
+    genre: "business" as const,
+    video_categories: ["셀럽 인터뷰"],
+    speaking_situations: ["회의/업데이트"],
+    premium_required: false,
+    expected_takeaway: "이 장면만 이해해도 회의 업데이트 표현 감이 잡혀요.",
+    speaker_names: ["Aubrey Plaza"],
+    primary_speaker_name: "Aubrey Plaza",
+  };
+  const adjacentSession = {
+    ...session,
+    id: "session-2",
+    source_video_id: "video-2",
+    title: "Office Hours Podcast",
+    sentence_ids: ["sentence-2"],
+    order_index: 2,
+  };
+
   const HomeScreen = require("../../app/(tabs)/index").default;
 
   beforeEach(() => {
-    mockPush.mockClear();
-    mockTrackEvent.mockClear();
-    mockGetDailyInputQueue.mockReset();
+    mockPush.mockReset();
+    mockTrackEvent.mockReset();
+    mockFetchLearningSessionsPaginated.mockReset();
+    mockFetchSessionsByIds.mockReset();
     mockFetchCuratedVideo.mockReset();
-    mockUploadPronunciationRecording.mockReset();
-    mockRequestPronunciationAnalysis.mockReset();
-    mockWaitForPronunciationAnalysisCompletion.mockReset();
-    mockReadPronunciationAnalysisCache.mockReset();
-    mockWritePronunciationAnalysisCache.mockReset();
-    mockUploadTransformationRecording.mockReset();
-    mockSaveTransformationAttempt.mockReset();
-    mockStartRecording.mockReset();
-    mockStopRecording.mockReset();
-    mockPlayRecording.mockReset();
-    mockPauseRecording.mockReset();
-    mockResetRecording.mockReset();
-    mockAuthState.learningProfile = {
-      user_id: "user-1",
-      level_band: "conversation",
-      goal_mode: "expression",
-      focus_tags: ["회의/업데이트"],
-      preferred_speakers: [],
-      preferred_situations: ["회의/업데이트"],
-      onboarding_completed_at: "2026-04-18T00:00:00.000Z",
-    };
-    mockRecorderState.recordingState = "idle";
-    mockRecorderState.audioUri = null;
-    mockRecorderState.duration = 0;
+    mockRecordSessionVisit.mockReset();
+    mockAddSavedSentence.mockReset();
+    mockRemoveSavedSentence.mockReset();
+    mockSavedShortEntries = [];
+    mockSavedSentences = [];
     mockPlan = "PREMIUM";
+
+    mockFetchLearningSessionsPaginated.mockResolvedValue({
+      sessions: [session],
+      hasMore: false,
+    });
+    mockFetchSessionsByIds.mockResolvedValue([]);
     mockFetchCuratedVideo.mockResolvedValue({
       video_id: "video-1",
-      snippet_start_time: 100,
-      transcript: [],
-    });
-    mockUploadPronunciationRecording.mockResolvedValue(
-      "https://cdn.example.com/pronunciation.m4a",
-    );
-    mockReadPronunciationAnalysisCache.mockReturnValue(null);
-    mockRequestPronunciationAnalysis.mockResolvedValue({
-      analysis_id: "analysis-1",
-      status: "processing",
-      provider: "azure",
-      provider_locale: "en-US",
-      result: null,
-      error: null,
-    });
-    mockWaitForPronunciationAnalysisCompletion.mockResolvedValue({
-      analysis_id: "analysis-1",
-      status: "complete",
-      provider: "azure",
-      provider_locale: "en-US",
-      result: {
-        status: "complete",
-        provider: "azure",
-        reference_text: "Let me walk you through the update.",
-        overall_score: 84,
-        summary: "핵심은 잘 들리지만 문장 끝 처리가 조금 빨라요.",
-        clarity_note: "walk와 through를 더 분리해서 말하면 좋아요.",
-        stress_note: "update에 강세를 조금 더 실어보세요.",
-        next_focus:
-          "문장 끝을 급하게 내리지 말고 마지막 단어를 조금 더 길게 유지해보세요.",
-      },
-      error: null,
-    });
-    mockUploadTransformationRecording.mockResolvedValue(
-      "https://cdn.example.com/recording.m4a",
-    );
-    mockSaveTransformationAttempt.mockResolvedValue({ id: "attempt-1" });
-    mockStartRecording.mockResolvedValue(true);
-    mockStopRecording.mockResolvedValue("file:///recording.m4a");
-    mockResetRecording.mockResolvedValue(undefined);
-    mockGetDailyInputQueue.mockResolvedValue([
-      {
-        sessionId: "session-1",
-        videoId: "video-1",
-        title: "Quarterly Wrap-up Podcast",
-        channelName: "Business Daily",
-        sentenceId: "sentence-1",
-        sentenceText: "Let me walk you through the update.",
-        translation: "업데이트를 차근차근 설명드릴게요.",
-        startTime: 2,
-        endTime: 6,
-        mode: "expression",
-        isReview: true,
-        cardOrder: 0,
-        reason: "최근 학습한 흐름을 다시 꺼내보는 복습 카드",
-        transformationSet: {
-          id: "set-1",
-          session_id: "session-1",
-          target_pattern: "업데이트 공유하기",
-          pattern_type: "responding",
-          source_sentence_ids: ["sentence-1"],
-          generated_by: "manual",
-          created_at: "2026-04-18T00:00:00.000Z",
-          updated_at: "2026-04-18T00:00:00.000Z",
-          exercises: [
-            {
-              id: "exercise-1",
-              set_id: "set-1",
-              page_order: 1,
-              exercise_type: "kr-to-en",
-              instruction_text: "핵심 업데이트를 바로 영어로 말해보세요.",
-              source_korean: "업데이트를 차근차근 설명드릴게요.",
-              reference_answer: "Let me walk you through the update.",
-              created_at: "2026-04-18T00:00:00.000Z",
-              updated_at: "2026-04-18T00:00:00.000Z",
-            },
-            {
-              id: "exercise-2",
-              set_id: "set-1",
-              page_order: 2,
-              exercise_type: "qa-response",
-              instruction_text: "핵심 질문에 짧게 답해보세요.",
-              question_text: "What changed this week?",
-              reference_answer:
-                "The main update is that we streamlined the rollout.",
-              created_at: "2026-04-18T00:00:00.000Z",
-              updated_at: "2026-04-18T00:00:00.000Z",
-            },
-          ],
+      snippet_start_time: 0,
+      transcript: [
+        {
+          id: "sentence-1",
+          text: "Let me walk you through the update.",
+          translation: "업데이트를 차근차근 설명드릴게요.",
+          startTime: 12,
+          endTime: 16,
         },
-      },
-      {
-        sessionId: "session-2",
-        videoId: "video-2",
-        title: "Demo Day",
-        channelName: "OpenAI",
-        sentenceId: "sentence-2",
-        sentenceText: "Here is the one metric that matters most.",
-        translation: "여기서 가장 중요한 지표는 하나입니다.",
-        startTime: 10,
-        endTime: 15,
-        mode: "expression",
-        isReview: false,
-        cardOrder: 1,
-        reason: "Demo Day에서 바로 써먹을 표현을 뽑아 연습하기 좋은 카드",
-      },
-    ]);
-  });
-
-  it("plays inside the card and starts inline recording", async () => {
-    const {
-      findAllByText,
-      findByLabelText,
-      getAllByText,
-      getByLabelText,
-      getByTestId,
-    } = render(<HomeScreen />);
-
-    expect((await findAllByText("오늘의 인풋")).length).toBeGreaterThan(0);
-    expect(
-      (await findAllByText("Let me walk you through the update.")).length,
-    ).toBeGreaterThanOrEqual(1);
-
-    fireEvent.press(getByLabelText("번역 보기 토글"));
-    expect(getAllByText("업데이트를 차근차근 설명드릴게요.").length).toBe(2);
-
-    fireEvent.press(await findByLabelText("학습 문장 재생"));
-    expect(getByTestId("youtube-player")).toBeTruthy();
-
-    fireEvent.press(getByLabelText("즉시 녹음 시작"));
-
-    await waitFor(() => {
-      expect(mockStartRecording).toHaveBeenCalled();
+      ],
     });
-
-    expect(mockPush).not.toHaveBeenCalled();
-    expect((await findAllByText("업데이트 공유하기")).length).toBeGreaterThan(
-      0,
-    );
-    expect(
-      (
-        await findAllByText(
-          "이 패턴은 비슷한 상황에서 바로 꺼내 쓸수록 내 표현으로 굳어져요.",
-        )
-      ).length,
-    ).toBeGreaterThan(0);
-    expect(
-      (
-        await findAllByText(
-          "위에서 배운 표현을 사용해 아래 한국어 문장을 영어로 바꿔보세요.",
-        )
-      ).length,
-    ).toBeGreaterThan(0);
-
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      "daily_input_seek_play",
-      expect.objectContaining({
-        sessionId: "session-1",
-        sentenceId: "sentence-1",
-      }),
-    );
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      "daily_input_record_start",
-      expect.objectContaining({
-        sessionId: "session-1",
-        sentenceId: "sentence-1",
-      }),
-    );
   });
 
-  it("moves to the full expression flow only from the secondary CTA", async () => {
-    const { findByLabelText } = render(<HomeScreen />);
+  it("replaces daily input with shorts feed", async () => {
+    const screen = render(<HomeScreen />);
 
+    expect(screen.queryByText("오늘의 인풋")).toBeNull();
+    expect(await screen.findByText("Quarterly Wrap-up Podcast")).toBeTruthy();
+    expect(
+      await screen.findByText("Let me walk you through the update."),
+    ).toBeTruthy();
+    expect(screen.getByText("쇼츠")).toBeTruthy();
+  });
+
+  it("opens the current session as a long-session fallback", async () => {
+    const screen = render(<HomeScreen />);
+
+    await screen.findByText("Quarterly Wrap-up Podcast");
     fireEvent.press(
-      await findByLabelText("Quarterly Wrap-up Podcast 원본 영상 열기"),
+      screen.getByLabelText("Quarterly Wrap-up Podcast 롱세션 열기"),
     );
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith(
-        "/study/video-1?sessionId=session-1&sentenceId=sentence-1&initialTab=transformation",
+        "/study/video-1?sessionId=session-1",
       );
     });
-  });
-
-  it("runs inline pronunciation analysis and shows coaching on the card", async () => {
-    mockAuthState.learningProfile = {
-      ...mockAuthState.learningProfile,
-      goal_mode: "pronunciation",
-      preferred_speakers: ["Michelle Obama"],
-      focus_tags: [],
-      preferred_situations: [],
-    };
-    mockGetDailyInputQueue.mockResolvedValue([
-      {
-        sessionId: "session-1",
-        videoId: "video-1",
-        title: "Quarterly Wrap-up Podcast",
-        channelName: "Business Daily",
-        sentenceId: "sentence-1",
-        sentenceText: "Let me walk you through the update.",
-        translation: "업데이트를 차근차근 설명드릴게요.",
-        startTime: 2,
-        endTime: 6,
-        mode: "pronunciation",
-        isReview: false,
-        cardOrder: 0,
-        reason: "발음 교정용 문장",
-      },
-    ]);
-
-    const { findByLabelText, findByText, rerender } = render(<HomeScreen />);
-
-    fireEvent.press(await findByLabelText("즉시 녹음 시작"));
-
-    await waitFor(() => {
-      expect(mockStartRecording).toHaveBeenCalled();
-    });
-
-    mockRecorderState.recordingState = "recording";
-    rerender(<HomeScreen />);
-
-    fireEvent.press(await findByLabelText("녹음 중지"));
-
-    await waitFor(() => {
-      expect(mockStopRecording).toHaveBeenCalled();
-    });
-
-    mockRecorderState.recordingState = "playback";
-    mockRecorderState.audioUri = "file:///pronunciation-recording.m4a";
-    mockRecorderState.duration = 4;
-    rerender(<HomeScreen />);
-
-    fireEvent.press(await findByLabelText("발음 분석하기"));
-
-    await waitFor(() => {
-      expect(mockUploadPronunciationRecording).toHaveBeenCalledWith(
-        "file:///pronunciation-recording.m4a",
-        "user-1",
-        "video-1",
-        "sentence-1",
-        4,
-      );
-    });
-
-    expect(mockRequestPronunciationAnalysis).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: "daily-input",
-        sentenceId: "sentence-1",
-        videoId: "video-1",
-      }),
-    );
-    expect(
-      await findByText("핵심은 잘 들리지만 문장 끝 처리가 조금 빨라요."),
-    ).toBeTruthy();
-    expect(
-      await findByText("walk와 through를 더 분리해서 말하면 좋아요."),
-    ).toBeTruthy();
-
     expect(mockTrackEvent).toHaveBeenCalledWith(
-      "pronunciation_analysis_complete",
+      "shorts_long_session_fallback_used",
       expect.objectContaining({
         sessionId: "session-1",
-        sentenceId: "sentence-1",
-        analysisId: "analysis-1",
       }),
     );
   });
 
-  it("reveals sample answer after a successful saved attempt exists", async () => {
-    const { findByLabelText, findByText, getAllByText, rerender } = render(
-      <HomeScreen />,
-    );
-
-    fireEvent.press(await findByLabelText("표현 연습 녹음 시작"));
-
-    await waitFor(() => {
-      expect(mockStartRecording).toHaveBeenCalled();
-    });
-
-    mockRecorderState.recordingState = "recording";
-    rerender(<HomeScreen />);
-
-    fireEvent.press(await findByLabelText("표현 연습 녹음 완료"));
-
-    await waitFor(() => {
-      expect(mockStopRecording).toHaveBeenCalled();
-    });
-
-    mockRecorderState.recordingState = "playback";
-    mockRecorderState.audioUri = "file:///recording.m4a";
-    rerender(<HomeScreen />);
-
-    await waitFor(() => {
-      expect(mockUploadTransformationRecording).toHaveBeenCalledWith(
-        "file:///recording.m4a",
-        "user-1",
-        "exercise-1",
-      );
-    });
-    expect(mockSaveTransformationAttempt).toHaveBeenCalled();
-    expect(await findByLabelText("모범답안 보기")).toBeTruthy();
-    expect(await findByText("눌러서 모범답안 보기")).toBeTruthy();
-
-    fireEvent.press(await findByLabelText("모범답안 보기"));
-
-    expect(getAllByText("Let me walk you through the update.").length).toBe(2);
-
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      "expression_sample_answer_open",
-      expect.objectContaining({
-        sessionId: "session-1",
-        sentenceId: "sentence-1",
-        exerciseId: "exercise-1",
-      }),
-    );
-  });
-
-  it("sends FREE users to paywall right before opening sample answer", async () => {
+  it("routes free users to the paywall for premium sessions", async () => {
     mockPlan = "FREE";
-    const { findByLabelText, rerender } = render(<HomeScreen />);
-
-    fireEvent.press(await findByLabelText("표현 연습 녹음 시작"));
-
-    mockRecorderState.recordingState = "recording";
-    rerender(<HomeScreen />);
-
-    fireEvent.press(await findByLabelText("표현 연습 녹음 완료"));
-
-    mockRecorderState.recordingState = "playback";
-    mockRecorderState.audioUri = "file:///recording.m4a";
-    rerender(<HomeScreen />);
-
-    await waitFor(() => {
-      expect(mockSaveTransformationAttempt).toHaveBeenCalled();
+    mockFetchLearningSessionsPaginated.mockResolvedValue({
+      sessions: [{ ...session, premium_required: true }],
+      hasMore: false,
     });
 
-    fireEvent.press(await findByLabelText("모범답안 보기"));
+    const screen = render(<HomeScreen />);
 
-    expect(mockPush).toHaveBeenCalledWith("/paywall");
-    expect(mockTrackEvent).not.toHaveBeenCalledWith(
-      "expression_sample_answer_open",
-      expect.anything(),
+    await screen.findByText("Quarterly Wrap-up Podcast");
+    fireEvent.press(
+      screen.getByLabelText("Quarterly Wrap-up Podcast 롱세션 열기"),
     );
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith("/paywall");
+    });
+  });
+
+  it("can save a short and view it in the saved filter", async () => {
+    const screen = render(<HomeScreen />);
+
+    await screen.findByText("Quarterly Wrap-up Podcast");
+    fireEvent.press(
+      screen.getByLabelText("Quarterly Wrap-up Podcast 쇼츠 저장"),
+    );
+    fireEvent.press(screen.getByText("저장됨"));
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        "short_session_saved",
+        expect.objectContaining({
+          sessionId: "session-1",
+        }),
+      );
+    });
+
+    expect(screen.getByText("Quarterly Wrap-up Podcast")).toBeTruthy();
+  });
+
+  it("prefetches the next short so swiping does not stall on a loading placeholder", async () => {
+    mockFetchLearningSessionsPaginated.mockResolvedValue({
+      sessions: [session, adjacentSession],
+      hasMore: false,
+    });
+    mockFetchCuratedVideo.mockImplementation(async (videoId: string) => ({
+      video_id: videoId,
+      snippet_start_time: 0,
+      transcript: [
+        {
+          id: videoId === "video-1" ? "sentence-1" : "sentence-2",
+          text: "Let me walk you through the update.",
+          translation: "업데이트를 차근차근 설명드릴게요.",
+          startTime: 12,
+          endTime: 16,
+        },
+      ],
+    }));
+
+    render(<HomeScreen />);
+
+    await waitFor(() => {
+      expect(mockFetchCuratedVideo).toHaveBeenCalledWith("video-1");
+      expect(mockFetchCuratedVideo).toHaveBeenCalledWith("video-2");
+    });
   });
 });
