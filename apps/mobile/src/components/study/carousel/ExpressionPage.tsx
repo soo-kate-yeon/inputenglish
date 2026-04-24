@@ -130,8 +130,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   tipText: {
-    fontSize: font.size.base,
-    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
+    fontSize: font.size.md,
+    lineHeight: leading(font.size.md, font.lineHeight.relaxed),
     color: colors.text,
     letterSpacing: font.tracking.normal,
     fontWeight: font.weight.regular,

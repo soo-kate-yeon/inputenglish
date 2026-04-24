@@ -393,7 +393,7 @@ export default function OnboardingScreen() {
 
   useEffect(() => {
     if (!user) {
-      router.replace("/(auth)/login");
+      router.replace("/intro?scene=9" as never);
       return;
     }
 

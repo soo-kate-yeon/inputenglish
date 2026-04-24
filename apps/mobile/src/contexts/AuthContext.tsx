@@ -218,7 +218,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser(null);
           setSession(null);
           setLearningProfile(null);
-          router.replace("/(auth)/login");
+          router.replace("/intro?scene=9" as never);
         } else if (event === "TOKEN_REFRESHED" && newSession) {
           setUser(newSession.user);
         }
@@ -332,7 +332,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setSession(null);
       setLearningProfile(null);
-      router.replace("/(auth)/login");
+      router.replace("/intro?scene=9" as never);
     } catch (err) {
       console.error("[AuthContext] Sign out error:", err);
       setError(err instanceof Error ? err : new Error("Failed to sign out"));
@@ -502,7 +502,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setSession(null);
       setLearningProfile(null);
-      router.replace("/(auth)/login");
+      router.replace("/intro?scene=9" as never);
     } catch (err) {
       console.error("[AuthContext] Delete account error:", err);
       setError(

@@ -2,7 +2,7 @@
   "expo": {
     "name": "인풋영어",
     "slug": "inputenglish",
-    "version": "1.3.01",
+    "version": "1.3.02",
     "orientation": "portrait",
     "scheme": "inputenglish",
     "userInterfaceStyle": "automatic",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.morak.inputenglish",
-      "buildNumber": "47",
+      "buildNumber": "48",
       "usesAppleSignIn": true,
       "entitlements": {
         "aps-environment": "production"
