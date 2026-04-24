@@ -13,7 +13,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -104,10 +103,12 @@ function ContinueCard({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
-      style={styles.continueCard}
+    <Pressable
+      style={({ pressed }) => [
+        styles.continueCard,
+        pressed && { opacity: 0.8 },
+      ]}
       onPress={onPress}
-      activeOpacity={0.85}
     >
       {item.thumbnail_url ? (
         <Image
@@ -123,7 +124,7 @@ function ContinueCard({
       <Text style={styles.continueTitle} numberOfLines={2}>
         {item.title}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -139,10 +140,9 @@ function FeedCard({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
-      style={styles.feedCard}
+    <Pressable
+      style={({ pressed }) => [styles.feedCard, pressed && { opacity: 0.9 }]}
       onPress={onPress}
-      activeOpacity={0.9}
     >
       <View>
         {item.thumbnail_url ? (
@@ -174,7 +174,7 @@ function FeedCard({
           </Text>
         )}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -209,10 +209,13 @@ function ChipRow({
         contentContainerStyle={styles.chipRowContent}
       >
         {/* Difficulty dropdown chip */}
-        <TouchableOpacity
-          style={[styles.chip, difficulty !== "all" && styles.chipActive]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.chip,
+            difficulty !== "all" && styles.chipActive,
+            pressed && { opacity: 0.75 },
+          ]}
           onPress={onDifficultyPress}
-          activeOpacity={0.7}
         >
           <Text
             style={[
@@ -228,15 +231,18 @@ function ChipRow({
             color={difficulty !== "all" ? colors.textInverse : colors.text}
             style={{ marginLeft: 2 }}
           />
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Filter chips */}
         {FEED_CHIPS.map((chip) => (
-          <TouchableOpacity
+          <Pressable
             key={chip.key}
-            style={[styles.chip, activeChip === chip.key && styles.chipActive]}
+            style={({ pressed }) => [
+              styles.chip,
+              activeChip === chip.key && styles.chipActive,
+              pressed && { opacity: 0.75 },
+            ]}
             onPress={() => onChipPress(chip)}
-            activeOpacity={0.7}
           >
             <Text
               style={[
@@ -246,7 +252,7 @@ function ChipRow({
             >
               {chip.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </ScrollView>
     </View>
@@ -282,11 +288,12 @@ function DifficultyDropdown({
       <Pressable style={styles.dropdownOverlay} onPress={onClose}>
         <View style={[styles.dropdownMenu, { top: anchorTop }]}>
           {DIFFICULTY_OPTIONS.map((opt) => (
-            <TouchableOpacity
+            <Pressable
               key={opt.key}
-              style={[
+              style={({ pressed }) => [
                 styles.dropdownItem,
                 current === opt.key && styles.dropdownItemActive,
+                pressed && { opacity: 0.7 },
               ]}
               onPress={() => {
                 onSelect(opt.key);
@@ -302,9 +309,9 @@ function DifficultyDropdown({
                 {opt.label}
               </Text>
               {current === opt.key && (
-                <Ionicons name="checkmark" size={18} color={colors.primary} />
+                <Ionicons name="checkmark" size={18} color={colors.text} />
               )}
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
       </Pressable>
@@ -391,6 +398,9 @@ export default function HomeScreen() {
         offsetRef.current = reset
           ? result.sessions.length
           : offsetRef.current + result.sessions.length;
+        result.sessions.slice(0, 8).forEach((s) => {
+          if (s.thumbnail_url) Image.prefetch(s.thumbnail_url);
+        });
       } catch (e: unknown) {
         if (reset)
           setError(
@@ -425,6 +435,9 @@ export default function HomeScreen() {
         });
         setHasMore(result.hasMore);
         offsetRef.current += result.sessions.length;
+        result.sessions.forEach((s) => {
+          if (s.thumbnail_url) Image.prefetch(s.thumbnail_url);
+        });
       })
       .catch((error) => {
         console.warn("[Home] Failed to load more sessions", error);
@@ -564,12 +577,15 @@ export default function HomeScreen() {
             "\ud574\ub2f9\ud558\ub294 \uc138\uc158\uc774 \uc5c6\uc5b4\uc694"}
         </Text>
         {error && (
-          <TouchableOpacity
-            style={styles.retryButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed && { opacity: 0.7 },
+            ]}
             onPress={() => loadFeed(true)}
           >
             <Text style={styles.retryText}>{"\ub2e4\uc2dc \uc2dc\ub3c4"}</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
     );
@@ -657,9 +673,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionTitle: {
-    fontSize: font.size.xl,
+    fontSize: 9,
     fontWeight: font.weight.bold,
-    color: colors.text,
+    letterSpacing: 1.5,
+    color: colors.textMuted,
   },
   sectionHeaderInset: {
     paddingHorizontal: spacing.md,
@@ -739,7 +756,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgMuted,
   },
   chipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.bgInverse,
   },
   chipText: {
     fontSize: font.size.sm,
@@ -791,8 +808,8 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: 11,
-    fontWeight: "600",
-    color: "#fff",
+    fontWeight: font.weight.semibold,
+    color: colors.textInverse,
   },
 
   // -- Dropdown --

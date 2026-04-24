@@ -1,19 +1,12 @@
 // @MX:NOTE: [AUTO] Dialog completion exercise page (SPEC-MOBILE-011).
-// Non-blank lines have TTS play buttons (English only); blank turn shows recording bar.
-import React, { useCallback, useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ScrollView,
-} from "react-native";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { TransformationExercise, DialogLine } from "@inputenglish/shared";
 import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { useTTS } from "../../../hooks/useTTS";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
-import { colors, font, spacing, radius } from "../../../theme";
+import { colors, font, leading, radius, spacing } from "../../../theme";
 
 interface DialogCompletionPageProps {
   exercise: TransformationExercise;
@@ -24,36 +17,17 @@ interface DialogCompletionPageProps {
 interface DialogLineRowProps {
   line: DialogLine;
   index: number;
+  isBlankRecorded: boolean;
   onSpeak: (text: string) => void;
   ttsAvailable: boolean;
-  // Recording props for blank turn
-  recordingState: "idle" | "recording" | "playback";
-  duration: number;
-  isPlaying: boolean;
-  playbackProgress: number;
-  onStart: () => void;
-  onStop: () => void;
-  onPlay: () => void;
-  onPause: () => void;
-  onReRecord: () => void;
-  onConfirm: () => void;
 }
 
 function DialogLineRow({
   line,
   index,
+  isBlankRecorded,
   onSpeak,
   ttsAvailable,
-  recordingState,
-  duration,
-  isPlaying,
-  playbackProgress,
-  onStart,
-  onStop,
-  onPlay,
-  onPause,
-  onReRecord,
-  onConfirm,
 }: DialogLineRowProps) {
   const isUser = line.is_blank;
 
@@ -61,38 +35,28 @@ function DialogLineRow({
     <View style={[styles.lineContainer, isUser && styles.lineContainerUser]}>
       <Text style={styles.speaker}>{line.speaker}</Text>
       {isUser ? (
-        // Blank turn: show recording bar inline
-        <View style={styles.blankTurn}>
-          <Text style={styles.blankHint}>여기서 말해보세요</Text>
-          <ExerciseRecordingBar
-            recordingState={recordingState}
-            duration={duration}
-            isPlaying={isPlaying}
-            playbackProgress={playbackProgress}
-            onStart={onStart}
-            onStop={onStop}
-            onPlay={onPlay}
-            onPause={onPause}
-            onReRecord={onReRecord}
-            onConfirm={onConfirm}
-          />
-        </View>
+        <Text style={styles.blankHint}>
+          {isBlankRecorded ? "✓ 녹음 완료" : "여기서 말해보세요 →"}
+        </Text>
       ) : (
-        // Non-blank: show text + TTS button
         <View style={styles.lineRow}>
           <Text style={styles.lineText}>{line.text}</Text>
-          <TouchableOpacity
+          <Pressable
             testID={`tts-play-${index}`}
-            style={[styles.ttsBtn, !ttsAvailable && styles.ttsBtnDisabled]}
+            style={({ pressed }) => [
+              styles.ttsBtn,
+              !ttsAvailable && styles.ttsBtnDisabled,
+              pressed && ttsAvailable && { opacity: 0.6 },
+            ]}
             onPress={() => ttsAvailable && onSpeak(line.text)}
-            activeOpacity={ttsAvailable ? 0.7 : 1}
+            disabled={!ttsAvailable}
           >
             <Ionicons
               name="volume-medium"
-              size={18}
+              size={16}
               color={ttsAvailable ? colors.text : colors.textMuted}
             />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       )}
     </View>
@@ -127,11 +91,26 @@ export function DialogCompletionPage({
     onConfirm(audioUri, duration);
   }, [audioUri, duration, onConfirm]);
 
+  const hasPlayedRef = useRef(false);
+  useEffect(() => {
+    if (isPlaying) {
+      hasPlayedRef.current = true;
+    } else if (
+      hasPlayedRef.current &&
+      playbackProgress === 0 &&
+      recordingState === "playback"
+    ) {
+      hasPlayedRef.current = false;
+      handleConfirm();
+    }
+  }, [isPlaying, playbackProgress, recordingState, handleConfirm]);
+
   const handleStop = useCallback(async () => {
     await stopRecording();
   }, [stopRecording]);
 
   const lines = exercise.dialog_lines ?? [];
+  const isBlankRecorded = recordingState === "playback";
 
   return (
     <View style={styles.container}>
@@ -140,7 +119,7 @@ export function DialogCompletionPage({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.label}>DIALOG COMPLETION</Text>
+        <Text style={styles.eyebrow}>DIALOG COMPLETION</Text>
         <Text style={styles.instruction}>{exercise.instruction_text}</Text>
         <View style={styles.dialog}>
           {lines.map((line, i) => (
@@ -148,22 +127,26 @@ export function DialogCompletionPage({
               key={i}
               line={line}
               index={i}
+              isBlankRecorded={isBlankRecorded}
               onSpeak={speak}
               ttsAvailable={ttsAvailable}
-              recordingState={recordingState}
-              duration={duration}
-              isPlaying={isPlaying}
-              playbackProgress={playbackProgress}
-              onStart={startRecording}
-              onStop={handleStop}
-              onPlay={playRecording}
-              onPause={pauseRecording}
-              onReRecord={resetRecording}
-              onConfirm={handleConfirm}
             />
           ))}
         </View>
       </ScrollView>
+
+      <ExerciseRecordingBar
+        recordingState={recordingState}
+        duration={duration}
+        isPlaying={isPlaying}
+        playbackProgress={playbackProgress}
+        onStart={startRecording}
+        onStop={handleStop}
+        onPlay={playRecording}
+        onPause={pauseRecording}
+        onReRecord={resetRecording}
+        onConfirm={handleConfirm}
+      />
     </View>
   );
 }
@@ -178,40 +161,41 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-    gap: spacing.md,
+    paddingBottom: 96,
+    gap: spacing.lg,
   },
-  label: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 2.5,
-    color: colors.textSecondary,
+  eyebrow: {
+    fontSize: 9,
+    fontWeight: font.weight.bold,
+    letterSpacing: 1.5,
+    color: colors.textMuted,
   },
   instruction: {
-    fontSize: font.size.md,
+    fontSize: font.size.base,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
     color: colors.textSecondary,
-    lineHeight: font.size.md * 1.6,
+    letterSpacing: font.tracking.normal,
   },
   dialog: {
     gap: spacing.sm,
-    paddingTop: spacing.sm,
   },
   lineContainer: {
-    gap: 4,
+    gap: spacing.xs,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.bgSubtle,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
   },
   lineContainerUser: {
     backgroundColor: colors.bgMuted,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
   speaker: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 1,
+    fontSize: 9,
+    fontWeight: font.weight.bold,
+    letterSpacing: 1.5,
     color: colors.textMuted,
-    textTransform: "uppercase",
   },
   lineRow: {
     flexDirection: "row",
@@ -221,23 +205,21 @@ const styles = StyleSheet.create({
   },
   lineText: {
     flex: 1,
-    fontSize: font.size.md,
+    fontSize: font.size.base,
     color: colors.text,
-    lineHeight: font.size.md * 1.7,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
+    letterSpacing: font.tracking.normal,
   },
   ttsBtn: {
-    padding: 6,
+    padding: 4,
     marginTop: 2,
   },
   ttsBtnDisabled: {
     opacity: 0.3,
   },
-  blankTurn: {
-    gap: spacing.sm,
-  },
   blankHint: {
     fontSize: font.size.sm,
     color: colors.textMuted,
-    fontStyle: "italic",
+    letterSpacing: font.tracking.normal,
   },
 });

@@ -35,6 +35,7 @@ import { trackEvent } from "@/lib/analytics";
 import { appStore } from "@/lib/stores";
 import { useSubscription } from "@/hooks/useSubscription";
 import { getSessionPressDestination } from "@/lib/session-access";
+import { resolveSentencesByIdsOrRange } from "@/lib/transcript-navigation";
 import { colors, font, radius, spacing } from "@/theme";
 
 function formatDuration(seconds: number): string {
@@ -64,26 +65,12 @@ function resolveChapterSentences(
   transcript: Sentence[],
   chapter: SessionListItem,
 ): Sentence[] {
-  const sentenceIds = chapter.sentence_ids ?? [];
-
-  if (sentenceIds.length > 0) {
-    const matched = sentenceIds
-      .map((sentenceId) =>
-        transcript.find((sentence) => sentence.id === sentenceId),
-      )
-      .filter((sentence): sentence is Sentence => Boolean(sentence));
-
-    if (matched.length > 0) {
-      return matched;
-    }
-  }
-
-  return transcript.filter((sentence) => {
-    return (
-      sentence.endTime >= (chapter.start_time ?? 0) &&
-      sentence.startTime <= (chapter.end_time ?? Number.POSITIVE_INFINITY)
-    );
-  });
+  return resolveSentencesByIdsOrRange(
+    transcript,
+    chapter.sentence_ids,
+    chapter.start_time,
+    chapter.end_time,
+  );
 }
 
 export default function LongformScreen() {
@@ -495,6 +482,15 @@ export default function LongformScreen() {
         <Ionicons name="arrow-back" size={20} color={colors.textOnDark} />
       </Pressable>
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="탐색으로 닫기"
+        style={[styles.closeButton, { top: insets.top + 10 }]}
+        onPress={() => router.replace("/(tabs)/explore" as never)}
+      >
+        <Ionicons name="close" size={20} color={colors.textOnDark} />
+      </Pressable>
+
       <FlatList
         data={detail.shorts}
         keyExtractor={(item) => item.id}
@@ -643,6 +639,17 @@ const styles = StyleSheet.create({
   backButton: {
     position: "absolute",
     left: spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.78)",
+    zIndex: 20,
+  },
+  closeButton: {
+    position: "absolute",
+    right: spacing.md,
     width: 40,
     height: 40,
     borderRadius: radius.pill,

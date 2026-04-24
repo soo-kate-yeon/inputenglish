@@ -23,6 +23,10 @@ import type {
   Speaker,
 } from "@inputenglish/shared";
 import { buildDefaultPracticePrompts } from "./professional-practice";
+import {
+  getPracticePromptsCache,
+  setPracticePromptsCache,
+} from "./practice-cache";
 
 export interface VideoListItem {
   video_id: string;
@@ -275,8 +279,10 @@ export async function fetchLearningSessions(): Promise<SessionListItem[]> {
   if (sessionsError) throw sessionsError;
   if (!sessions || sessions.length === 0) return [];
 
-  const videoMap = await enrichWithVideos(sessions);
-  const speakerMap = await enrichWithSpeakers(sessions);
+  const [videoMap, speakerMap] = await Promise.all([
+    enrichWithVideos(sessions),
+    enrichWithSpeakers(sessions),
+  ]);
   return sessions.map((s) =>
     mapSessionRow(
       s,
@@ -324,8 +330,10 @@ export async function fetchLearningSessionsPaginated(
   if (!sessions || sessions.length === 0)
     return { sessions: [], hasMore: false };
 
-  const videoMap = await enrichWithVideos(sessions);
-  const speakerMap = await enrichWithSpeakers(sessions);
+  const [videoMap, speakerMap] = await Promise.all([
+    enrichWithVideos(sessions),
+    enrichWithSpeakers(sessions),
+  ]);
   const mapped = sessions.map((s) =>
     mapSessionRow(
       s,
@@ -368,8 +376,10 @@ export async function fetchContinueLearning(
   if (sessionsError) throw sessionsError;
   if (!sessions || sessions.length === 0) return [];
 
-  const videoMap = await enrichWithVideos(sessions);
-  const speakerMap = await enrichWithSpeakers(sessions);
+  const [videoMap, speakerMap] = await Promise.all([
+    enrichWithVideos(sessions),
+    enrichWithSpeakers(sessions),
+  ]);
   const sessionMap = new Map(
     sessions.map((s) => [
       s.id,
@@ -399,8 +409,10 @@ export async function fetchSessionsByIds(
   if (error) throw error;
   if (!sessions || sessions.length === 0) return [];
 
-  const videoMap = await enrichWithVideos(sessions);
-  const speakerMap = await enrichWithSpeakers(sessions);
+  const [videoMap, speakerMap] = await Promise.all([
+    enrichWithVideos(sessions),
+    enrichWithSpeakers(sessions),
+  ]);
   const sessionMap = new Map(
     sessions.map((s) => [
       s.id,
@@ -560,8 +572,10 @@ export async function fetchLongformPackDetail(
     const context = Array.isArray(packData.context)
       ? ((packData.context[0] ?? null) as LongformContext | null)
       : ((packData.context ?? null) as LongformContext | null);
-    const videoMap = await enrichWithVideos(rawShorts);
-    const speakerMap = await enrichWithSpeakers(rawShorts);
+    const [videoMap, speakerMap] = await Promise.all([
+      enrichWithVideos(rawShorts),
+      enrichWithSpeakers(rawShorts),
+    ]);
     const transcript = resolveSentenceRange(
       sourceVideo?.transcript ?? [],
       Array.isArray(packData.sentence_ids) ? packData.sentence_ids : [],
@@ -814,6 +828,9 @@ export async function ensurePracticePrompts(
   session: SessionListItem,
   userDisplayName?: string | null,
 ): Promise<PracticePrompt[]> {
+  const cached = getPracticePromptsCache(session.id);
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from("practice_prompts")
     .select(
@@ -825,7 +842,7 @@ export async function ensurePracticePrompts(
   if (error) throw error;
 
   if (data && data.length > 0) {
-    return data.map((item) => ({
+    const prompts = data.map((item) => ({
       id: item.id,
       session_id: item.session_id,
       mode: item.mode as PracticeMode,
@@ -835,6 +852,8 @@ export async function ensurePracticePrompts(
       created_at: item.created_at,
       updated_at: item.updated_at,
     }));
+    setPracticePromptsCache(session.id, prompts);
+    return prompts;
   }
 
   const defaults = buildDefaultPracticePrompts({
@@ -855,7 +874,7 @@ export async function ensurePracticePrompts(
 
   if (insertError) throw insertError;
 
-  return (inserted ?? []).map((item) => ({
+  const inserted_prompts = (inserted ?? []).map((item) => ({
     id: item.id,
     session_id: item.session_id,
     mode: item.mode as PracticeMode,
@@ -865,6 +884,8 @@ export async function ensurePracticePrompts(
     created_at: item.created_at,
     updated_at: item.updated_at,
   }));
+  setPracticePromptsCache(session.id, inserted_prompts);
+  return inserted_prompts;
 }
 
 export async function savePracticeAttempt(

@@ -163,10 +163,7 @@ export function RootLayoutNav() {
         <Stack.Screen
           name="study/[videoId]"
           options={{
-            headerShown: true,
-            headerTitle: "",
-            headerShadowVisible: false,
-            headerBackButtonDisplayMode: "minimal",
+            headerShown: false,
             gestureEnabled: true,
           }}
         />

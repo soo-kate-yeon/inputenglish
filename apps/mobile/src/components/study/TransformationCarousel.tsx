@@ -50,6 +50,7 @@ interface TransformationCarouselProps {
   savedSentenceIds?: Set<string>;
   onSaveSentence?: (sentence: Sentence) => void;
   onStartExercise?: () => void;
+  onSeekToSentence?: (sentence: Sentence) => void;
 }
 
 function renderExercisePage(
@@ -102,6 +103,7 @@ export function TransformationCarousel({
   savedSentenceIds,
   onSaveSentence,
   onStartExercise,
+  onSeekToSentence,
 }: TransformationCarouselProps) {
   const [set, setSet] = useState<TransformationSet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -287,6 +289,8 @@ export function TransformationCarousel({
     );
   }
 
+  const currentPageType = pages[currentIndex]?.type;
+
   return (
     <View style={styles.container}>
       <CarouselPagination total={pages.length} currentIndex={currentIndex} />
@@ -295,7 +299,7 @@ export function TransformationCarousel({
         data={pages}
         horizontal
         pagingEnabled
-        scrollEnabled={!isRecording}
+        scrollEnabled={!isRecording && currentPageType !== "expression"}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.key}
         initialScrollIndex={0}
@@ -331,6 +335,7 @@ export function TransformationCarousel({
                   savedSentenceIds={savedSentenceIds}
                   onSave={onSaveSentence}
                   onNext={handleExpressionNext}
+                  onSeekToSentence={onSeekToSentence}
                 />
               </View>
             );

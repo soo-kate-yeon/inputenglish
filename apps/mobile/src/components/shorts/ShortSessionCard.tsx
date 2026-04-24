@@ -27,6 +27,10 @@ import YouTubePlayer, {
 import ScriptLine, {
   SCRIPT_LINE_HEIGHT,
 } from "@/components/listening/ScriptLine";
+import {
+  getAdjacentSentence,
+  resolveSentencesByIdsOrRange,
+} from "@/lib/transcript-navigation";
 import { appStore } from "@/lib/stores";
 import { colors, font, radius, spacing } from "@/theme";
 
@@ -36,6 +40,7 @@ interface ShortSessionCardProps {
   shouldLoad: boolean;
   scriptVisible: boolean;
   showTranslation: boolean;
+  topOverlayInset?: number;
   bottomOverlayInset?: number;
   video: CuratedVideo | null;
   videoState: {
@@ -43,48 +48,26 @@ interface ShortSessionCardProps {
     error?: string | null;
   };
   onRetryVideoLoad: (videoId: string) => Promise<CuratedVideo | null>;
+  navigationRequest?: {
+    direction: "prev" | "next";
+    nonce: number;
+  } | null;
+  onActiveSentenceChange?: (sentenceId: string | null) => void;
 }
 
-function resolveSessionSentences(
-  video: CuratedVideo | null,
-  session: SessionListItem,
-): Sentence[] {
-  const transcript = video?.transcript ?? [];
-  const sentenceIds = session.sentence_ids ?? [];
-
-  if (sentenceIds.length > 0) {
-    const mapped = sentenceIds
-      .map((sentenceId) =>
-        transcript.find((sentence) => sentence.id === sentenceId),
-      )
-      .filter((sentence): sentence is Sentence => Boolean(sentence));
-
-    if (mapped.length > 0) return mapped;
-  }
-
-  const inRange = transcript.filter((sentence) => {
-    const sessionStart = session.start_time ?? 0;
-    const sessionEnd = session.end_time ?? Number.POSITIVE_INFINITY;
-    return sentence.endTime >= sessionStart && sentence.startTime <= sessionEnd;
-  });
-
-  if (inRange.length > 0) {
-    return inRange;
-  }
-
-  return transcript.slice(0, 8);
-}
-
-export default function ShortSessionCard({
+function ShortSessionCard({
   session,
   isActive,
   shouldLoad,
   scriptVisible,
   showTranslation,
+  topOverlayInset = 0,
   bottomOverlayInset = 0,
   video,
   videoState,
   onRetryVideoLoad,
+  navigationRequest = null,
+  onActiveSentenceChange,
 }: ShortSessionCardProps) {
   const [playerReady, setPlayerReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -111,14 +94,21 @@ export default function ShortSessionCard({
   const activeSentenceIdRef = useRef<string | null>(null);
   const scriptViewportHeightRef = useRef(0);
   const scriptContentHeightRef = useRef(0);
+  const handledNavigationNonceRef = useRef<number | null>(null);
 
   const savedSentences = appStore((state) => state.savedSentences);
   const addSavedSentence = appStore((state) => state.addSavedSentence);
   const removeSavedSentence = appStore((state) => state.removeSavedSentence);
 
   const sentences = useMemo(
-    () => resolveSessionSentences(video, session),
-    [session, video],
+    () =>
+      resolveSentencesByIdsOrRange(
+        video?.transcript ?? [],
+        session.sentence_ids,
+        session.start_time,
+        session.end_time,
+      ),
+    [session.end_time, session.sentence_ids, session.start_time, video],
   );
   const isVideoLoading =
     videoState.status === "loading" ||
@@ -166,6 +156,9 @@ export default function ShortSessionCard({
   const resetScriptScrollPosition = useCallback(() => {
     shouldResetScriptPositionRef.current = true;
     lastAlignedSentenceIdRef.current = null;
+    sentenceOffsetsRef.current = {};
+    scriptViewportHeightRef.current = 0;
+    scriptContentHeightRef.current = 0;
     updateTranscriptOffset(0);
   }, [updateTranscriptOffset]);
 
@@ -302,6 +295,10 @@ export default function ShortSessionCard({
   }, [activeSentenceId]);
 
   useEffect(() => {
+    onActiveSentenceChange?.(isActive ? activeSentenceId : null);
+  }, [activeSentenceId, isActive, onActiveSentenceChange]);
+
+  useEffect(() => {
     if (!isActive) {
       pendingSentenceRef.current = null;
       pendingAutoplayRef.current = false;
@@ -320,15 +317,23 @@ export default function ShortSessionCard({
   useEffect(() => {
     setPlayerReady(false);
     setPlaying(false);
-    sentenceOffsetsRef.current = {};
     hasTrackedImpressionRef.current = false;
+    handledNavigationNonceRef.current = null;
     resetScriptScrollPosition();
+    setLoopingSentenceId(null);
+    setActiveSentenceId(null);
   }, [resetScriptScrollPosition, session.id, video?.video_id]);
 
   useEffect(() => {
     sentenceOffsetsRef.current = {};
     lastAlignedSentenceIdRef.current = null;
   }, [showTranslation]);
+
+  useEffect(() => {
+    if (!scriptVisible) {
+      resetScriptScrollPosition();
+    }
+  }, [resetScriptScrollPosition, scriptVisible]);
 
   useEffect(() => {
     if (!isActive || !video) return;
@@ -477,6 +482,23 @@ export default function ShortSessionCard({
     showTranslation,
   ]);
 
+  useEffect(() => {
+    if (!isActive || !navigationRequest) return;
+    if (navigationRequest.nonce === handledNavigationNonceRef.current) return;
+
+    handledNavigationNonceRef.current = navigationRequest.nonce;
+
+    const nextSentence = getAdjacentSentence(
+      sentences,
+      activeSentenceIdRef.current,
+      navigationRequest.direction,
+    );
+
+    if (nextSentence) {
+      playSentence(nextSentence);
+    }
+  }, [isActive, navigationRequest, playSentence, sentences]);
+
   const handleLoopToggle = useCallback(
     (sentence: Sentence) => {
       setLoopingSentenceId((current) => {
@@ -583,10 +605,18 @@ export default function ShortSessionCard({
         )}
       </View>
 
-      <View style={styles.scriptCard} onLayout={handleScriptViewportLayout}>
+      <View
+        style={[
+          styles.scriptCard,
+          topOverlayInset > 0 ? { marginTop: topOverlayInset } : null,
+        ]}
+        onLayout={handleScriptViewportLayout}
+      >
         {/* Keep only the outer shorts pager scrollable; transcript movement is programmatic. */}
         <View
-          key={`${session.id}-${isActive ? "active" : "inactive"}`}
+          key={`${session.id}-${video?.video_id ?? "pending"}-${
+            showTranslation ? "translation" : "original"
+          }-${isActive ? "active" : "inactive"}`}
           style={[
             styles.scriptContent,
             {
@@ -597,11 +627,7 @@ export default function ShortSessionCard({
           onLayout={handleScriptContentLayout}
         >
           {!scriptVisible ? (
-            <View style={styles.scriptHiddenState}>
-              <Text style={styles.placeholderText}>
-                스크립트를 숨긴 상태예요.
-              </Text>
-            </View>
+            <View style={styles.scriptHiddenState} />
           ) : sentences.length > 0 ? (
             sentences.map((sentence) => (
               <View
@@ -637,6 +663,27 @@ export default function ShortSessionCard({
     </View>
   );
 }
+
+function arePropsEqual(
+  prev: ShortSessionCardProps,
+  next: ShortSessionCardProps,
+): boolean {
+  return (
+    prev.session.id === next.session.id &&
+    prev.isActive === next.isActive &&
+    prev.shouldLoad === next.shouldLoad &&
+    prev.scriptVisible === next.scriptVisible &&
+    prev.showTranslation === next.showTranslation &&
+    prev.video?.video_id === next.video?.video_id &&
+    prev.videoState.status === next.videoState.status &&
+    prev.videoState.error === next.videoState.error &&
+    prev.navigationRequest?.nonce === next.navigationRequest?.nonce &&
+    prev.topOverlayInset === next.topOverlayInset &&
+    prev.bottomOverlayInset === next.bottomOverlayInset
+  );
+}
+
+export default React.memo(ShortSessionCard, arePropsEqual);
 
 const styles = StyleSheet.create({
   container: {
@@ -696,6 +743,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.lg,
     minHeight: 160,
-    justifyContent: "center",
+    opacity: 0.01,
   },
 });

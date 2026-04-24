@@ -1,11 +1,10 @@
 // @MX:NOTE: [AUTO] QA response exercise page with recording (SPEC-MOBILE-011).
-// Shows question_text; user records their English answer.
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { TransformationExercise } from "@inputenglish/shared";
 import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
-import { colors, font, radius, spacing } from "../../../theme";
+import { colors, font, leading, radius, spacing } from "../../../theme";
 
 interface QAResponsePageProps {
   exercise: TransformationExercise;
@@ -39,6 +38,20 @@ export function QAResponsePage({
     onConfirm(audioUri, duration);
   }, [audioUri, duration, onConfirm]);
 
+  const hasPlayedRef = useRef(false);
+  useEffect(() => {
+    if (isPlaying) {
+      hasPlayedRef.current = true;
+    } else if (
+      hasPlayedRef.current &&
+      playbackProgress === 0 &&
+      recordingState === "playback"
+    ) {
+      hasPlayedRef.current = false;
+      handleConfirm();
+    }
+  }, [isPlaying, playbackProgress, recordingState, handleConfirm]);
+
   const handleStop = useCallback(async () => {
     await stopRecording();
   }, [stopRecording]);
@@ -50,16 +63,16 @@ export function QAResponsePage({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.label}>Q&A RESPONSE</Text>
+        <Text style={styles.eyebrow}>Q&A RESPONSE</Text>
         <Text style={styles.instruction}>{exercise.instruction_text}</Text>
         {exercise.question_text != null && (
-          <View style={styles.questionBox}>
-            <Text style={styles.questionLabel}>Q</Text>
-            <Text style={styles.questionText}>{exercise.question_text}</Text>
+          <View style={styles.promptBox}>
+            <Text style={styles.promptEyebrow}>Q</Text>
+            <Text style={styles.promptText}>{exercise.question_text}</Text>
           </View>
         )}
-        <Text style={styles.hint}>영어로 답변을 녹음해보세요.</Text>
       </ScrollView>
+
       <ExerciseRecordingBar
         recordingState={recordingState}
         duration={duration}
@@ -86,40 +99,38 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
+    paddingBottom: 96,
+    gap: spacing.lg,
   },
-  label: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 2.5,
-    color: colors.textSecondary,
+  eyebrow: {
+    fontSize: 9,
+    fontWeight: font.weight.bold,
+    letterSpacing: 1.5,
+    color: colors.textMuted,
   },
   instruction: {
-    fontSize: font.size.md,
+    fontSize: font.size.base,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
     color: colors.textSecondary,
-    lineHeight: font.size.md * 1.6,
+    letterSpacing: font.tracking.normal,
   },
-  questionBox: {
+  promptBox: {
     backgroundColor: colors.bgMuted,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  questionLabel: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
+  promptEyebrow: {
+    fontSize: 9,
+    fontWeight: font.weight.bold,
     letterSpacing: 1.5,
-    color: colors.textSecondary,
-  },
-  questionText: {
-    fontSize: font.size.md,
-    color: colors.text,
-    lineHeight: font.size.md * 1.7,
-  },
-  hint: {
-    fontSize: font.size.sm,
     color: colors.textMuted,
-    fontStyle: "italic",
+  },
+  promptText: {
+    fontSize: font.size.xl,
+    fontWeight: font.weight.bold,
+    color: colors.text,
+    lineHeight: leading(font.size.xl, font.lineHeight.relaxed),
+    letterSpacing: font.tracking.semiTight,
   },
 });

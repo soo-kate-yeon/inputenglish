@@ -14,13 +14,14 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   AppHighlight,
   CuratedVideo,
@@ -45,10 +46,10 @@ import { appStore, studyStore } from "../../src/lib/stores";
 import YouTubePlayer, {
   YouTubePlayerHandle,
 } from "../../src/components/player/YouTubePlayer";
+import SentenceNavigationBar from "../../src/components/common/SentenceNavigationBar";
 import ScriptLine from "../../src/components/listening/ScriptLine";
 import RecordingBar from "../../src/components/shadowing/RecordingBar";
-import ShadowingRecordButton from "../../src/components/shadowing/ShadowingRecordButton";
-import ContextBriefCard from "../../src/components/study/ContextBriefCard";
+import StudyBriefSheet from "../../src/components/study/StudyBriefSheet";
 import HighlightBottomSheet from "../../src/components/study/HighlightBottomSheet";
 import { TransformationCarousel } from "../../src/components/study/TransformationCarousel";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
@@ -73,32 +74,31 @@ import {
 import { useAuth } from "../../src/contexts/AuthContext";
 import { recordSessionVisit } from "../../src/lib/recent-sessions";
 import { useSubscription } from "../../src/hooks/useSubscription";
-import { colors, radius, font } from "../../src/theme";
+import { resolveSentencesByIdsOrRange } from "../../src/lib/transcript-navigation";
+import {
+  colors,
+  font,
+  leading,
+  radius,
+  shadow,
+  spacing,
+} from "../../src/theme";
 
 type MainTab = "listening" | "shadowing" | "transformation";
 type ShadowingMode = "sentence" | "paragraph" | "total";
-const SHADOWING_MODES: Array<{ key: ShadowingMode; label: string }> = [
-  { key: "sentence", label: "문장 보기" },
-  { key: "paragraph", label: "문단 보기" },
-  { key: "total", label: "전체 보기" },
-];
+const LISTENING_SCROLL_VIEW_OFFSET = 68;
 
 function resolveStudySentences(
   video: CuratedVideo | null,
   sessionDetail: SessionListItem | null,
 ): Sentence[] {
-  const transcript = video?.transcript ?? [];
-  const sentenceIds = sessionDetail?.sentence_ids ?? [];
-
-  if (sentenceIds.length === 0) {
-    return transcript;
-  }
-
-  return sentenceIds
-    .map((sentenceId) =>
-      transcript.find((sentence) => sentence.id === sentenceId),
-    )
-    .filter((sentence): sentence is Sentence => Boolean(sentence));
+  return resolveSentencesByIdsOrRange(
+    video?.transcript ?? [],
+    sessionDetail?.sentence_ids,
+    sessionDetail?.start_time,
+    sessionDetail?.end_time,
+    Number.POSITIVE_INFINITY,
+  );
 }
 
 export default function StudyScreen() {
@@ -117,6 +117,8 @@ export default function StudyScreen() {
   }>();
 
   const [video, setVideo] = useState<CuratedVideo | null>(null);
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [sessionDetail, setSessionDetail] = useState<SessionListItem | null>(
     null,
   );
@@ -134,7 +136,7 @@ export default function StudyScreen() {
   const [playbookMessage, setPlaybookMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [briefExpanded, setBriefExpanded] = useState(true);
+  const [briefExpanded, setBriefExpanded] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [uploadedRecordingUrls, setUploadedRecordingUrls] = useState<
     Record<string, string>
@@ -273,7 +275,7 @@ export default function StudyScreen() {
 
   useEffect(() => {
     if (!sessionDetail) return;
-    setBriefExpanded(true);
+    setBriefExpanded(false);
     setPracticePrompts([]);
     setPracticeMode("slot-in");
     setPracticeDraft("");
@@ -811,13 +813,6 @@ export default function StudyScreen() {
     [playerBaseOffset, studySentences],
   );
 
-  const handleShadowingModeChange = useCallback(
-    (m: ShadowingMode) => {
-      restartShadowingPlayback(m);
-    },
-    [restartShadowingPlayback],
-  );
-
   useEffect(() => {
     if (mainTab !== "shadowing") return;
     if (!activeSentenceId) return;
@@ -957,10 +952,24 @@ export default function StudyScreen() {
       router.push("/paywall");
       return;
     }
-
-    stopVideoPlayback();
+    loopIdRef.current = null;
+    setLoopingSentenceId(null);
     setMainTab("transformation");
-  }, [plan, stopVideoPlayback]);
+  }, [plan]);
+
+  const handleExpressionSentenceTap = useCallback(
+    (sentence: Sentence) => {
+      seekLockRef.current = true;
+      loopIdRef.current = sentence.id;
+      setLoopingSentenceId(sentence.id);
+      playerRef.current?.seekTo(sentence.startTime + playerBaseOffset);
+      setPlaying(true);
+      setTimeout(() => {
+        seekLockRef.current = false;
+      }, 500);
+    },
+    [playerBaseOffset],
+  );
 
   const handlePracticeModeChange = useCallback((mode: PracticeMode) => {
     setPracticeMode(mode);
@@ -1237,6 +1246,27 @@ export default function StudyScreen() {
     [currentListeningIndex, handleSentenceTap, listeningData],
   );
 
+  useEffect(() => {
+    if (briefExpanded || mainTab !== "listening" || !scriptVisible) return;
+    if (!activeSentenceId) return;
+
+    const activeIndex = listeningData.findIndex(
+      (sentence) => sentence.id === activeSentenceId,
+    );
+
+    if (activeIndex < 0) return;
+
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({
+        index: activeIndex,
+        animated: true,
+        viewOffset: LISTENING_SCROLL_VIEW_OFFSET,
+      });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [activeSentenceId, briefExpanded, listeningData, mainTab, scriptVisible]);
+
   // ── Render ──
 
   if (loading) {
@@ -1262,495 +1292,406 @@ export default function StudyScreen() {
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="뒤로 가기"
+          style={[styles.topActionButton, { top: insets.top + 10 }]}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={20} color={colors.text} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="탐색으로 닫기"
+          style={[styles.closeStudyButton, { top: insets.top + 10 }]}
+          onPress={() => router.replace("/(tabs)/explore" as never)}
+        >
+          <Ionicons name="close" size={20} color={colors.text} />
+        </Pressable>
 
-        {/* Main tabs: top of sheet */}
-        {!briefExpanded ? (
-          <View style={styles.mainTabs}>
-            <TouchableOpacity
+        {/* Video player — always visible */}
+        <YouTubePlayer
+          ref={playerRef}
+          videoId={video.video_id}
+          playing={playing}
+          onReady={() => setPlayerReady(true)}
+          onChangeState={handleStateChange}
+          startSeconds={playerStartSeconds}
+        />
+        <View style={styles.mainTabs}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.mainTab,
+              mainTab === "listening" && styles.mainTabActive,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => {
+              setMainTab("listening");
+              loopIdRef.current = null;
+              setLoopingSentenceId(null);
+            }}
+          >
+            <Text
               style={[
-                styles.mainTab,
-                mainTab === "listening" && styles.mainTabActive,
+                styles.mainTabText,
+                mainTab === "listening" && styles.mainTabTextActive,
               ]}
-              onPress={() => {
-                setMainTab("listening");
-                loopIdRef.current = null;
-                setLoopingSentenceId(null);
-              }}
             >
-              <Text
-                style={[
-                  styles.mainTabText,
-                  mainTab === "listening" && styles.mainTabTextActive,
-                ]}
-              >
-                리스닝
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              리스닝
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.mainTab,
+              mainTab === "shadowing" && styles.mainTabActive,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => {
+              setMainTab("shadowing");
+              setScriptVisible(true);
+              restartShadowingPlayback(shadowingMode);
+            }}
+          >
+            <Text
               style={[
-                styles.mainTab,
-                mainTab === "shadowing" && styles.mainTabActive,
+                styles.mainTabText,
+                mainTab === "shadowing" && styles.mainTabTextActive,
               ]}
-              onPress={() => {
-                setMainTab("shadowing");
-                setScriptVisible(true);
-                restartShadowingPlayback(shadowingMode);
-              }}
             >
-              <Text
-                style={[
-                  styles.mainTabText,
-                  mainTab === "shadowing" && styles.mainTabTextActive,
-                ]}
-              >
-                쉐도잉
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              쉐도잉
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.mainTab,
+              mainTab === "transformation" && styles.mainTabActive,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={handleTransformationTabPress}
+          >
+            <Text
               style={[
-                styles.mainTab,
-                mainTab === "transformation" && styles.mainTabActive,
+                styles.mainTabText,
+                mainTab === "transformation" && styles.mainTabTextActive,
               ]}
-              onPress={handleTransformationTabPress}
             >
-              <Text
-                style={[
-                  styles.mainTabText,
-                  mainTab === "transformation" && styles.mainTabTextActive,
-                ]}
-              >
-                변형 연습
-              </Text>
-            </TouchableOpacity>
+              변형 연습
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Shadowing pagination nav */}
+        {mainTab === "shadowing" && shadowingSentences.length > 0 && (
+          <View style={styles.shadowingPageNav}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.shadowingPageNavBtn,
+                !hasPrevShadowing && styles.shadowingPageNavBtnDisabled,
+                pressed && hasPrevShadowing && { opacity: 0.7 },
+              ]}
+              onPress={() => moveShadowingFocus("prev")}
+              disabled={!hasPrevShadowing}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={20}
+                color={hasPrevShadowing ? colors.text : colors.textMuted}
+              />
+            </Pressable>
+
+            <Text style={styles.shadowingPageCount}>
+              {currentShadowingIndex + 1} / {shadowingSentences.length}
+            </Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.shadowingPageNavBtn,
+                !hasNextShadowing && styles.shadowingPageNavBtnDisabled,
+                pressed && hasNextShadowing && { opacity: 0.7 },
+              ]}
+              onPress={() => moveShadowingFocus("next")}
+              disabled={!hasNextShadowing}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={hasNextShadowing ? colors.text : colors.textMuted}
+              />
+            </Pressable>
+          </View>
+        )}
+
+        {mainTab === "listening" ? (
+          <View style={styles.listeningSentenceNav}>
+            <SentenceNavigationBar
+              tone="light"
+              hasPrev={hasPrevListening}
+              hasNext={hasNextListening}
+              onPrev={() => moveListeningFocus("prev")}
+              onNext={() => moveListeningFocus("next")}
+            />
           </View>
         ) : null}
 
-        {/* Video player */}
-        {mainTab !== "transformation" ? (
-          <YouTubePlayer
-            ref={playerRef}
-            videoId={video.video_id}
-            playing={playing}
-            onReady={() => setPlayerReady(true)}
-            onChangeState={handleStateChange}
-            startSeconds={playerStartSeconds}
-          />
-        ) : null}
-
-        {briefExpanded ? (
-          <>
-            <ScrollView
-              style={styles.briefScroll}
-              contentContainerStyle={styles.briefScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* Session info header */}
-              {sessionDetail && (
-                <View style={styles.briefHeader}>
-                  <Text style={styles.briefSessionTitle} numberOfLines={3}>
-                    {sessionDetail.title}
+        {/* Script area */}
+        <View style={styles.scriptContainer}>
+          {mainTab === "transformation" ? (
+            sessionId ? (
+              <TransformationCarousel
+                sessionId={sessionId}
+                sentences={studySentences}
+                tipText={sessionDetail?.context?.grammar_rhetoric_note ?? null}
+                onStartExercise={stopVideoPlayback}
+                onSeekToSentence={handleExpressionSentenceTap}
+                savedSentenceIds={
+                  new Set(
+                    Array.from(bookmarkedEntryMap.keys()).flatMap((text) =>
+                      studySentences
+                        .filter((s) => s.text === text)
+                        .map((s) => s.id),
+                    ),
+                  )
+                }
+                onSaveSentence={handleBookmarkToggle}
+              />
+            ) : null
+          ) : !scriptVisible ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>스크립트가 숨겨져 있어요</Text>
+              {mainTab === "listening" ? (
+                <>
+                  <Text style={styles.emptySubtitle}>
+                    처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나
+                    하나도 들리지 않는다면 난이도가 더 쉬운 영상으로 먼저
+                    공부하세요.
                   </Text>
-                  {sessionDetail.channel_name ? (
-                    <Text style={styles.briefChannelName}>
-                      {sessionDetail.channel_name}
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-
-              <ContextBriefCard context={sessionDetail?.context ?? null} />
-            </ScrollView>
-
-            {/* Fixed bottom CTA */}
-            <View style={styles.briefCta}>
-              <TouchableOpacity
-                style={styles.briefCtaButton}
-                onPress={() => {
-                  if (!hasStarted && sessionDetail) {
-                    trackEvent("session_start", {
-                      sessionId: sessionDetail.id,
-                      sourceType: sessionDetail.source_type,
-                    });
-                    setHasStarted(true);
-                  }
-                  setBriefExpanded(false);
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.briefCtaText}>
-                  {hasStarted ? "학습 계속하기" : "학습 시작"}
-                </Text>
-              </TouchableOpacity>
+                </>
+              ) : null}
             </View>
-          </>
-        ) : null}
-
-        {briefExpanded ? null : (
-          <>
-            {/* Sub tabs for shadowing mode */}
-            {mainTab === "shadowing" && (
-              <View style={styles.subTabs}>
-                {SHADOWING_MODES.map(({ key, label }) => (
-                  <TouchableOpacity
-                    key={key}
-                    style={[
-                      styles.subTab,
-                      shadowingMode === key && styles.subTabActive,
-                    ]}
-                    onPress={() => handleShadowingModeChange(key)}
-                  >
-                    <Text
-                      style={[
-                        styles.subTabText,
-                        shadowingMode === key && styles.subTabTextActive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+          ) : mainTab === "listening" ? (
+            /* ── Listening list ── */
+            listeningData.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
               </View>
-            )}
-
-            {/* Script area */}
-            <View style={styles.scriptContainer}>
-              {mainTab === "transformation" ? (
-                sessionId ? (
-                  <TransformationCarousel
-                    sessionId={sessionId}
-                    sentences={studySentences}
-                    tipText={
-                      sessionDetail?.context?.grammar_rhetoric_note ?? null
-                    }
-                    onStartExercise={stopVideoPlayback}
-                    savedSentenceIds={
-                      new Set(
-                        Array.from(bookmarkedEntryMap.keys()).flatMap((text) =>
-                          studySentences
-                            .filter((s) => s.text === text)
-                            .map((s) => s.id),
-                        ),
-                      )
-                    }
-                    onSaveSentence={handleBookmarkToggle}
-                  />
-                ) : null
-              ) : !scriptVisible ? (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyTitle}>
-                    스크립트가 숨겨져 있어요
-                  </Text>
-                  {mainTab === "listening" ? (
-                    <>
-                      <Text style={styles.emptySubtitle}>
-                        처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나
-                        하나도 들리지 않는다면 난이도가 더 쉬운 영상으로 먼저
-                        공부하세요.
-                      </Text>
-                      <View style={styles.hiddenListeningNavBar}>
-                        <TouchableOpacity
-                          style={styles.hiddenListeningNavAction}
-                          onPress={() => moveListeningFocus("prev")}
-                          activeOpacity={0.7}
-                          disabled={!hasPrevListening}
-                        >
-                          <View style={styles.hiddenListeningNavContent}>
-                            <Ionicons
-                              name="arrow-back"
-                              size={14}
-                              color={
-                                hasPrevListening
-                                  ? colors.text
-                                  : colors.textMuted
-                              }
-                            />
-                            <Text
-                              style={[
-                                styles.hiddenListeningNavActionText,
-                                !hasPrevListening &&
-                                  styles.hiddenListeningNavActionTextDisabled,
-                              ]}
-                            >
-                              이전 문장
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        <View style={styles.hiddenListeningNavDivider} />
-
-                        <TouchableOpacity
-                          style={styles.hiddenListeningNavAction}
-                          onPress={() => moveListeningFocus("next")}
-                          activeOpacity={0.7}
-                          disabled={!hasNextListening}
-                        >
-                          <View style={styles.hiddenListeningNavContent}>
-                            <Text
-                              style={[
-                                styles.hiddenListeningNavActionText,
-                                !hasNextListening &&
-                                  styles.hiddenListeningNavActionTextDisabled,
-                              ]}
-                            >
-                              다음 문장
-                            </Text>
-                            <Ionicons
-                              name="arrow-forward"
-                              size={14}
-                              color={
-                                hasNextListening
-                                  ? colors.text
-                                  : colors.textMuted
-                              }
-                            />
-                          </View>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  ) : null}
-                </View>
-              ) : mainTab === "listening" ? (
-                /* ── Listening list ── */
-                listeningData.length === 0 ? (
-                  <View style={styles.empty}>
-                    <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
-                  </View>
-                ) : (
-                  <FlatList
-                    ref={listRef}
-                    data={listeningData}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <ScriptLine
-                        sentence={item}
-                        isActive={item.id === activeSentenceId}
-                        isLooping={item.id === loopingSentenceId}
-                        isSaved={savedSentences.some(
-                          (s) =>
-                            s.sentenceId === item.id && s.videoId === videoId,
-                        )}
-                        scriptHidden={false}
-                        showTranslation={translationVisible}
-                        onTap={handleSentenceTap}
-                        onLongPress={handleLongPress}
-                        onLoopToggle={handleLoopToggle}
-                        onSaveToggle={handleSaveToggle}
-                      />
+            ) : (
+              <FlatList
+                ref={listRef}
+                data={listeningData}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <ScriptLine
+                    sentence={item}
+                    isActive={item.id === activeSentenceId}
+                    isLooping={item.id === loopingSentenceId}
+                    isSaved={savedSentences.some(
+                      (s) => s.sentenceId === item.id && s.videoId === videoId,
                     )}
-                    onScrollToIndexFailed={() => {}}
-                    style={styles.list}
-                    contentContainerStyle={styles.listContent}
+                    scriptHidden={false}
+                    showTranslation={translationVisible}
+                    onTap={handleSentenceTap}
+                    onLongPress={handleLongPress}
+                    onLoopToggle={handleLoopToggle}
+                    onSaveToggle={handleSaveToggle}
                   />
-                )
-              ) : /* ── Shadowing focus ── */
-              shadowingSentences.length === 0 ? (
+                )}
+                onScrollToIndexFailed={() => {}}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+              />
+            )
+          ) : /* ── Shadowing focus ── */
+          shadowingSentences.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
+            </View>
+          ) : (
+            <View style={styles.shadowingFocus}>
+              {currentShadowingSentence ? (
+                <ScrollView
+                  style={styles.shadowingScroll}
+                  contentContainerStyle={styles.shadowingScrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <Pressable
+                    style={styles.shadowingTextBlock}
+                    onPress={() => handleSeek(currentShadowingSentence.id)}
+                  >
+                    <Text style={styles.shadowingPrimaryText}>
+                      {currentShadowingSentence.text}
+                    </Text>
+                    {translationVisible &&
+                    currentShadowingSentence.translation ? (
+                      <Text style={styles.shadowingTranslationText}>
+                        {currentShadowingSentence.translation}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                </ScrollView>
+              ) : (
                 <View style={styles.empty}>
                   <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
                 </View>
-              ) : (
-                <View style={styles.shadowingFocus}>
-                  <View style={styles.shadowingMetaRow}>
-                    <Text style={styles.shadowingMetaLabel}>
-                      {shadowingMode === "sentence"
-                        ? "문장 집중"
-                        : shadowingMode === "paragraph"
-                          ? "문단 집중"
-                          : "전체 따라 말하기"}
-                    </Text>
-                    <Text style={styles.shadowingMetaCount}>
-                      {currentShadowingIndex + 1} / {shadowingSentences.length}
-                    </Text>
-                  </View>
-
-                  {currentShadowingSentence ? (
-                    <ScrollView
-                      style={styles.shadowingScroll}
-                      contentContainerStyle={styles.shadowingScrollContent}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      <Pressable
-                        style={styles.shadowingTextBlock}
-                        onPress={() => handleSeek(currentShadowingSentence.id)}
-                      >
-                        <Text style={styles.shadowingPrimaryText}>
-                          {currentShadowingSentence.text}
-                        </Text>
-                        {translationVisible &&
-                        currentShadowingSentence.translation ? (
-                          <Text style={styles.shadowingTranslationText}>
-                            {currentShadowingSentence.translation}
-                          </Text>
-                        ) : null}
-                      </Pressable>
-                    </ScrollView>
-                  ) : (
-                    <View style={styles.empty}>
-                      <Text style={styles.emptyText}>NO TRANSCRIPT</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {mainTab === "listening" && (
-                <LinearGradient
-                  colors={["rgba(255,255,255,0)", colors.bg]}
-                  style={styles.scriptGradient}
-                  pointerEvents="none"
-                />
               )}
             </View>
+          )}
 
-            {/* Recording bar (shadowing, when recording) */}
-            {mainTab === "shadowing" && isRecording ? (
-              <RecordingBar
-                recordingState={recordingState}
-                duration={recDuration}
-                isPlaying={isPlayingRec}
-                playbackProgress={playbackProgress}
-                onStop={handleStop}
-                onPlay={playRecording}
-                onPause={pauseRecording}
-                onReRecord={handleReRecord}
-                onConfirm={handleConfirm}
-              />
-            ) : null}
+          {mainTab === "listening" && (
+            <LinearGradient
+              colors={["rgba(255,255,255,0)", colors.bg]}
+              style={styles.scriptGradient}
+              pointerEvents="none"
+            />
+          )}
+        </View>
 
-            {/* Bottom bar: brief + script icons (left) + end CTA (right) */}
-            {!isRecording && mainTab === "shadowing" ? (
-              <View style={styles.shadowingBottomBar}>
-                <View style={styles.shadowingNavRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.shadowingNavBtn,
-                      !hasPrevShadowing && styles.shadowingNavBtnDisabled,
-                    ]}
-                    onPress={() => moveShadowingFocus("prev")}
-                    activeOpacity={0.7}
-                    disabled={!hasPrevShadowing}
-                  >
-                    <Text
-                      style={[
-                        styles.shadowingNavBtnText,
-                        !hasPrevShadowing && styles.shadowingNavBtnTextDisabled,
-                      ]}
-                    >
-                      이전
-                    </Text>
-                  </TouchableOpacity>
+        {/* Recording bar (shadowing, when recording) */}
+        {mainTab === "shadowing" && isRecording ? (
+          <RecordingBar
+            recordingState={recordingState}
+            duration={recDuration}
+            isPlaying={isPlayingRec}
+            playbackProgress={playbackProgress}
+            onStop={handleStop}
+            onPlay={playRecording}
+            onPause={pauseRecording}
+            onReRecord={handleReRecord}
+            onConfirm={handleConfirm}
+          />
+        ) : null}
 
-                  <ShadowingRecordButton
-                    style={styles.shadowingRecordButtonWrap}
-                    disabled={!currentShadowingSentence}
-                    onPress={() =>
-                      currentShadowingSentence
-                        ? handleRecord(currentShadowingSentence.id)
-                        : undefined
-                    }
-                  />
-
-                  <TouchableOpacity
-                    style={[
-                      styles.shadowingNavBtn,
-                      !hasNextShadowing && styles.shadowingNavBtnDisabled,
-                    ]}
-                    onPress={() => moveShadowingFocus("next")}
-                    activeOpacity={0.7}
-                    disabled={!hasNextShadowing}
-                  >
-                    <Text
-                      style={[
-                        styles.shadowingNavBtnText,
-                        !hasNextShadowing && styles.shadowingNavBtnTextDisabled,
-                      ]}
-                    >
-                      다음
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.shadowingToolsRow}>
-                  <TouchableOpacity
-                    style={styles.shadowingToolBtn}
-                    onPress={() => setScriptVisible((v) => !v)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.shadowingToolText}>
-                      {scriptVisible ? "스크립트 숨기기" : "스크립트 보기"}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.shadowingToolBtn}
-                    onPress={() => setTranslationVisible((v) => !v)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.shadowingToolText}>
-                      {translationVisible ? "해석 숨기기" : "해석 보기"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+        {/* Floating action column — brief / script / translation (listening + shadowing only) */}
+        {!isRecording && mainTab !== "transformation" ? (
+          <View
+            style={[
+              styles.studyActionColumn,
+              { bottom: insets.bottom + spacing.lg },
+            ]}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="브리프 보기"
+              style={styles.studyActionItem}
+              onPress={() => setBriefExpanded(true)}
+            >
+              <View style={styles.studyIconBtn}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.text}
+                />
               </View>
-            ) : !isRecording && mainTab !== "transformation" ? (
-              <View style={styles.bottomBar}>
-                <View style={styles.bottomMeta}>
-                  <View style={styles.bottomLeft}>
-                    <TouchableOpacity
-                      style={styles.iconBtn}
-                      onPress={() => setBriefExpanded(true)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name="reader-outline"
-                        size={20}
-                        color={colors.text}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.iconBtn}
-                      onPress={() => setScriptVisible((v) => !v)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name={
-                          scriptVisible
-                            ? "chatbox-ellipses"
-                            : "chatbox-ellipses-outline"
-                        }
-                        size={20}
-                        color={colors.text}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.iconBtn}
-                      onPress={() => setTranslationVisible((v) => !v)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name={translationVisible ? "globe" : "globe-outline"}
-                        size={20}
-                        color={
-                          translationVisible ? colors.text : colors.textMuted
-                        }
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+              <Text style={styles.studyActionLabel}>브리프</Text>
+            </Pressable>
 
-                <TouchableOpacity
-                  style={styles.endBtn}
-                  onPress={() => router.back()}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.endBtnText}>학습 끝내기</Text>
-                </TouchableOpacity>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                scriptVisible ? "스크립트 숨기기" : "스크립트 보기"
+              }
+              style={styles.studyActionItem}
+              onPress={() => setScriptVisible((v) => !v)}
+            >
+              <View
+                style={[
+                  styles.studyIconBtn,
+                  scriptVisible && styles.studyIconBtnActive,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    scriptVisible
+                      ? "chatbox-ellipses"
+                      : "chatbox-ellipses-outline"
+                  }
+                  size={18}
+                  color={scriptVisible ? colors.textInverse : colors.text}
+                />
               </View>
-            ) : null}
-          </>
-        )}
+              <Text
+                style={[
+                  styles.studyActionLabel,
+                  scriptVisible && styles.studyActionLabelActive,
+                ]}
+              >
+                스크립트
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                translationVisible ? "번역 숨기기" : "번역 보기"
+              }
+              style={styles.studyActionItem}
+              onPress={() => setTranslationVisible((v) => !v)}
+            >
+              <View
+                style={[
+                  styles.studyIconBtn,
+                  translationVisible && styles.studyIconBtnActive,
+                ]}
+              >
+                <Ionicons
+                  name={translationVisible ? "globe" : "globe-outline"}
+                  size={18}
+                  color={translationVisible ? colors.textInverse : colors.text}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.studyActionLabel,
+                  translationVisible && styles.studyActionLabelActive,
+                ]}
+              >
+                번역
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {/* Recording FAB — right-aligned, shadowing only */}
+        {mainTab === "shadowing" && !isRecording ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="녹음 시작"
+            style={({ pressed }) => [
+              styles.shadowingRecordFab,
+              { bottom: insets.bottom + spacing.lg },
+              pressed && { opacity: 0.85 },
+              !currentShadowingSentence && { opacity: 0.38 },
+            ]}
+            onPress={() =>
+              currentShadowingSentence
+                ? handleRecord(currentShadowingSentence.id)
+                : undefined
+            }
+            disabled={!currentShadowingSentence}
+          >
+            <Ionicons name="mic" size={22} color={colors.textInverse} />
+          </Pressable>
+        ) : null}
       </SafeAreaView>
+
+      <StudyBriefSheet
+        context={sessionDetail?.context ?? null}
+        sessionTitle={sessionDetail?.title ?? null}
+        channelName={sessionDetail?.channel_name ?? null}
+        maxHeight={windowHeight - insets.top - windowWidth * (9 / 16)}
+        bottomInset={insets.bottom}
+        hasStarted={hasStarted}
+        expanded={briefExpanded}
+        onExpandedChange={setBriefExpanded}
+        onStart={() => {
+          if (!hasStarted && sessionDetail) {
+            trackEvent("session_start", {
+              sessionId: sessionDetail.id,
+              sourceType: sessionDetail.source_type,
+            });
+            setHasStarted(true);
+          }
+        }}
+      />
 
       <HighlightBottomSheet
         visible={highlightSentence !== null}
@@ -1766,85 +1707,57 @@ export default function StudyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   safeArea: { flex: 1 },
+  topActionButton: {
+    position: "absolute",
+    left: spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 30,
+  },
+  closeStudyButton: {
+    position: "absolute",
+    right: spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 30,
+  },
   state: {
     flex: 1,
     backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
   },
-  stateText: { fontSize: 13, letterSpacing: 1, color: colors.textMuted },
+  stateText: {
+    fontSize: font.size.sm,
+    letterSpacing: font.tracking.wider,
+    color: colors.textMuted,
+  },
 
   // Brief scroll + fixed CTA
-  briefScroll: { flex: 1 },
-  briefScrollContent: { paddingBottom: 24 },
-
-  briefHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 20,
-    gap: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  briefSessionTitle: {
-    fontSize: font.size.xl,
-    fontWeight: font.weight.bold,
-    color: colors.text,
-    lineHeight: 30,
-    letterSpacing: -0.2,
-  },
-  briefChannelName: {
-    fontSize: font.size.md,
-    color: colors.textSecondary,
-    fontWeight: font.weight.medium,
-  },
-  briefBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.bgMuted,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 2,
-  },
-  briefBadgeText: {
-    fontSize: 11,
-    fontWeight: font.weight.semibold,
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-  },
-
-  briefCta: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 32 : 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  briefCtaButton: {
-    backgroundColor: colors.bgInverse,
-    paddingVertical: 16,
-    borderRadius: radius.lg,
-    alignItems: "center",
-  },
-  briefCtaText: {
-    fontSize: 15,
-    fontWeight: font.weight.semibold,
-    color: colors.textInverse,
-    letterSpacing: 0.3,
-  },
-
   // Main tabs — segmented control (podcast-native)
   mainTabs: {
     flexDirection: "row",
-    marginHorizontal: 16,
-    marginVertical: 10,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.sm,
     backgroundColor: colors.bgMuted,
     borderRadius: radius.lg,
     padding: 3,
   },
   mainTab: {
     flex: 1,
-    paddingVertical: 9,
+    paddingVertical: spacing.sm + 1,
     alignItems: "center",
     borderRadius: radius.md,
   },
@@ -1857,37 +1770,50 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   mainTabText: {
-    fontSize: 13,
-    letterSpacing: 0.2,
+    fontSize: font.size.sm,
+    letterSpacing: font.tracking.normal,
     fontWeight: font.weight.medium,
     color: colors.textMuted,
   },
   mainTabTextActive: { color: colors.text, fontWeight: font.weight.semibold },
 
-  // Sub tabs (shadowing modes)
-  subTabs: {
+  // Shadowing pagination nav (below main tabs)
+  shadowingPageNav: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  subTab: {
-    flex: 1,
-    paddingVertical: 12,
+  shadowingPageNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
     alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  subTabActive: { borderBottomColor: colors.text },
-  subTabText: {
-    fontSize: 14,
-    letterSpacing: 0.2,
+  shadowingPageNavBtnDisabled: {
+    opacity: 0.35,
+  },
+  shadowingPageCount: {
+    fontSize: font.size.sm,
+    color: colors.textSecondary,
     fontWeight: font.weight.medium,
-    color: colors.textMuted,
+    letterSpacing: font.tracking.normal,
   },
-  subTabTextActive: { color: colors.text, fontWeight: font.weight.semibold },
 
   // Script
   scriptContainer: { flex: 1 },
+  listeningSentenceNav: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.bg,
+  },
   scriptGradient: {
     position: "absolute",
     bottom: 0,
@@ -1901,51 +1827,34 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: spacing.xl,
   },
   emptyTitle: {
-    fontSize: 18,
-    lineHeight: 26,
-    letterSpacing: -0.2,
+    fontSize: font.size.base,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
+    letterSpacing: font.tracking.semiTight,
     color: colors.text,
     fontWeight: font.weight.semibold,
     textAlign: "center",
   },
   emptySubtitle: {
-    marginTop: 10,
-    fontSize: 13,
-    lineHeight: 22,
+    marginTop: spacing.sm + spacing.xs,
+    fontSize: font.size.sm,
+    lineHeight: leading(font.size.sm, font.lineHeight.relaxed),
     color: colors.textMuted,
     textAlign: "center",
   },
   emptyText: {
-    fontSize: 13,
-    letterSpacing: 2,
+    fontSize: font.size.sm,
+    letterSpacing: font.tracking.widest,
     color: colors.textMuted,
     fontWeight: font.weight.semibold,
   },
   shadowingFocus: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 12,
-  },
-  shadowingMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 24,
-  },
-  shadowingMetaLabel: {
-    fontSize: 11,
-    letterSpacing: 2,
-    color: colors.textMuted,
-    fontWeight: font.weight.semibold,
-  },
-  shadowingMetaCount: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: font.weight.medium,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   shadowingScroll: {
     flex: 1,
@@ -1958,148 +1867,67 @@ const styles = StyleSheet.create({
   },
   shadowingPrimaryText: {
     fontSize: font.size.lg,
-    lineHeight: 30,
+    lineHeight: leading(font.size.lg, font.lineHeight.normal),
     color: colors.text,
     fontWeight: font.weight.bold,
-    letterSpacing: 0,
+    letterSpacing: font.tracking.normal,
     textAlign: "left",
   },
   shadowingTranslationText: {
-    marginTop: 20,
+    marginTop: spacing.md + spacing.xs,
     fontSize: font.size.sm,
-    lineHeight: 20,
+    lineHeight: leading(font.size.sm, font.lineHeight.relaxed),
     color: colors.textSecondary,
     textAlign: "left",
   },
 
-  // Bottom bar
-  bottomBar: {
+  // Floating action row (left) + recording FAB (right)
+  studyActionColumn: {
+    position: "absolute",
+    left: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 28 : 12,
-    backgroundColor: colors.bg,
+    gap: spacing.xl,
+    zIndex: 20,
   },
-  bottomMeta: {
-    flex: 1,
-    gap: 0,
-  },
-  bottomLeft: {
-    flexDirection: "row",
+  studyActionItem: {
     alignItems: "center",
-    gap: 12,
+    gap: spacing.xs,
   },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
+  studyIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255,255,255,0.92)",
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  endBtn: {
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.pill,
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-  },
-  endBtnText: {
-    fontSize: 12,
-    letterSpacing: 0.5,
-    fontWeight: font.weight.semibold,
-    color: colors.text,
-  },
-  shadowingBottomBar: {
-    paddingTop: 10,
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 18 : 10,
-    backgroundColor: colors.bg,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderStrong,
-    gap: 8,
-  },
-  shadowingNavRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  shadowingNavBtn: {
-    minWidth: 72,
-    paddingHorizontal: 14,
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
-  shadowingNavBtnDisabled: {
-    borderColor: colors.border,
+  studyIconBtnActive: {
+    backgroundColor: colors.text,
+    borderColor: colors.text,
   },
-  shadowingNavBtnText: {
-    fontSize: 13,
-    color: colors.text,
-    fontWeight: font.weight.semibold,
-  },
-  shadowingNavBtnTextDisabled: {
+  studyActionLabel: {
+    fontSize: font.size.xs,
+    lineHeight: 16,
     color: colors.textMuted,
+    fontWeight: font.weight.medium,
   },
-  shadowingRecordButtonWrap: {
-    flex: 1,
-    minHeight: 48,
-  },
-  shadowingToolsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  shadowingToolBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-  },
-  shadowingToolText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: font.weight.semibold,
-  },
-  hiddenListeningNavBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.pill,
-    backgroundColor: colors.bg,
-    paddingHorizontal: 20,
-    marginTop: 18,
-  },
-  hiddenListeningNavAction: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  hiddenListeningNavContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  hiddenListeningNavDivider: {
-    width: 1,
-    alignSelf: "stretch",
-    backgroundColor: colors.border,
-  },
-  hiddenListeningNavActionText: {
-    fontSize: 12,
+  studyActionLabelActive: {
     color: colors.text,
-    fontWeight: font.weight.semibold,
   },
-  hiddenListeningNavActionTextDisabled: {
-    color: colors.textMuted,
+  // Recording FAB (shadowing)
+  shadowingRecordFab: {
+    position: "absolute",
+    right: spacing.lg,
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    backgroundColor: colors.text,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+    ...shadow.md,
   },
 });

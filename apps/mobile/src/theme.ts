@@ -8,6 +8,8 @@
  * - Neutral Controls: understated interactive elements
  */
 
+import { Platform } from "react-native";
+
 // -- Color Palette --
 
 export const palette = {
@@ -105,6 +107,14 @@ export const radius = {
 // -- Typography --
 
 export const font = {
+  family: {
+    system: undefined as string | undefined,
+    mono: Platform.select({
+      ios: "Menlo",
+      android: "monospace",
+      default: "monospace",
+    }),
+  },
   weight: {
     regular: "400" as const,
     medium: "500" as const,
@@ -122,12 +132,32 @@ export const font = {
     "3xl": 36,
     "4xl": 44,
   },
+  tracking: {
+    tight: -0.3,
+    semiTight: -0.2,
+    normal: 0,
+    wide: 0.3,
+    wider: 1.2,
+    widest: 2.4,
+  },
   lineHeight: {
     tight: 1.2,
     normal: 1.5,
     relaxed: 1.6,
+    loose: 1.75,
   },
 } as const;
+
+/**
+ * Compute absolute line height in pixels from a size token and ratio.
+ * React Native requires numeric line heights, so we round to integers.
+ */
+export function leading(
+  size: number,
+  ratio: number = font.lineHeight.normal,
+): number {
+  return Math.round(size * ratio);
+}
 
 // -- Shadows (soft, ambient) --
 

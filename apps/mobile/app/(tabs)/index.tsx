@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Text,
   UIManager,
+  useWindowDimensions,
   View,
   type ViewToken,
 } from "react-native";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
 import { useSubscription } from "@/hooks/useSubscription";
+import SentenceNavigationBar from "@/components/common/SentenceNavigationBar";
 import ShortSessionCard from "@/components/shorts/ShortSessionCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRecentSessionIds, recordSessionVisit } from "@/lib/recent-sessions";
@@ -42,6 +44,14 @@ import {
   getSavedShortSessionIds,
   toggleSavedShortSession,
 } from "@/lib/saved-shorts";
+import {
+  findSentenceIndex,
+  resolveSentencesByIdsOrRange,
+} from "@/lib/transcript-navigation";
+import {
+  getVideoCache,
+  setVideoCache as persistVideoCache,
+} from "@/lib/video-cache";
 import { colors, font, radius, spacing } from "@/theme";
 
 type FeedMode = "recommended" | "saved";
@@ -52,6 +62,7 @@ type VideoLoadState = {
 
 const FALLBACK_VIEWPORT_HEIGHT = 720;
 const SHORTS_OVERLAY_HEIGHT = 220;
+const SHORTS_SCRIPT_TOP_INSET = 52;
 const SHORTS_SCRIPT_BOTTOM_INSET = 112;
 function scoreSession(
   session: SessionListItem,
@@ -131,6 +142,7 @@ function getEmptyStateCopy(mode: FeedMode): {
 export default function HomeScreen() {
   const { learningProfile, isProfileLoading } = useAuth();
   const { plan } = useSubscription();
+  const { width: windowWidth } = useWindowDimensions();
 
   const [viewportHeight, setViewportHeight] = useState(
     FALLBACK_VIEWPORT_HEIGHT,
@@ -146,9 +158,14 @@ export default function HomeScreen() {
   const [savedSessionIds, setSavedSessionIds] = useState<string[]>([]);
   const [recentSessionIds, setRecentSessionIds] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [scriptVisible, setScriptVisible] = useState(true);
+  const [scriptVisible, setScriptVisible] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
+  const [activeSentenceId, setActiveSentenceId] = useState<string | null>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [sentenceNavigationRequest, setSentenceNavigationRequest] = useState<{
+    direction: "prev" | "next";
+    nonce: number;
+  } | null>(null);
   const [videoCache, setVideoCache] = useState<Record<string, CuratedVideo>>(
     {},
   );
@@ -165,6 +182,7 @@ export default function HomeScreen() {
   const inFlightVideoRequestsRef = useRef<
     Partial<Record<string, Promise<CuratedVideo | null>>>
   >({});
+  const sentenceNavigationNonceRef = useRef(0);
 
   const preferredSituations = useMemo(
     () => learningProfile?.preferred_situations ?? [],
@@ -182,10 +200,27 @@ export default function HomeScreen() {
   const ensureVideoLoaded = useCallback(async (videoId: string) => {
     if (!videoId) return null;
 
+    // 1. In-memory cache
     if (cachedVideosRef.current[videoId]) {
       return cachedVideosRef.current[videoId];
     }
 
+    // 2. MMKV persistent cache (instant, no network)
+    const persisted = getVideoCache(videoId);
+    if (persisted) {
+      cachedVideosRef.current[videoId] = persisted;
+      videoLoadStateRef.current[videoId] = { status: "loaded", error: null };
+      setVideoCache((current) =>
+        current[videoId] ? current : { ...current, [videoId]: persisted },
+      );
+      setVideoLoadState((current) => ({
+        ...current,
+        [videoId]: { status: "loaded", error: null },
+      }));
+      return persisted;
+    }
+
+    // 3. In-flight dedup
     if (inFlightVideoRequestsRef.current[videoId]) {
       return inFlightVideoRequestsRef.current[videoId];
     }
@@ -210,6 +245,7 @@ export default function HomeScreen() {
           ...current,
           [videoId]: { status: "loaded", error: null },
         }));
+        persistVideoCache(videoId, video);
         return video;
       })
       .catch((nextError: Error) => {
@@ -315,6 +351,25 @@ export default function HomeScreen() {
   }, []);
 
   const activeSession = currentFeed[activeIndex] ?? null;
+  const activeSessionSentences = useMemo(() => {
+    if (!activeSession) return [];
+
+    return resolveSentencesByIdsOrRange(
+      videoCache[activeSession.source_video_id]?.transcript ?? [],
+      activeSession.sentence_ids,
+      activeSession.start_time,
+      activeSession.end_time,
+    );
+  }, [activeSession, videoCache]);
+  const activeSentenceIndex = useMemo(
+    () => findSentenceIndex(activeSessionSentences, activeSentenceId),
+    [activeSentenceId, activeSessionSentences],
+  );
+  const hasPrevSentence = activeSentenceIndex > 0;
+  const hasNextSentence =
+    activeSentenceIndex >= 0
+      ? activeSentenceIndex < activeSessionSentences.length - 1
+      : activeSessionSentences.length > 0;
   const isActiveSessionSaved = activeSession
     ? savedSessionIds.includes(activeSession.id)
     : false;
@@ -325,6 +380,9 @@ export default function HomeScreen() {
         .filter(Boolean)
         .join(" · ")
     : "";
+  const shortsPlayerHeight = Math.round(
+    (windowWidth - spacing.md * 2) * (9 / 16),
+  );
 
   useEffect(() => {
     if (
@@ -358,6 +416,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     setIsDescriptionExpanded(false);
+    setActiveSentenceId(null);
+    setSentenceNavigationRequest(null);
   }, [activeSession?.id]);
 
   useEffect(() => {
@@ -411,6 +471,7 @@ export default function HomeScreen() {
 
   const viewabilityConfigRef = useRef({
     itemVisiblePercentThreshold: 80,
+    minimumViewTime: 80,
   });
 
   const handleViewableItemsChangedRef = useRef(
@@ -473,6 +534,21 @@ export default function HomeScreen() {
     router.push(getLongformPressDestination(activeSession, plan));
   }, [activeSession, plan]);
 
+  const handleNavigateActiveSentence = useCallback(
+    (direction: "prev" | "next") => {
+      if (!activeSession) return;
+      if (direction === "prev" && !hasPrevSentence) return;
+      if (direction === "next" && !hasNextSentence) return;
+
+      sentenceNavigationNonceRef.current += 1;
+      setSentenceNavigationRequest({
+        direction,
+        nonce: sentenceNavigationNonceRef.current,
+      });
+    },
+    [activeSession, hasNextSentence, hasPrevSentence],
+  );
+
   const handleToggleFeedMode = useCallback((nextMode: FeedMode) => {
     setFeedMode(nextMode);
   }, []);
@@ -486,6 +562,7 @@ export default function HomeScreen() {
           shouldLoad={Math.abs(index - activeIndex) <= 1}
           scriptVisible={scriptVisible}
           showTranslation={showTranslation}
+          topOverlayInset={SHORTS_SCRIPT_TOP_INSET}
           bottomOverlayInset={SHORTS_SCRIPT_BOTTOM_INSET}
           video={videoCache[item.source_video_id] ?? null}
           videoState={
@@ -495,12 +572,23 @@ export default function HomeScreen() {
             }
           }
           onRetryVideoLoad={ensureVideoLoaded}
+          navigationRequest={
+            index === activeIndex ? sentenceNavigationRequest : null
+          }
+          onActiveSentenceChange={
+            index === activeIndex
+              ? (sentenceId) => {
+                  setActiveSentenceId(sentenceId);
+                }
+              : undefined
+          }
         />
       </View>
     ),
     [
       activeIndex,
       ensureVideoLoaded,
+      sentenceNavigationRequest,
       scriptVisible,
       showTranslation,
       videoCache,
@@ -662,7 +750,7 @@ export default function HomeScreen() {
             data={currentFeed}
             keyExtractor={(item) => item.id}
             renderItem={renderFeedItem}
-            extraData={`${activeIndex}:${scriptVisible}:${showTranslation}:${viewportHeight}`}
+            extraData={`${activeIndex}:${scriptVisible}:${showTranslation}:${viewportHeight}:${sentenceNavigationRequest?.nonce ?? 0}`}
             pagingEnabled
             disableIntervalMomentum
             decelerationRate="fast"
@@ -682,154 +770,176 @@ export default function HomeScreen() {
           />
           {activeSession ? (
             <View pointerEvents="box-none" style={styles.activeSessionOverlay}>
+              <View
+                pointerEvents="box-none"
+                style={[
+                  styles.sentenceNavWrapper,
+                  { top: shortsPlayerHeight + spacing.xs },
+                ]}
+              >
+                <SentenceNavigationBar
+                  tone="dark"
+                  hasPrev={hasPrevSentence}
+                  hasNext={hasNextSentence}
+                  onPrev={() => handleNavigateActiveSentence("prev")}
+                  onNext={() => handleNavigateActiveSentence("next")}
+                />
+              </View>
               <LinearGradient
                 colors={[
                   "rgba(5,7,12,0)",
-                  "rgba(5,7,12,0.18)",
-                  "rgba(5,7,12,0.72)",
-                  "rgba(5,7,12,0.94)",
+                  "rgba(5,7,12,0.34)",
+                  "rgba(5,7,12,0.82)",
+                  "rgba(5,7,12,0.96)",
+                  "rgba(5,7,12,1)",
                 ]}
-                locations={[0, 0.32, 0.72, 1]}
+                locations={[0, 0.24, 0.6, 1]}
                 style={styles.activeSessionGradient}
                 pointerEvents="none"
               />
               <View style={styles.activeSessionOverlayContent}>
-                <View style={styles.activeSessionCopy}>
-                  <Text style={styles.activeSessionTitle} numberOfLines={2}>
-                    {activeSession.title}
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${activeSession.title} 설명 ${
-                      isDescriptionExpanded ? "접기" : "펼치기"
-                    }`}
-                    onPress={() => {
-                      LayoutAnimation.configureNext(
-                        LayoutAnimation.Presets.easeInEaseOut,
-                      );
-                      setIsDescriptionExpanded((current) => !current);
-                    }}
-                  >
-                    <Text
-                      style={styles.activeSessionDescription}
-                      numberOfLines={isDescriptionExpanded ? undefined : 2}
+                <View style={styles.activeSessionMetaRow}>
+                  <View style={styles.activeSessionCopy}>
+                    <View style={styles.activeSessionTitleRow}>
+                      <Text style={styles.activeSessionTitle} numberOfLines={2}>
+                        {activeSession.title}
+                      </Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${activeSession.title} 설명 ${
+                        isDescriptionExpanded ? "접기" : "펼치기"
+                      }`}
+                      onPress={() => {
+                        LayoutAnimation.configureNext(
+                          LayoutAnimation.Presets.easeInEaseOut,
+                        );
+                        setIsDescriptionExpanded((current) => !current);
+                      }}
                     >
-                      {activeSessionDescription}
-                    </Text>
-                  </Pressable>
-                </View>
+                      <Text
+                        style={styles.activeSessionDescription}
+                        numberOfLines={isDescriptionExpanded ? undefined : 2}
+                      >
+                        {activeSessionDescription}
+                      </Text>
+                    </Pressable>
+                  </View>
 
-                <View style={styles.activeSessionActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${activeSession.title} 쇼츠 저장`}
-                    style={styles.actionItem}
-                    onPress={handleToggleActiveShortSave}
-                  >
-                    <View
-                      style={[
-                        styles.iconButton,
-                        isActiveSessionSaved && styles.iconButtonActive,
-                      ]}
+                  <View style={styles.activeSessionActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${activeSession.title} 쇼츠 저장`}
+                      style={styles.actionItem}
+                      onPress={handleToggleActiveShortSave}
                     >
-                      <Ionicons
-                        name={
-                          isActiveSessionSaved ? "bookmark" : "bookmark-outline"
-                        }
-                        size={18}
-                        color={
-                          isActiveSessionSaved
-                            ? colors.bgDark
-                            : colors.textOnDark
-                        }
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        isActiveSessionSaved && styles.actionLabelActive,
-                      ]}
+                      <View
+                        style={[
+                          styles.iconButton,
+                          isActiveSessionSaved && styles.iconButtonActive,
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            isActiveSessionSaved
+                              ? "bookmark"
+                              : "bookmark-outline"
+                          }
+                          size={18}
+                          color={
+                            isActiveSessionSaved
+                              ? colors.bgDark
+                              : colors.textOnDark
+                          }
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.actionLabel,
+                          isActiveSessionSaved && styles.actionLabelActive,
+                        ]}
+                      >
+                        저장
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="스크립트 토글"
+                      style={styles.actionItem}
+                      onPress={() => setScriptVisible((current) => !current)}
                     >
-                      저장
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="스크립트 토글"
-                    style={styles.actionItem}
-                    onPress={() => setScriptVisible((current) => !current)}
-                  >
-                    <View
-                      style={[
-                        styles.iconButton,
-                        scriptVisible && styles.iconButtonActive,
-                      ]}
+                      <View
+                        style={[
+                          styles.iconButton,
+                          scriptVisible && styles.iconButtonActive,
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            scriptVisible
+                              ? "chatbox-ellipses"
+                              : "chatbox-ellipses-outline"
+                          }
+                          size={18}
+                          color={
+                            scriptVisible ? colors.bgDark : colors.textOnDark
+                          }
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.actionLabel,
+                          scriptVisible && styles.actionLabelActive,
+                        ]}
+                      >
+                        스크립트
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="번역 토글"
+                      style={styles.actionItem}
+                      onPress={() => setShowTranslation((current) => !current)}
                     >
-                      <Ionicons
-                        name={
-                          scriptVisible
-                            ? "chatbox-ellipses"
-                            : "chatbox-ellipses-outline"
-                        }
-                        size={18}
-                        color={
-                          scriptVisible ? colors.bgDark : colors.textOnDark
-                        }
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        scriptVisible && styles.actionLabelActive,
-                      ]}
+                      <View
+                        style={[
+                          styles.iconButton,
+                          showTranslation && styles.iconButtonActive,
+                        ]}
+                      >
+                        <Ionicons
+                          name={showTranslation ? "globe" : "globe-outline"}
+                          size={18}
+                          color={
+                            showTranslation ? colors.bgDark : colors.textOnDark
+                          }
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.actionLabel,
+                          showTranslation && styles.actionLabelActive,
+                        ]}
+                      >
+                        번역
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${activeSession.title} 더 공부하기`}
+                      style={styles.actionItem}
+                      onPress={handleOpenLongSession}
                     >
-                      스크립트
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="번역 토글"
-                    style={styles.actionItem}
-                    onPress={() => setShowTranslation((current) => !current)}
-                  >
-                    <View
-                      style={[
-                        styles.iconButton,
-                        showTranslation && styles.iconButtonActive,
-                      ]}
-                    >
-                      <Ionicons
-                        name={showTranslation ? "globe" : "globe-outline"}
-                        size={18}
-                        color={
-                          showTranslation ? colors.bgDark : colors.textOnDark
-                        }
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        showTranslation && styles.actionLabelActive,
-                      ]}
-                    >
-                      번역
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${activeSession.title} 전체 듣기 열기`}
-                    style={styles.actionItem}
-                    onPress={handleOpenLongSession}
-                  >
-                    <View style={styles.iconButton}>
-                      <Ionicons
-                        name="arrow-forward"
-                        size={18}
-                        color={colors.textOnDark}
-                      />
-                    </View>
-                    <Text style={styles.actionLabel}>전체 듣기</Text>
-                  </Pressable>
+                      <View style={styles.iconButton}>
+                        <Ionicons
+                          name="arrow-forward"
+                          size={18}
+                          color={colors.textOnDark}
+                        />
+                      </View>
+                      <Text style={styles.actionLabel}>더 공부하기</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             </View>
@@ -887,6 +997,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
   },
+  sentenceNavWrapper: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 4,
+    paddingHorizontal: spacing.xs,
+  },
   activeSessionGradient: {
     position: "absolute",
     left: 0,
@@ -895,20 +1012,29 @@ const styles = StyleSheet.create({
     height: SHORTS_OVERLAY_HEIGHT,
   },
   activeSessionOverlayContent: {
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingRight: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  activeSessionMetaRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
     gap: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingRight: spacing.sm,
-    paddingBottom: spacing.md,
   },
   activeSessionCopy: {
     flex: 1,
     gap: spacing.xs,
     paddingBottom: spacing.xs,
   },
+  activeSessionTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 2,
+  },
   activeSessionTitle: {
+    flex: 1,
     fontSize: font.size.base,
     lineHeight: 24,
     color: colors.textOnDark,
@@ -950,6 +1076,9 @@ const styles = StyleSheet.create({
   },
   actionLabelActive: {
     color: colors.textOnDark,
+  },
+  actionLabelDisabled: {
+    color: colors.textOnDarkMuted,
   },
   feedPage: {
     width: "100%",

@@ -1,7 +1,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { SessionContext, KeyVocabularyEntry } from "@inputenglish/shared";
-import { colors, font, radius } from "../../theme";
+import { colors, font, leading, radius, spacing } from "../../theme";
 
 function normalizeVocabEntry(
   item: string | KeyVocabularyEntry,
@@ -25,65 +25,80 @@ interface ContextBriefCardProps {
   context: SessionContext | null;
 }
 
-export default function ContextBriefCard({ context }: ContextBriefCardProps) {
-  const hasContent = Boolean(
-    context?.expected_takeaway ||
-    context?.key_vocabulary?.length ||
-    context?.grammar_rhetoric_note,
-  );
+export default function ContextBriefCard({
+  context,
+}: ContextBriefCardProps): React.ReactElement {
+  const hasTakeaway = Boolean(context?.expected_takeaway);
+  const hasTip = Boolean(context?.grammar_rhetoric_note);
+  const hasVocab = Boolean(context?.key_vocabulary?.length);
+  const hasContent = hasTakeaway || hasTip || hasVocab;
 
   if (!hasContent) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyText}>
-          이 세션에는 브리프가 아직 없습니다.
-        </Text>
+        <Text style={styles.emptyEyebrow}>학습 브리프</Text>
+        <Text style={styles.emptyText}>이 세션에는 브리프가 아직 없어요.</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {context?.expected_takeaway ? (
+      {hasTakeaway ? (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>학습 후 기대 효과</Text>
-          <Text style={styles.bodyText}>{context.expected_takeaway}</Text>
+          <Text style={styles.eyebrow}>학습 후 기대 효과</Text>
+          <Text style={styles.takeawayText}>{context?.expected_takeaway}</Text>
         </View>
       ) : null}
 
-      {context?.grammar_rhetoric_note ? (
-        <View style={styles.tipContainer}>
-          <Text style={styles.tipLabel}>TIP</Text>
-          <Text style={styles.tipText}>{context.grammar_rhetoric_note}</Text>
-        </View>
+      {hasTip ? (
+        <>
+          {hasTakeaway ? <View style={styles.divider} /> : null}
+          <View style={styles.section}>
+            <Text style={styles.eyebrow}>학습 포인트</Text>
+            <View style={styles.tipRow}>
+              <View style={styles.tipAccent} />
+              <Text style={styles.tipText}>
+                {context?.grammar_rhetoric_note}
+              </Text>
+            </View>
+          </View>
+        </>
       ) : null}
 
-      {context?.key_vocabulary?.length ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>핵심 표현</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.vocabScroll}
-          >
-            {context.key_vocabulary.map((item, idx) => {
-              const entry = normalizeVocabEntry(item);
-              return (
-                <View key={idx} style={styles.vocabCard}>
-                  <Text style={styles.vocabExpression}>{entry.expression}</Text>
-                  {entry.example ? (
-                    <Text style={styles.vocabExample}>{entry.example}</Text>
-                  ) : null}
-                  {entry.translation ? (
-                    <Text style={styles.vocabTranslation}>
-                      {entry.translation}
+      {hasVocab ? (
+        <>
+          {hasTakeaway || hasTip ? <View style={styles.divider} /> : null}
+          <View style={styles.sectionVocab}>
+            <View style={styles.vocabHeader}>
+              <Text style={styles.eyebrow}>핵심 표현</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.vocabScroll}
+            >
+              {context?.key_vocabulary?.map((item, idx) => {
+                const entry = normalizeVocabEntry(item);
+                return (
+                  <View key={idx} style={styles.vocabCard}>
+                    <Text style={styles.vocabExpression}>
+                      {entry.expression}
                     </Text>
-                  ) : null}
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
+                    {entry.example ? (
+                      <Text style={styles.vocabExample}>{entry.example}</Text>
+                    ) : null}
+                    {entry.translation ? (
+                      <Text style={styles.vocabTranslation}>
+                        {entry.translation}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </>
       ) : null}
     </View>
   );
@@ -91,94 +106,104 @@ export default function ContextBriefCard({ context }: ContextBriefCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 28,
-    paddingBottom: 8,
-    gap: 32,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
-
   section: {
-    gap: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
   },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: font.weight.bold,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
+  sectionVocab: {
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
+  },
+  eyebrow: {
+    fontSize: font.size.sm,
+    fontWeight: font.weight.semibold,
+    letterSpacing: font.tracking.wide,
     color: colors.textMuted,
-    paddingHorizontal: 20,
   },
-  bodyText: {
-    fontSize: 15,
-    lineHeight: 24,
+  vocabHeader: {
+    paddingHorizontal: spacing.lg,
+  },
+  takeawayText: {
+    fontSize: font.size.lg,
+    lineHeight: leading(font.size.lg, font.lineHeight.relaxed),
     color: colors.text,
-    paddingHorizontal: 20,
     fontWeight: font.weight.regular,
+    letterSpacing: font.tracking.semiTight,
   },
-
-  // Vocab horizontal scroll
+  tipRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "stretch",
+  },
+  tipAccent: {
+    width: 3,
+    alignSelf: "stretch",
+    backgroundColor: colors.accent,
+    borderRadius: radius.sm,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: font.size.base,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
+    color: colors.text,
+    letterSpacing: font.tracking.normal,
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.border,
+  },
   vocabScroll: {
-    paddingHorizontal: 20,
-    gap: 12,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   vocabCard: {
-    width: 270,
-    padding: 18,
-    gap: 8,
-    backgroundColor: colors.bg,
+    width: 300,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: colors.bgSubtle,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
   },
   vocabExpression: {
-    fontSize: 15,
+    fontSize: font.size.xl,
     fontWeight: font.weight.bold,
-    lineHeight: 22,
+    lineHeight: leading(font.size.xl, font.lineHeight.tight),
     color: colors.text,
+    letterSpacing: font.tracking.tight,
   },
   vocabExample: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: font.size.md,
+    lineHeight: leading(font.size.md, font.lineHeight.relaxed),
     color: colors.textSecondary,
   },
   vocabTranslation: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: font.size.sm,
+    lineHeight: leading(font.size.sm, font.lineHeight.relaxed),
     color: colors.textMuted,
   },
-
-  // Tip
-  tipContainer: {
-    marginHorizontal: 20,
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 6,
-  },
-  tipLabel: {
-    fontSize: 11,
-    fontWeight: font.weight.bold,
-    letterSpacing: 1.5,
-    color: colors.textMuted,
-  },
-  tipText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.text,
-  },
-
-  // Empty state
   empty: {
-    paddingHorizontal: 20,
-    paddingTop: 32,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  emptyEyebrow: {
+    fontSize: font.size.sm,
+    fontWeight: font.weight.semibold,
+    letterSpacing: font.tracking.wide,
+    color: colors.textMuted,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: font.size.md,
+    lineHeight: leading(font.size.md, font.lineHeight.relaxed),
     color: colors.textMuted,
-    lineHeight: 22,
   },
 });

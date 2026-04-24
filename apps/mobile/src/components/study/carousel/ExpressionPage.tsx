@@ -1,14 +1,20 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import type { Sentence } from "@inputenglish/shared";
-import SaveToggle from "../../listening/SaveToggle";
-import { colors, font, palette, radius, spacing } from "../../../theme";
+import { colors, font, leading, radius, spacing } from "../../../theme";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = SCREEN_WIDTH - spacing.lg * 3;
+const SNAP_INTERVAL = CARD_WIDTH + spacing.md;
 
 interface ExpressionPageProps {
   sentences: Sentence[];
@@ -16,65 +22,79 @@ interface ExpressionPageProps {
   savedSentenceIds?: Set<string>;
   onSave?: (sentence: Sentence) => void;
   onNext: () => void;
+  onSeekToSentence?: (sentence: Sentence) => void;
 }
 
 export function ExpressionPage({
   sentences,
   tipText,
-  savedSentenceIds,
-  onSave,
   onNext,
+  onSeekToSentence,
 }: ExpressionPageProps) {
+  const hasTip = Boolean(tipText);
+
+  const handleScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetX = e.nativeEvent.contentOffset.x;
+      const rawIndex = Math.round(offsetX / SNAP_INTERVAL);
+      // tip card occupies index 0 when present; sentences start after it
+      const sentenceIndex = hasTip ? rawIndex - 1 : rawIndex;
+      if (sentenceIndex >= 0 && sentenceIndex < sentences.length) {
+        onSeekToSentence?.(sentences[sentenceIndex]);
+      }
+    },
+    [hasTip, sentences, onSeekToSentence],
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToInterval={SNAP_INTERVAL}
+        contentContainerStyle={styles.carouselContent}
+        style={styles.carousel}
+        onMomentumScrollEnd={handleScrollEnd}
       >
-        <Text style={styles.title}>배워볼 표현</Text>
-        <Text style={styles.subtitle}>
-          연습을 시작하기 전에, 핵심 표현의 의미와 구조를 먼저 익혀보세요.
-          {"\n"}이제부터는 영상과 분리된 연습 모드로 진행돼요.
-        </Text>
-
         {tipText ? (
-          <View style={styles.tipContainer}>
-            <Text style={styles.tipLabel}>TIP</Text>
+          <View style={styles.tipCard}>
+            <Text style={styles.eyebrow}>TIP</Text>
             <Text style={styles.tipText}>{tipText}</Text>
           </View>
         ) : null}
 
         {sentences.map((sentence) => (
-          <View key={sentence.id} style={styles.cardShadow}>
-            <View style={styles.card}>
-              <View>
-                <Text style={styles.sentenceText}>{sentence.text}</Text>
-                {sentence.translation ? (
-                  <Text style={styles.translation}>{sentence.translation}</Text>
-                ) : null}
-              </View>
-              {onSave && (
-                <View style={styles.cardActions}>
-                  <SaveToggle
-                    active={savedSentenceIds?.has(sentence.id) ?? false}
-                    onPress={() => onSave(sentence)}
-                  />
-                </View>
-              )}
-            </View>
-          </View>
+          <Pressable
+            key={sentence.id}
+            style={({ pressed }) => [
+              styles.sentenceCard,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => onSeekToSentence?.(sentence)}
+          >
+            <Text style={styles.eyebrow}>PLAY</Text>
+            <Text style={styles.sentenceText}>{sentence.text}</Text>
+            {sentence.translation ? (
+              <Text style={styles.translationText}>
+                {"// "}
+                {sentence.translation}
+              </Text>
+            ) : null}
+          </Pressable>
         ))}
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.nextBtn}
+        <Pressable
+          style={({ pressed }) => [
+            styles.nextBtn,
+            pressed && { opacity: 0.85 },
+          ]}
           onPress={onNext}
-          activeOpacity={0.7}
         >
           <Text style={styles.nextText}>연습 시작하기</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -83,85 +103,77 @@ export function ExpressionPage({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: spacing.lg,
   },
-  scrollArea: {
+  carousel: {
     flex: 1,
   },
-  content: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    gap: spacing.lg,
+  carouselContent: {
     paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    alignItems: "flex-start",
+    paddingBottom: spacing.md,
   },
-  title: {
-    fontSize: font.size.lg,
-    fontWeight: font.weight.bold,
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: font.size.sm,
-    lineHeight: font.size.sm * 1.7,
-    color: colors.textSecondary,
-  },
-  tipContainer: {
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  tipLabel: {
-    fontSize: font.size.xs,
+  eyebrow: {
+    fontSize: 9,
     fontWeight: font.weight.bold,
     letterSpacing: 1.5,
     color: colors.textMuted,
   },
-  tipText: {
-    fontSize: font.size.sm,
-    lineHeight: 22,
-    color: colors.text,
-  },
-  cardShadow: {
-    borderRadius: radius.xl,
-    overflow: "hidden",
-  },
-  card: {
-    backgroundColor: palette.white,
+  tipCard: {
+    width: CARD_WIDTH,
+    backgroundColor: colors.bg,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+    borderColor: colors.borderStrong,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  tipText: {
+    fontSize: font.size.base,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
+    color: colors.text,
+    letterSpacing: font.tracking.normal,
+    fontWeight: font.weight.regular,
+  },
+  sentenceCard: {
+    width: CARD_WIDTH,
+    backgroundColor: colors.bgMuted,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
   sentenceText: {
-    fontSize: font.size.base,
-    lineHeight: font.size.base * 1.55,
+    fontSize: font.size.lg,
+    lineHeight: leading(font.size.lg, font.lineHeight.relaxed),
     color: colors.text,
-    fontWeight: font.weight.regular,
+    fontWeight: font.weight.bold,
+    letterSpacing: font.tracking.normal,
   },
-  translation: {
+  translationText: {
     fontSize: font.size.sm,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginTop: spacing.xs,
-  },
-  cardActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
+    lineHeight: leading(font.size.sm, font.lineHeight.relaxed),
+    color: colors.textMuted,
+    letterSpacing: font.tracking.normal,
+    fontWeight: font.weight.regular,
   },
   footer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   nextBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingVertical: 16,
+    backgroundColor: colors.bgInverse,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
   },
   nextText: {
-    fontSize: font.size.md,
+    fontSize: font.size.base,
     fontWeight: font.weight.semibold,
     color: colors.textInverse,
-    letterSpacing: 0.5,
+    letterSpacing: font.tracking.normal,
   },
 });

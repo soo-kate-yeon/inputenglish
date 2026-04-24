@@ -26,8 +26,7 @@ import YouTubePlayer, {
 import ShadowingHeader, {
   ShadowingMode,
 } from "../../src/components/shadowing/ShadowingHeader";
-import RecordingBar from "../../src/components/shadowing/RecordingBar";
-import ShadowingRecordButton from "../../src/components/shadowing/ShadowingRecordButton";
+import { ExerciseRecordingBar } from "../../src/components/study/carousel/ExerciseRecordingBar";
 import useAudioRecorder from "../../src/hooks/useAudioRecorder";
 import { uploadRecording } from "../../src/lib/ai-api";
 import { useAuth } from "../../src/contexts/AuthContext";
@@ -245,9 +244,24 @@ export default function ShadowingScreen() {
   ]);
 
   const handleReRecord = useCallback(async () => {
-    await resetRecording();
+    if (audioUri && currentRecordingSentenceId) {
+      const sid = currentRecordingSentenceId;
+      const uri = audioUri;
+      setRecordedSentences((prev) => ({ ...prev, [sid]: uri }));
+      if (user?.id && videoId) {
+        uploadRecording(uri, user.id, videoId, sid, duration).catch(() => {});
+      }
+    }
     setCurrentRecordingSentenceId(null);
-  }, [resetRecording]);
+    await resetRecording();
+  }, [
+    audioUri,
+    currentRecordingSentenceId,
+    duration,
+    resetRecording,
+    user?.id,
+    videoId,
+  ]);
 
   const handleSeek = useCallback(
     (sentenceId: string) => {
@@ -372,10 +386,27 @@ export default function ShadowingScreen() {
                 </Text>
               ) : null}
             </Pressable>
+
+            <ExerciseRecordingBar
+              recordingState={recordingState}
+              duration={duration}
+              isPlaying={isPlayingRecording}
+              playbackProgress={playbackProgress}
+              onStart={
+                currentSentence
+                  ? () => handleRecord(currentSentence.id)
+                  : undefined
+              }
+              onStop={handleStop}
+              onPlay={playRecording}
+              onPause={pauseRecording}
+              onReRecord={handleReRecord}
+              onConfirm={handleConfirm}
+            />
           </View>
         )}
 
-        {recordingState === "idle" ? (
+        {recordingState === "idle" && (
           <View style={styles.idleFooter}>
             <View style={styles.navRow}>
               <Pressable
@@ -392,14 +423,6 @@ export default function ShadowingScreen() {
                   이전
                 </Text>
               </Pressable>
-
-              <ShadowingRecordButton
-                style={styles.recordButtonWrap}
-                disabled={!currentSentence}
-                onPress={() =>
-                  currentSentence ? handleRecord(currentSentence.id) : undefined
-                }
-              />
 
               <Pressable
                 style={[styles.navButton, !hasNext && styles.navButtonDisabled]}
@@ -426,18 +449,6 @@ export default function ShadowingScreen() {
               </Text>
             </Pressable>
           </View>
-        ) : (
-          <RecordingBar
-            recordingState={recordingState}
-            duration={duration}
-            isPlaying={isPlayingRecording}
-            playbackProgress={playbackProgress}
-            onStop={handleStop}
-            onPlay={playRecording}
-            onPause={pauseRecording}
-            onReRecord={handleReRecord}
-            onConfirm={handleConfirm}
-          />
         )}
       </View>
     </SafeAreaView>
@@ -467,7 +478,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingBottom: 96,
   },
   empty: {
     flex: 1,
@@ -539,7 +550,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   navButton: {
-    minWidth: 72,
+    flex: 1,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderStrong,
@@ -557,9 +568,6 @@ const styles = StyleSheet.create({
   },
   navButtonTextDisabled: {
     color: colors.textMuted,
-  },
-  recordButtonWrap: {
-    flex: 1,
   },
   scriptToggle: {
     alignSelf: "center",

@@ -1,11 +1,10 @@
-// @MX:NOTE: [AUTO] Situation-response exercise page (v2, SPEC-MOBILE-011).
-// Shows a situation description; user records their spontaneous English response.
-import React, { useCallback, useEffect } from "react";
+// @MX:NOTE: [AUTO] Situation-response exercise page (SPEC-MOBILE-011).
+import React, { useCallback, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { TransformationExercise } from "@inputenglish/shared";
 import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
-import { colors, font, radius, spacing } from "../../../theme";
+import { colors, font, leading, radius, spacing } from "../../../theme";
 
 interface SituationResponsePageProps {
   exercise: TransformationExercise;
@@ -39,6 +38,20 @@ export function SituationResponsePage({
     onConfirm(audioUri, duration);
   }, [audioUri, duration, onConfirm]);
 
+  const hasPlayedRef = useRef(false);
+  useEffect(() => {
+    if (isPlaying) {
+      hasPlayedRef.current = true;
+    } else if (
+      hasPlayedRef.current &&
+      playbackProgress === 0 &&
+      recordingState === "playback"
+    ) {
+      hasPlayedRef.current = false;
+      handleConfirm();
+    }
+  }, [isPlaying, playbackProgress, recordingState, handleConfirm]);
+
   const handleStop = useCallback(async () => {
     await stopRecording();
   }, [stopRecording]);
@@ -50,18 +63,16 @@ export function SituationResponsePage({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.label}>SITUATION</Text>
+        <Text style={styles.eyebrow}>SITUATION</Text>
         <Text style={styles.instruction}>{exercise.instruction_text}</Text>
         {exercise.situation_text != null && (
-          <View style={styles.situationBox}>
-            <Text style={styles.situationLabel}>상황</Text>
-            <Text style={styles.situationText}>{exercise.situation_text}</Text>
+          <View style={styles.promptBox}>
+            <Text style={styles.promptEyebrow}>상황</Text>
+            <Text style={styles.promptText}>{exercise.situation_text}</Text>
           </View>
         )}
-        <Text style={styles.hint}>
-          이 상황에서 영어로 뭐라고 할지 말해보세요.
-        </Text>
       </ScrollView>
+
       <ExerciseRecordingBar
         recordingState={recordingState}
         duration={duration}
@@ -88,40 +99,38 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
+    paddingBottom: 96,
+    gap: spacing.lg,
   },
-  label: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 2.5,
-    color: colors.textSecondary,
+  eyebrow: {
+    fontSize: 9,
+    fontWeight: font.weight.bold,
+    letterSpacing: 1.5,
+    color: colors.textMuted,
   },
   instruction: {
-    fontSize: font.size.md,
+    fontSize: font.size.base,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
     color: colors.textSecondary,
-    lineHeight: font.size.md * 1.6,
+    letterSpacing: font.tracking.normal,
   },
-  situationBox: {
+  promptBox: {
     backgroundColor: colors.bgMuted,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  situationLabel: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
+  promptEyebrow: {
+    fontSize: 9,
+    fontWeight: font.weight.bold,
     letterSpacing: 1.5,
-    color: colors.textSecondary,
-  },
-  situationText: {
-    fontSize: font.size.md,
-    color: colors.text,
-    lineHeight: font.size.md * 1.7,
-  },
-  hint: {
-    fontSize: font.size.sm,
     color: colors.textMuted,
-    fontStyle: "italic",
+  },
+  promptText: {
+    fontSize: font.size.xl,
+    fontWeight: font.weight.bold,
+    color: colors.text,
+    lineHeight: leading(font.size.xl, font.lineHeight.relaxed),
+    letterSpacing: font.tracking.semiTight,
   },
 });

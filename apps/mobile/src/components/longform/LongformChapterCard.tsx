@@ -44,18 +44,22 @@ export default function LongformChapterCard({
     >
       <View style={styles.copy}>
         <View style={styles.topRow}>
-          <Text style={styles.title} numberOfLines={1}>
-            {session.title}
-          </Text>
-          <Text style={styles.durationLabel}>
-            {formatDuration(session.duration)}
-          </Text>
+          <View style={styles.titleWrap}>
+            <Text style={styles.title} numberOfLines={2}>
+              {session.title}
+            </Text>
+          </View>
         </View>
         {session.expected_takeaway || session.description ? (
           <Text style={styles.body}>
             {session.expected_takeaway || session.description}
           </Text>
         ) : null}
+        <View style={styles.durationPill}>
+          <Text style={styles.durationLabel}>
+            {formatDuration(session.duration)}
+          </Text>
+        </View>
       </View>
 
       <Ionicons
@@ -85,19 +89,32 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
-    gap: 6,
+    minWidth: 0,
+    gap: 8,
   },
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.sm,
+  },
+  titleWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  durationPill: {
+    alignSelf: "flex-start",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderOnDark,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   durationLabel: {
     flexShrink: 0,
-    fontSize: font.size.sm,
-    lineHeight: 18,
+    fontSize: font.size.xs,
+    lineHeight: 16,
     color: colors.textOnDarkMuted,
+    fontWeight: font.weight.medium,
   },
   title: {
     fontSize: font.size.base,
@@ -109,5 +126,6 @@ const styles = StyleSheet.create({
     fontSize: font.size.sm,
     lineHeight: 20,
     color: colors.textOnDarkSecondary,
+    flexWrap: "wrap",
   },
 });
