@@ -1,4 +1,4 @@
-import { SPEAKING_SITUATIONS, VIDEO_CATEGORIES } from "@inputenglish/shared";
+import { SPEAKING_SITUATIONS } from "@inputenglish/shared";
 import type {
   CuratedVideo,
   LearningGoalMode,
@@ -246,7 +246,8 @@ function getProfileHash(profile: LearningProfile): string {
     focus_tags: sortStrings(profile.focus_tags),
     preferred_speakers: sortStrings(profile.preferred_speakers),
     preferred_situations: sortStrings(profile.preferred_situations),
-    preferred_video_categories: sortStrings(profile.preferred_video_categories),
+    preferred_source_types: sortStrings(profile.preferred_source_types),
+    preferred_genres: sortStrings(profile.preferred_genres),
   });
 }
 
@@ -297,14 +298,12 @@ function getPreferredExpressionSituations(profile: LearningProfile): string[] {
   );
 }
 
-function getPreferredVideoCategories(profile: LearningProfile): string[] {
-  if (profile.preferred_video_categories.length > 0) {
-    return profile.preferred_video_categories;
-  }
+function getPreferredSourceTypes(profile: LearningProfile): string[] {
+  return profile.preferred_source_types ?? [];
+}
 
-  return profile.focus_tags.filter((tag) =>
-    VIDEO_CATEGORIES.includes(tag as any),
-  );
+function getPreferredGenres(profile: LearningProfile): string[] {
+  return profile.preferred_genres ?? [];
 }
 
 function scoreLevelFit(
@@ -381,26 +380,26 @@ function scoreExpressionSession(
   let score = 0;
   const searchText = getSessionSearchText(session);
   const preferredSituations = getPreferredExpressionSituations(profile);
-  const preferredCategories = getPreferredVideoCategories(profile);
+  const preferredSourceTypes = getPreferredSourceTypes(profile);
+  const preferredGenres = getPreferredGenres(profile);
   const sessionSituations = normalizeTextArray(session.speaking_situations);
-  const sessionCategories = normalizeTextArray(session.video_categories);
   let exactCategoryMatch = false;
   let exactSituationMatch = false;
   const preferredTags = [
-    ...new Set(
-      [
-        ...preferredSituations,
-        ...preferredCategories,
-        ...profile.focus_tags,
-      ].filter(Boolean),
-    ),
+    ...new Set([...preferredSituations, ...profile.focus_tags].filter(Boolean)),
   ];
 
-  for (const category of preferredCategories) {
-    if (sessionCategories.includes(normalizeText(category))) {
-      exactCategoryMatch = true;
-      score += 14;
-    }
+  if (
+    session.source_type &&
+    preferredSourceTypes.includes(session.source_type)
+  ) {
+    exactCategoryMatch = true;
+    score += 8;
+  }
+
+  if (session.genre && preferredGenres.includes(session.genre)) {
+    exactCategoryMatch = true;
+    score += 6;
   }
 
   for (const situation of preferredSituations) {

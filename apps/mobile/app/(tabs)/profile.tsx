@@ -381,10 +381,10 @@ export default function ProfileScreen() {
                     ? learningProfile.preferred_speakers.join(", ")
                     : learningProfile?.goal_mode === "expression" &&
                         (learningProfile.preferred_situations.length > 0 ||
-                          learningProfile.preferred_video_categories.length > 0)
+                          learningProfile.preferred_genres.length > 0)
                       ? [
                           ...learningProfile.preferred_situations,
-                          ...learningProfile.preferred_video_categories,
+                          ...learningProfile.preferred_genres,
                         ].join(", ")
                       : learningProfile?.focus_tags?.length
                         ? learningProfile.focus_tags.join(", ")

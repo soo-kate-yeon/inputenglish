@@ -1,13 +1,16 @@
 import type {
+  Genre,
   LearningGoalMode,
   LearningLevelBand,
   LearningProfile,
+  SessionSourceType,
+  SpeakingSituation,
 } from "@inputenglish/shared";
 import storage from "./mmkv";
 import { supabase } from "./supabase";
 
 const PROFILE_SELECT =
-  "id, level_band, goal_mode, focus_tags, preferred_speakers, preferred_situations, preferred_video_categories, onboarding_completed_at, updated_at" as const;
+  "id, level_band, goal_mode, focus_tags, preferred_speakers, preferred_situations, preferred_source_types, preferred_genres, onboarding_completed_at, updated_at" as const;
 
 function profileCacheKey(userId: string) {
   return `learning-profile:${userId}`;
@@ -25,10 +28,13 @@ function mapRowToLearningProfile(row: any): LearningProfile {
     goal_mode: (row.goal_mode as LearningGoalMode | null) ?? null,
     focus_tags: normalizeStringArray(row.focus_tags),
     preferred_speakers: normalizeStringArray(row.preferred_speakers),
-    preferred_situations: normalizeStringArray(row.preferred_situations),
-    preferred_video_categories: normalizeStringArray(
-      row.preferred_video_categories,
-    ),
+    preferred_situations: normalizeStringArray(
+      row.preferred_situations,
+    ) as SpeakingSituation[],
+    preferred_source_types: normalizeStringArray(
+      row.preferred_source_types,
+    ) as SessionSourceType[],
+    preferred_genres: normalizeStringArray(row.preferred_genres) as Genre[],
     onboarding_completed_at: row.onboarding_completed_at ?? null,
     updated_at: row.updated_at ?? null,
   };
@@ -89,8 +95,11 @@ export async function updateLearningProfile(
     ...(patch.preferred_situations !== undefined
       ? { preferred_situations: patch.preferred_situations }
       : {}),
-    ...(patch.preferred_video_categories !== undefined
-      ? { preferred_video_categories: patch.preferred_video_categories }
+    ...(patch.preferred_source_types !== undefined
+      ? { preferred_source_types: patch.preferred_source_types }
+      : {}),
+    ...(patch.preferred_genres !== undefined
+      ? { preferred_genres: patch.preferred_genres }
       : {}),
     ...(patch.onboarding_completed_at !== undefined
       ? { onboarding_completed_at: patch.onboarding_completed_at }

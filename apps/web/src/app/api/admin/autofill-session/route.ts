@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   GENRES,
-  SESSION_ROLE_RELEVANCE,
   SESSION_SOURCE_TYPES,
+  SPEAKING_SITUATIONS,
   type Genre,
   type Sentence,
-  type SessionRoleRelevance,
   type SessionSourceType,
+  type SpeakingSituation,
 } from "@inputenglish/shared";
 import { rewriteCopyToKoreanIfNeeded } from "../utils/korean-copy";
 
@@ -20,7 +20,8 @@ interface AutofillResponse {
   description: string;
   sourceType?: SessionSourceType;
   genre?: Genre;
-  roleRelevance?: SessionRoleRelevance[];
+  speakingSituations?: SpeakingSituation[];
+  difficultyLevel?: 1 | 2 | 3 | 4 | 5;
   premiumRequired?: boolean;
 }
 
@@ -157,7 +158,8 @@ Voice & tone:
 Allowed enums:
 - sourceType: ${SESSION_SOURCE_TYPES.join(", ")}
 - genre: ${GENRES.join(", ")}
-- roleRelevance: ${SESSION_ROLE_RELEVANCE.join(", ")}
+- speakingSituations: ${SPEAKING_SITUATIONS.join(", ")}
+- difficultyLevel: 1 (입문), 2 (초급), 3 (중급), 4 (고급), 5 (원어민 수준)
 
 genre 판단 기준 — 이 클립의 주제/분야가 뭔지 보고 골라라:
 - politics: 정치, 외교, 정부, 선거 관련
@@ -212,6 +214,22 @@ ${formatFewShotExamples()}
 Transcript excerpt:
 "${sentencesText}"
 
+speakingSituations 판단 기준 — 이 클립에서 실제로 연습할 수 있는 상황을 1-3개 골라라:
+- daily-chat: 일상적인 대화, 캐주얼한 잡담
+- friendship-romance: 친구 사이, 연인 관계, 개인적인 감정 표현
+- school-work: 학교, 직장, 프로젝트 협업
+- presentation-meeting: 발표, 회의, 공식적인 자리
+- interview: 취업 인터뷰, 미디어 인터뷰, 질의응답
+- service-industry: 서비스직, 고객 응대, 상업적 대화
+- self-intro-smalltalk: 자기소개, 처음 만나는 상황, 스몰토크
+
+difficultyLevel 판단 기준:
+- 1: 짧고 단순한 문장, 기본 어휘만 사용
+- 2: 일상 어휘, 단순 문법 구조
+- 3: 중간 어휘, 복합 문장 사용
+- 4: 고급 어휘, 뉘앙스와 관용표현 포함
+- 5: 네이티브 속도·관용구·문화적 맥락 필요
+
 Return ONLY valid JSON:
 {
   "title": "string",
@@ -219,7 +237,8 @@ Return ONLY valid JSON:
   "description": "string",
   "sourceType": "one of allowed enums",
   "genre": "one of allowed enums",
-  "roleRelevance": ["one or more allowed enums"],
+  "speakingSituations": ["1 to 3 of allowed enums"],
+  "difficultyLevel": 1-5,
   "premiumRequired": true
 }
 `;
@@ -258,10 +277,17 @@ Return ONLY valid JSON:
       ? (autofillData.genre as Genre)
       : undefined;
 
-    autofillData.roleRelevance = (autofillData.roleRelevance ?? []).filter(
-      (role): role is SessionRoleRelevance =>
-        SESSION_ROLE_RELEVANCE.includes(role as SessionRoleRelevance),
+    autofillData.speakingSituations = (
+      autofillData.speakingSituations ?? []
+    ).filter((s): s is SpeakingSituation =>
+      SPEAKING_SITUATIONS.includes(s as SpeakingSituation),
     );
+
+    const dl = autofillData.difficultyLevel;
+    autofillData.difficultyLevel =
+      typeof dl === "number" && dl >= 1 && dl <= 5
+        ? (Math.round(dl) as 1 | 2 | 3 | 4 | 5)
+        : undefined;
 
     autofillData = await rewriteCopyToKoreanIfNeeded({
       model,
@@ -270,10 +296,6 @@ Return ONLY valid JSON:
       instructions:
         "title, subtitle, description만 자연스러운 한국어 UX writing으로 다듬어라. 작은따옴표 안의 핵심 영어 표현은 유지해도 된다. 가능하면 문장 끝은 `~어요/~예요` 톤으로 정리해라.",
     });
-
-    if ((autofillData.roleRelevance ?? []).length === 0) {
-      autofillData.roleRelevance = ["pm"];
-    }
 
     autofillData.premiumRequired = Boolean(autofillData.premiumRequired);
 

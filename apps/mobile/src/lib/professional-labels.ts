@@ -2,7 +2,6 @@ import type {
   Genre,
   PlaybookMasteryStatus,
   PracticeMode,
-  SessionRoleRelevance,
   SessionSourceType,
 } from "@inputenglish/shared";
 
@@ -20,6 +19,9 @@ export const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
   interview: "인터뷰",
   panel: "패널 토크",
   "public-speech": "공적 말하기",
+  "talk-show": "토크쇼",
+  vlog: "브이로그",
+  "scripted-drama": "드라마/영화",
 };
 
 export const GENRE_LABELS: Record<Genre, string> = {
@@ -32,14 +34,6 @@ export const GENRE_LABELS: Record<Genre, string> = {
   beauty: "뷰티",
   art: "예술",
   business: "업무",
-};
-
-export const ROLE_RELEVANCE_LABELS: Record<SessionRoleRelevance, string> = {
-  engineer: "엔지니어",
-  pm: "PM",
-  designer: "디자이너",
-  founder: "창업가",
-  marketer: "마케터",
 };
 
 export const PRACTICE_MODE_LABELS: Record<PracticeMode, string> = {
