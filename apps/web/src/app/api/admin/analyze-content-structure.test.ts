@@ -41,7 +41,7 @@ describe("POST /api/admin/analyze-content-structure", () => {
               conversationType: "팟캐스트 인터뷰",
               topicTags: ["제품 철학", "팀 운영"],
               contentTags: ["startup", "podcast"],
-              estimatedDuration: 1500,
+              estimatedDuration: 1200,
             },
             shorts: [
               {

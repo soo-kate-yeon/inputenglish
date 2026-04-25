@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   FlatList,
   LayoutChangeEvent,
-  LayoutAnimation,
   Platform,
   Pressable,
   SafeAreaView,
@@ -22,7 +21,6 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import type { CuratedVideo } from "@inputenglish/shared";
 import type { SessionListItem } from "@/lib/api";
 import {
@@ -35,6 +33,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import SentenceNavigationBar from "@/components/common/SentenceNavigationBar";
 import ShortSessionCard from "@/components/shorts/ShortSessionCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { ShortsUIProvider } from "@/contexts/ShortsUIContext";
 import { getRecentSessionIds, recordSessionVisit } from "@/lib/recent-sessions";
 import {
   getLongformPressDestination,
@@ -50,6 +49,7 @@ import {
 } from "@/lib/transcript-navigation";
 import {
   getVideoCache,
+  isVideoCacheStale,
   setVideoCache as persistVideoCache,
 } from "@/lib/video-cache";
 import { colors, font, radius, spacing } from "@/theme";
@@ -217,6 +217,19 @@ export default function HomeScreen() {
         ...current,
         [videoId]: { status: "loaded", error: null },
       }));
+
+      // Stale-while-revalidate: if cache is older than 1h, refresh in background
+      // so newly added translations or other changes are picked up.
+      if (isVideoCacheStale(videoId)) {
+        fetchCuratedVideo(videoId)
+          .then((fresh) => {
+            cachedVideosRef.current[videoId] = fresh;
+            setVideoCache((current) => ({ ...current, [videoId]: fresh }));
+            persistVideoCache(videoId, fresh);
+          })
+          .catch(() => {});
+      }
+
       return persisted;
     }
 
@@ -238,9 +251,7 @@ export default function HomeScreen() {
           status: "loaded",
           error: null,
         };
-        setVideoCache((current) =>
-          current[videoId] ? current : { ...current, [videoId]: video },
-        );
+        setVideoCache((current) => ({ ...current, [videoId]: video }));
         setVideoLoadState((current) => ({
           ...current,
           [videoId]: { status: "loaded", error: null },
@@ -549,6 +560,17 @@ export default function HomeScreen() {
     [activeSession, hasNextSentence, hasPrevSentence],
   );
 
+  const handleSessionEnd = useCallback(() => {
+    const nextIndex = activeIndexRef.current + 1;
+    if (nextIndex < currentFeedLengthRef.current) {
+      flatListRef.current?.scrollToOffset({
+        offset: viewportHeight * nextIndex,
+        animated: true,
+      });
+      updateActiveIndex(nextIndex);
+    }
+  }, [updateActiveIndex, viewportHeight]);
+
   const handleToggleFeedMode = useCallback((nextMode: FeedMode) => {
     setFeedMode(nextMode);
   }, []);
@@ -560,8 +582,6 @@ export default function HomeScreen() {
           session={item}
           isActive={index === activeIndex}
           shouldLoad={Math.abs(index - activeIndex) <= 1}
-          scriptVisible={scriptVisible}
-          showTranslation={showTranslation}
           topOverlayInset={SHORTS_SCRIPT_TOP_INSET}
           bottomOverlayInset={SHORTS_SCRIPT_BOTTOM_INSET}
           video={videoCache[item.source_video_id] ?? null}
@@ -582,15 +602,15 @@ export default function HomeScreen() {
                 }
               : undefined
           }
+          onSessionEnd={index === activeIndex ? handleSessionEnd : undefined}
         />
       </View>
     ),
     [
       activeIndex,
       ensureVideoLoaded,
+      handleSessionEnd,
       sentenceNavigationRequest,
-      scriptVisible,
-      showTranslation,
       videoCache,
       videoLoadState,
       viewportHeight,
@@ -745,29 +765,31 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.feedViewport} onLayout={handleFeedLayout}>
-          <FlatList
-            ref={flatListRef}
-            data={currentFeed}
-            keyExtractor={(item) => item.id}
-            renderItem={renderFeedItem}
-            extraData={`${activeIndex}:${scriptVisible}:${showTranslation}:${viewportHeight}:${sentenceNavigationRequest?.nonce ?? 0}`}
-            pagingEnabled
-            disableIntervalMomentum
-            decelerationRate="fast"
-            showsVerticalScrollIndicator={false}
-            onMomentumScrollEnd={handleMomentumScrollEnd}
-            onViewableItemsChanged={handleViewableItemsChangedRef.current}
-            viewabilityConfig={viewabilityConfigRef.current}
-            getItemLayout={(_, index) => ({
-              length: viewportHeight,
-              offset: viewportHeight * index,
-              index,
-            })}
-            windowSize={3}
-            initialNumToRender={2}
-            maxToRenderPerBatch={3}
-            removeClippedSubviews={false}
-          />
+          <ShortsUIProvider value={{ scriptVisible, showTranslation }}>
+            <FlatList
+              ref={flatListRef}
+              data={currentFeed}
+              keyExtractor={(item) => item.id}
+              renderItem={renderFeedItem}
+              extraData={`${activeIndex}:${viewportHeight}:${sentenceNavigationRequest?.nonce ?? 0}`}
+              pagingEnabled
+              disableIntervalMomentum
+              decelerationRate="fast"
+              showsVerticalScrollIndicator={false}
+              onMomentumScrollEnd={handleMomentumScrollEnd}
+              onViewableItemsChanged={handleViewableItemsChangedRef.current}
+              viewabilityConfig={viewabilityConfigRef.current}
+              getItemLayout={(_, index) => ({
+                length: viewportHeight,
+                offset: viewportHeight * index,
+                index,
+              })}
+              windowSize={3}
+              initialNumToRender={2}
+              maxToRenderPerBatch={3}
+              removeClippedSubviews={false}
+            />
+          </ShortsUIProvider>
           {activeSession ? (
             <View pointerEvents="box-none" style={styles.activeSessionOverlay}>
               <View
@@ -785,161 +807,151 @@ export default function HomeScreen() {
                   onNext={() => handleNavigateActiveSentence("next")}
                 />
               </View>
-              <LinearGradient
-                colors={[
-                  "rgba(5,7,12,0)",
-                  "rgba(5,7,12,0.34)",
-                  "rgba(5,7,12,0.82)",
-                  "rgba(5,7,12,0.96)",
-                  "rgba(5,7,12,1)",
+              <View
+                style={[
+                  styles.videoInfoOverlay,
+                  {
+                    bottom: viewportHeight - shortsPlayerHeight + spacing.sm,
+                    maxHeight:
+                      shortsPlayerHeight - SHORTS_SCRIPT_TOP_INSET - spacing.sm,
+                  },
                 ]}
-                locations={[0, 0.24, 0.6, 1]}
-                style={styles.activeSessionGradient}
-                pointerEvents="none"
-              />
+              >
+                <Text
+                  style={styles.activeSessionTitle}
+                  numberOfLines={isDescriptionExpanded ? undefined : 2}
+                >
+                  {activeSession.title}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${activeSession.title} 설명 ${
+                    isDescriptionExpanded ? "접기" : "펼치기"
+                  }`}
+                  onPress={() => {
+                    setIsDescriptionExpanded((current) => !current);
+                  }}
+                >
+                  <Text
+                    style={styles.activeSessionDescription}
+                    numberOfLines={isDescriptionExpanded ? undefined : 2}
+                  >
+                    {activeSessionDescription}
+                  </Text>
+                </Pressable>
+              </View>
               <View style={styles.activeSessionOverlayContent}>
-                <View style={styles.activeSessionMetaRow}>
-                  <View style={styles.activeSessionCopy}>
-                    <View style={styles.activeSessionTitleRow}>
-                      <Text style={styles.activeSessionTitle} numberOfLines={2}>
-                        {activeSession.title}
-                      </Text>
+                <View style={styles.activeSessionActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${activeSession.title} 쇼츠 저장`}
+                    style={styles.actionItem}
+                    onPress={handleToggleActiveShortSave}
+                  >
+                    <View
+                      style={[
+                        styles.iconButton,
+                        isActiveSessionSaved && styles.iconButtonActive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          isActiveSessionSaved ? "bookmark" : "bookmark-outline"
+                        }
+                        size={18}
+                        color={
+                          isActiveSessionSaved
+                            ? colors.bgDark
+                            : colors.textOnDark
+                        }
+                      />
                     </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${activeSession.title} 설명 ${
-                        isDescriptionExpanded ? "접기" : "펼치기"
-                      }`}
-                      onPress={() => {
-                        LayoutAnimation.configureNext(
-                          LayoutAnimation.Presets.easeInEaseOut,
-                        );
-                        setIsDescriptionExpanded((current) => !current);
-                      }}
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        isActiveSessionSaved && styles.actionLabelActive,
+                      ]}
                     >
-                      <Text
-                        style={styles.activeSessionDescription}
-                        numberOfLines={isDescriptionExpanded ? undefined : 2}
-                      >
-                        {activeSessionDescription}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  <View style={styles.activeSessionActions}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${activeSession.title} 쇼츠 저장`}
-                      style={styles.actionItem}
-                      onPress={handleToggleActiveShortSave}
+                      저장
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="스크립트 토글"
+                    style={styles.actionItem}
+                    onPress={() => setScriptVisible((current) => !current)}
+                  >
+                    <View
+                      style={[
+                        styles.iconButton,
+                        scriptVisible && styles.iconButtonActive,
+                      ]}
                     >
-                      <View
-                        style={[
-                          styles.iconButton,
-                          isActiveSessionSaved && styles.iconButtonActive,
-                        ]}
-                      >
-                        <Ionicons
-                          name={
-                            isActiveSessionSaved
-                              ? "bookmark"
-                              : "bookmark-outline"
-                          }
-                          size={18}
-                          color={
-                            isActiveSessionSaved
-                              ? colors.bgDark
-                              : colors.textOnDark
-                          }
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.actionLabel,
-                          isActiveSessionSaved && styles.actionLabelActive,
-                        ]}
-                      >
-                        저장
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="스크립트 토글"
-                      style={styles.actionItem}
-                      onPress={() => setScriptVisible((current) => !current)}
+                      <Ionicons
+                        name={
+                          scriptVisible
+                            ? "chatbox-ellipses"
+                            : "chatbox-ellipses-outline"
+                        }
+                        size={18}
+                        color={
+                          scriptVisible ? colors.bgDark : colors.textOnDark
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        scriptVisible && styles.actionLabelActive,
+                      ]}
                     >
-                      <View
-                        style={[
-                          styles.iconButton,
-                          scriptVisible && styles.iconButtonActive,
-                        ]}
-                      >
-                        <Ionicons
-                          name={
-                            scriptVisible
-                              ? "chatbox-ellipses"
-                              : "chatbox-ellipses-outline"
-                          }
-                          size={18}
-                          color={
-                            scriptVisible ? colors.bgDark : colors.textOnDark
-                          }
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.actionLabel,
-                          scriptVisible && styles.actionLabelActive,
-                        ]}
-                      >
-                        스크립트
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="번역 토글"
-                      style={styles.actionItem}
-                      onPress={() => setShowTranslation((current) => !current)}
+                      스크립트
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="번역 토글"
+                    style={styles.actionItem}
+                    onPress={() => setShowTranslation((current) => !current)}
+                  >
+                    <View
+                      style={[
+                        styles.iconButton,
+                        showTranslation && styles.iconButtonActive,
+                      ]}
                     >
-                      <View
-                        style={[
-                          styles.iconButton,
-                          showTranslation && styles.iconButtonActive,
-                        ]}
-                      >
-                        <Ionicons
-                          name={showTranslation ? "globe" : "globe-outline"}
-                          size={18}
-                          color={
-                            showTranslation ? colors.bgDark : colors.textOnDark
-                          }
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.actionLabel,
-                          showTranslation && styles.actionLabelActive,
-                        ]}
-                      >
-                        번역
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${activeSession.title} 더 공부하기`}
-                      style={styles.actionItem}
-                      onPress={handleOpenLongSession}
+                      <Ionicons
+                        name={showTranslation ? "globe" : "globe-outline"}
+                        size={18}
+                        color={
+                          showTranslation ? colors.bgDark : colors.textOnDark
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        showTranslation && styles.actionLabelActive,
+                      ]}
                     >
-                      <View style={styles.iconButton}>
-                        <Ionicons
-                          name="arrow-forward"
-                          size={18}
-                          color={colors.textOnDark}
-                        />
-                      </View>
-                      <Text style={styles.actionLabel}>더 공부하기</Text>
-                    </Pressable>
-                  </View>
+                      번역
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${activeSession.title} 더 공부하기`}
+                    style={styles.actionItem}
+                    onPress={handleOpenLongSession}
+                  >
+                    <View style={styles.iconButton}>
+                      <Ionicons
+                        name="arrow-forward"
+                        size={18}
+                        color={colors.textOnDark}
+                      />
+                    </View>
+                    <Text style={styles.actionLabel}>더 공부하기</Text>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -970,11 +982,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    minHeight: 34,
+    minHeight: 26,
   },
   titleTabText: {
-    fontSize: font.size["2xl"],
-    lineHeight: 34,
+    fontSize: font.size.xl,
+    lineHeight: 26,
     letterSpacing: 0.5,
     color: colors.textOnDarkMuted,
     fontWeight: font.weight.semibold,
@@ -1004,46 +1016,35 @@ const styles = StyleSheet.create({
     zIndex: 4,
     paddingHorizontal: spacing.xs,
   },
-  activeSessionGradient: {
+  videoInfoOverlay: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: SHORTS_OVERLAY_HEIGHT,
+    left: spacing.md,
+    right: spacing.md,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    overflow: "hidden",
   },
   activeSessionOverlayContent: {
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
     paddingRight: spacing.sm,
     paddingBottom: spacing.md,
-  },
-  activeSessionMetaRow: {
-    flexDirection: "row",
     alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-  },
-  activeSessionCopy: {
-    flex: 1,
-    gap: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  activeSessionTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 2,
   },
   activeSessionTitle: {
-    flex: 1,
-    fontSize: font.size.base,
-    lineHeight: 24,
+    fontSize: font.size.sm,
+    lineHeight: 18,
     color: colors.textOnDark,
     fontWeight: font.weight.bold,
+    textShadowColor: "rgba(0,0,0,0.7)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   activeSessionDescription: {
     fontSize: font.size.sm,
-    lineHeight: 20,
+    lineHeight: 18,
     color: colors.textOnDarkSecondary,
+    textShadowColor: "rgba(0,0,0,0.7)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   activeSessionActions: {
     flexDirection: "column",

@@ -31,15 +31,15 @@ import {
   getAdjacentSentence,
   resolveSentencesByIdsOrRange,
 } from "@/lib/transcript-navigation";
+import { arePropsEqual } from "@/components/shorts/short-session-card-memo";
+import { useShortsUI } from "@/contexts/ShortsUIContext";
 import { appStore } from "@/lib/stores";
-import { colors, font, radius, spacing } from "@/theme";
+import { colors, font, leading, radius, spacing } from "@/theme";
 
 interface ShortSessionCardProps {
   session: SessionListItem;
   isActive: boolean;
   shouldLoad: boolean;
-  scriptVisible: boolean;
-  showTranslation: boolean;
   topOverlayInset?: number;
   bottomOverlayInset?: number;
   video: CuratedVideo | null;
@@ -53,14 +53,13 @@ interface ShortSessionCardProps {
     nonce: number;
   } | null;
   onActiveSentenceChange?: (sentenceId: string | null) => void;
+  onSessionEnd?: () => void;
 }
 
 function ShortSessionCard({
   session,
   isActive,
   shouldLoad,
-  scriptVisible,
-  showTranslation,
   topOverlayInset = 0,
   bottomOverlayInset = 0,
   video,
@@ -68,7 +67,9 @@ function ShortSessionCard({
   onRetryVideoLoad,
   navigationRequest = null,
   onActiveSentenceChange,
+  onSessionEnd,
 }: ShortSessionCardProps) {
+  const { scriptVisible, showTranslation } = useShortsUI();
   const [playerReady, setPlayerReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [loopingSentenceId, setLoopingSentenceId] = useState<string | null>(
@@ -95,6 +96,8 @@ function ShortSessionCard({
   const scriptViewportHeightRef = useRef(0);
   const scriptContentHeightRef = useRef(0);
   const handledNavigationNonceRef = useRef<number | null>(null);
+  const onSessionEndRef = useRef(onSessionEnd);
+  const sessionEndFiredRef = useRef(false);
 
   const savedSentences = appStore((state) => state.savedSentences);
   const addSavedSentence = appStore((state) => state.addSavedSentence);
@@ -193,6 +196,19 @@ function ShortSessionCard({
       return;
     }
 
+    // Detect session end via polling for precise sync
+    if (
+      currentTime >= sessionEndSeconds - 0.15 &&
+      !sessionEndFiredRef.current
+    ) {
+      sessionEndFiredRef.current = true;
+      clearPlaybackTimeout();
+      clearProgressInterval();
+      setPlaying(false);
+      onSessionEndRef.current?.();
+      return;
+    }
+
     const clipSeconds = currentTime - (video.snippet_start_time ?? 0);
     const currentSentence =
       sentences.find(
@@ -205,7 +221,14 @@ function ShortSessionCard({
         ? current
         : (currentSentence?.id ?? null),
     );
-  }, [playerReady, sentences, video]);
+  }, [
+    clearPlaybackTimeout,
+    clearProgressInterval,
+    playerReady,
+    sentences,
+    sessionEndSeconds,
+    video,
+  ]);
 
   const stopPlayback = useCallback(() => {
     clearPlaybackTimeout();
@@ -236,6 +259,10 @@ function ShortSessionCard({
     );
     stopTimeoutRef.current = setTimeout(() => {
       setPlaying(false);
+      if (!sessionEndFiredRef.current) {
+        sessionEndFiredRef.current = true;
+        onSessionEndRef.current?.();
+      }
     }, durationMs);
   }, [
     clearPlaybackTimeout,
@@ -279,6 +306,10 @@ function ShortSessionCard({
   );
 
   useEffect(() => {
+    onSessionEndRef.current = onSessionEnd;
+  }, [onSessionEnd]);
+
+  useEffect(() => {
     activeSessionIdRef.current = session.id;
   }, [session.id]);
 
@@ -319,6 +350,7 @@ function ShortSessionCard({
     setPlaying(false);
     hasTrackedImpressionRef.current = false;
     handledNavigationNonceRef.current = null;
+    sessionEndFiredRef.current = false;
     resetScriptScrollPosition();
     setLoopingSentenceId(null);
     setActiveSentenceId(null);
@@ -369,6 +401,10 @@ function ShortSessionCard({
       );
       stopTimeoutRef.current = setTimeout(() => {
         setPlaying(false);
+        if (!sessionEndFiredRef.current) {
+          sessionEndFiredRef.current = true;
+          onSessionEndRef.current?.();
+        }
       }, durationMs);
     }
   }, [
@@ -627,7 +663,15 @@ function ShortSessionCard({
           onLayout={handleScriptContentLayout}
         >
           {!scriptVisible ? (
-            <View style={styles.scriptHiddenState} />
+            <View style={styles.scriptHiddenState}>
+              <Text style={styles.scriptHiddenTitle}>
+                스크립트가 숨겨져 있어요
+              </Text>
+              <Text style={styles.scriptHiddenSubtitle}>
+                처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나 하나도
+                들리지 않는다면 난이도가 더 쉬운 영상으로 먼저 공부하세요.
+              </Text>
+            </View>
           ) : sentences.length > 0 ? (
             sentences.map((sentence) => (
               <View
@@ -661,25 +705,6 @@ function ShortSessionCard({
         </View>
       </View>
     </View>
-  );
-}
-
-function arePropsEqual(
-  prev: ShortSessionCardProps,
-  next: ShortSessionCardProps,
-): boolean {
-  return (
-    prev.session.id === next.session.id &&
-    prev.isActive === next.isActive &&
-    prev.shouldLoad === next.shouldLoad &&
-    prev.scriptVisible === next.scriptVisible &&
-    prev.showTranslation === next.showTranslation &&
-    prev.video?.video_id === next.video?.video_id &&
-    prev.videoState.status === next.videoState.status &&
-    prev.videoState.error === next.videoState.error &&
-    prev.navigationRequest?.nonce === next.navigationRequest?.nonce &&
-    prev.topOverlayInset === next.topOverlayInset &&
-    prev.bottomOverlayInset === next.bottomOverlayInset
   );
 }
 
@@ -743,6 +768,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.lg,
     minHeight: 160,
-    opacity: 0.01,
+    gap: spacing.sm,
+  },
+  scriptHiddenTitle: {
+    fontSize: font.size.base,
+    fontWeight: font.weight.semibold,
+    color: colors.textOnDarkMuted,
+    letterSpacing: font.tracking.normal,
+  },
+  scriptHiddenSubtitle: {
+    fontSize: font.size.sm,
+    color: colors.textOnDarkMuted,
+    lineHeight: leading(font.size.sm, font.lineHeight.relaxed),
+    letterSpacing: font.tracking.normal,
+    opacity: 0.7,
   },
 });

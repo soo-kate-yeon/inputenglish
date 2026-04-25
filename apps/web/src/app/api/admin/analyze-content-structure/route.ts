@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const { sentences, videoTitle, primarySpeakerName } = await request.json();
+    const { sentences, videoTitle, primarySpeakerName, shortsOnly } =
+      await request.json();
 
     if (!sentences || !Array.isArray(sentences) || sentences.length < 20) {
       return NextResponse.json(
@@ -40,11 +41,73 @@ export async function POST(request: NextRequest) {
       )
       .join("\n");
 
-    const prompt = `
+    const shortsOnlyPrompt = `
+너는 팟캐스트형 영어 학습 앱의 큐레이터야.
+
+목표는 원본 영상에서 독립적으로 학습 가치가 높은 숏폼 2~3개를 고르는 것이야.
+롱폼 구간 구분 없이, 영상 전체에서 자유롭게 골라라.
+
+입력 정보:
+- 원본 영상 제목: ${videoTitle ? `"${videoTitle}"` : "없음"}
+- 대표 화자 이름: ${primarySpeakerName ? `"${String(primarySpeakerName).trim()}"` : "없음"}
+
+short selection rules:
+- 영상 전체 구간에서 위치 제한 없이 자유롭게 고를 것
+- 30초~120초 정도를 권장
+- 재사용 가능한 speaking pattern이나 말하기 payoff가 분명해야 함
+- 각 쇼츠는 서로 최대한 다른 payoff를 가져야 함
+- 2개 또는 3개를 반환할 것
+
+short difficulty:
+- beginner: 짧고 직관적인 구조, 쉬운 어휘
+- intermediate: 완충 표현, 복합 문장, 맥락 의존도가 보통
+- advanced: 빠른 속도, 직역 어려움, 맥락 의존도가 큼
+
+카피 규칙:
+- shorts[].title, shorts[].reason, shorts[].learningPoints, shorts[].patternFocus는 한국어 UX writing으로 쓸 것
+- 영어 설명문을 그대로 두지 마라
+- 고유명사나 인명은 필요하면 유지해도 된다
+- 문장 끝은 가능하면 '~어요/~예요' 톤으로 맞춰라
+
+Transcript:
+${transcript}
+
+Return ONLY valid JSON:
+{
+  "longform": {
+    "startIndex": 0,
+    "endIndex": ${sentences.length - 1},
+    "title": "전체 구간",
+    "subtitle": "",
+    "description": "",
+    "reason": "",
+    "speakerSummary": "",
+    "conversationType": "",
+    "topicTags": [],
+    "contentTags": [],
+    "estimatedDuration": 0
+  },
+  "shorts": [
+    {
+      "startIndex": 0,
+      "endIndex": 2,
+      "title": "string",
+      "reason": "string",
+      "learningPoints": ["string", "string"],
+      "patternFocus": "string",
+      "estimatedDuration": 45,
+      "difficulty": "beginner | intermediate | advanced"
+    }
+  ],
+  "totalAnalyzed": ${sentences.length}
+}
+`;
+
+    const fullAnalysisPrompt = `
 너는 팟캐스트형 영어 학습 앱의 큐레이터야.
 
 목표는 원본 영상에서 아래 두 레이어를 함께 고르는 것:
-1. longform pack 1개: 20분 이상 30분 미만의 몰입 청취 구간
+1. longform pack 1개: 15분 이상 20분 이하의 몰입 청취 구간
 2. point shorts 3~4개: 위 longform 안에 포함되는 짧은 학습 포인트 구간
 
 핵심 원칙:
@@ -59,7 +122,7 @@ export async function POST(request: NextRequest) {
 
 longform selection rules:
 - 반드시 연속 구간이어야 함
-- 20분 이상 30분 미만
+- 15분 이상 20분 이하
 - 발화의 흐름, 주제 응집도, 몰입 가치가 중요
 - 패턴이 많이 나온다고 longform으로 고르지 마라
 - 화자/토크/주제 설명이 가능해야 함
@@ -118,6 +181,8 @@ Return ONLY valid JSON:
 }
 `;
 
+    const prompt = shortsOnly ? shortsOnlyPrompt : fullAnalysisPrompt;
+
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     const cleaned = responseText
@@ -135,44 +200,67 @@ Return ONLY valid JSON:
       throw new Error("Invalid AI response structure");
     }
 
-    if (analysis.shorts.length < 3 || analysis.shorts.length > 4) {
-      throw new Error("AI must return 3 to 4 shorts");
-    }
+    if (shortsOnly) {
+      if (analysis.shorts.length < 2 || analysis.shorts.length > 3) {
+        throw new Error("AI must return 2 to 3 shorts in shorts-only mode");
+      }
+      for (const short of analysis.shorts) {
+        if (
+          typeof short.startIndex !== "number" ||
+          typeof short.endIndex !== "number" ||
+          short.startIndex < 0 ||
+          short.endIndex >= sentences.length ||
+          short.startIndex >= short.endIndex
+        ) {
+          throw new Error("Invalid short indices");
+        }
+      }
+    } else {
+      if (analysis.shorts.length < 3 || analysis.shorts.length > 4) {
+        throw new Error("AI must return 3 to 4 shorts");
+      }
 
-    if (
-      typeof analysis.longform.startIndex !== "number" ||
-      typeof analysis.longform.endIndex !== "number" ||
-      analysis.longform.startIndex < 0 ||
-      analysis.longform.endIndex >= sentences.length ||
-      analysis.longform.startIndex >= analysis.longform.endIndex
-    ) {
-      throw new Error("Invalid longform indices");
-    }
-
-    for (const short of analysis.shorts) {
       if (
-        typeof short.startIndex !== "number" ||
-        typeof short.endIndex !== "number" ||
-        short.startIndex < analysis.longform.startIndex ||
-        short.endIndex > analysis.longform.endIndex ||
-        short.startIndex >= short.endIndex
+        typeof analysis.longform.startIndex !== "number" ||
+        typeof analysis.longform.endIndex !== "number" ||
+        analysis.longform.startIndex < 0 ||
+        analysis.longform.endIndex >= sentences.length ||
+        analysis.longform.startIndex >= analysis.longform.endIndex
       ) {
-        throw new Error("Short is out of longform range");
+        throw new Error("Invalid longform indices");
+      }
+
+      for (const short of analysis.shorts) {
+        if (
+          typeof short.startIndex !== "number" ||
+          typeof short.endIndex !== "number" ||
+          short.startIndex < analysis.longform.startIndex ||
+          short.endIndex > analysis.longform.endIndex ||
+          short.startIndex >= short.endIndex
+        ) {
+          throw new Error("Short is out of longform range");
+        }
       }
     }
+
+    const longformFieldPaths = shortsOnly
+      ? []
+      : [
+          "longform.title",
+          "longform.subtitle",
+          "longform.description",
+          "longform.reason",
+          "longform.speakerSummary",
+          "longform.conversationType",
+          "longform.topicTags",
+          "longform.contentTags",
+        ];
 
     analysis = await rewriteCopyToKoreanIfNeeded({
       model,
       payload: analysis,
       fieldPaths: [
-        "longform.title",
-        "longform.subtitle",
-        "longform.description",
-        "longform.reason",
-        "longform.speakerSummary",
-        "longform.conversationType",
-        "longform.topicTags",
-        "longform.contentTags",
+        ...longformFieldPaths,
         ...analysis.shorts.flatMap((_, index) => [
           `shorts.${index}.title`,
           `shorts.${index}.reason`,

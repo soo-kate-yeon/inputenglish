@@ -124,6 +124,7 @@ function AdminPageContent() {
 
   // Scene Analysis State
   const [analyzingScenes, setAnalyzingScenes] = useState(false);
+  const [analyzingShortsOnly, setAnalyzingShortsOnly] = useState(false);
   const [analyzedScenes, setAnalyzedScenes] = useState<SceneRecommendation[]>(
     [],
   );
@@ -429,6 +430,49 @@ function AdminPageContent() {
       setErrorMessage(msg);
     } finally {
       setAnalyzingScenes(false);
+    }
+  };
+
+  const handleAnalyzeShortsOnly = async () => {
+    setAnalyzingShortsOnly(true);
+    try {
+      const primarySpeakerName =
+        createdSessions.find((session) => session.primary_speaker_name)
+          ?.primary_speaker_name ?? undefined;
+
+      const response = await fetch("/api/admin/analyze-content-structure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          sentences,
+          videoTitle: title || undefined,
+          primarySpeakerName,
+          shortsOnly: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to analyze shorts");
+      }
+
+      const data: ContentStructureAnalysisResponse = await response.json();
+      setAnalyzedScenes(data.shorts);
+
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err: unknown) {
+      const raw =
+        err instanceof Error ? err.message : "Shorts analysis failed.";
+      const msg =
+        raw === "Load failed" || raw === "Failed to fetch"
+          ? "숏폼 분석 중 연결이 끊겼습니다. 잠시 후 다시 시도해주세요."
+          : raw;
+      console.error("Shorts analysis error:", raw);
+      setErrorMessage(msg);
+    } finally {
+      setAnalyzingShortsOnly(false);
     }
   };
 
@@ -945,6 +989,8 @@ function AdminPageContent() {
             onParseScript={handleParseScript}
             onAnalyzeScenes={handleAnalyzeScenes}
             analyzingScenes={analyzingScenes}
+            onAnalyzeShortsOnly={handleAnalyzeShortsOnly}
+            analyzingShortsOnly={analyzingShortsOnly}
             onTranslateSelected={handleTranslateSelected}
             translating={translating}
             onUpdateTime={updateSentenceTime}

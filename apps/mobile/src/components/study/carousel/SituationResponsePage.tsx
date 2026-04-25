@@ -1,6 +1,6 @@
 // @MX:NOTE: [AUTO] Situation-response exercise page (SPEC-MOBILE-011).
-import React, { useCallback, useEffect, useRef } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { TransformationExercise } from "@inputenglish/shared";
 import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
@@ -29,6 +29,14 @@ export function SituationResponsePage({
     pauseRecording,
     resetRecording,
   } = useAudioRecorder();
+
+  const [referenceRevealed, setReferenceRevealed] = useState(false);
+
+  useEffect(() => {
+    if (recordingState !== "playback") {
+      setReferenceRevealed(false);
+    }
+  }, [recordingState]);
 
   useEffect(() => {
     onRecordingStateChange?.(recordingState !== "idle");
@@ -62,6 +70,7 @@ export function SituationResponsePage({
         style={styles.scrollArea}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
       >
         <Text style={styles.eyebrow}>SITUATION</Text>
         <Text style={styles.instruction}>{exercise.instruction_text}</Text>
@@ -71,6 +80,27 @@ export function SituationResponsePage({
             <Text style={styles.promptText}>{exercise.situation_text}</Text>
           </View>
         )}
+        {recordingState === "playback" && exercise.reference_answer ? (
+          <Pressable
+            style={[
+              styles.referenceBox,
+              !referenceRevealed && styles.referenceBoxCollapsed,
+            ]}
+            onPress={() => setReferenceRevealed(true)}
+            disabled={referenceRevealed}
+          >
+            <Text style={styles.referenceHint}>
+              이렇게 말해볼 수 있을 거예요
+            </Text>
+            {referenceRevealed ? (
+              <Text style={styles.referenceText}>
+                {exercise.reference_answer}
+              </Text>
+            ) : (
+              <Text style={styles.referenceTapCta}>눌러서 보기</Text>
+            )}
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <ExerciseRecordingBar
@@ -127,10 +157,40 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   promptText: {
-    fontSize: font.size.xl,
-    fontWeight: font.weight.bold,
+    fontSize: font.size.base,
+    fontWeight: font.weight.semibold,
     color: colors.text,
-    lineHeight: leading(font.size.xl, font.lineHeight.relaxed),
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
     letterSpacing: font.tracking.semiTight,
+  },
+  referenceBox: {
+    backgroundColor: colors.bgSubtle,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  referenceBoxCollapsed: {
+    opacity: 0.72,
+  },
+  referenceHint: {
+    fontSize: font.size.sm,
+    fontWeight: font.weight.medium,
+    letterSpacing: font.tracking.normal,
+    color: colors.textMuted,
+  },
+  referenceTapCta: {
+    fontSize: font.size.sm,
+    fontWeight: font.weight.semibold,
+    letterSpacing: font.tracking.normal,
+    color: colors.textSecondary,
+  },
+  referenceText: {
+    fontSize: font.size.base,
+    fontWeight: font.weight.semibold,
+    color: colors.text,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
+    letterSpacing: font.tracking.normal,
   },
 });

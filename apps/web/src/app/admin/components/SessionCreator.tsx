@@ -899,13 +899,7 @@ export function SessionCreator({
       }
 
       const autofillData = await autofillResponse.json();
-      setEditTitle(autofillData.title);
       setEditSubtitle(autofillData.subtitle || "");
-      setEditDescription(autofillData.description);
-      setEditSourceType(autofillData.sourceType || "podcast");
-      setEditGenre(autofillData.genre ?? undefined);
-      setEditRoleRelevance(autofillData.roleRelevance || ["pm"]);
-      setEditPremiumRequired(Boolean(autofillData.premiumRequired));
 
       const contextResponse = await fetch(
         "/api/admin/generate-session-context",
@@ -914,8 +908,8 @@ export function SessionCreator({
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            title: autofillData.title,
-            description: autofillData.description,
+            title: editTitle,
+            description: editDescription,
             sentences: sessionSentences,
             targetPattern: targetPattern ?? undefined,
           }),

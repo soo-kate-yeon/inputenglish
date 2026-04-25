@@ -16,6 +16,8 @@ interface SentenceListEditorProps {
   onParseScript: () => void;
   onAnalyzeScenes: () => void;
   analyzingScenes: boolean;
+  onAnalyzeShortsOnly?: () => void;
+  analyzingShortsOnly?: boolean;
   onTranslateSelected?: (sentenceIds: string[]) => Promise<void>;
   translating?: boolean;
   onUpdateTime: (
@@ -47,6 +49,8 @@ export function SentenceListEditor({
   onParseScript,
   onAnalyzeScenes,
   analyzingScenes,
+  onAnalyzeShortsOnly,
+  analyzingShortsOnly = false,
   onTranslateSelected,
   translating = false,
   onUpdateTime,
@@ -143,33 +147,88 @@ export function SentenceListEditor({
         </button>
         <button
           onClick={onAnalyzeScenes}
-          disabled={analyzingScenes || sentences.length < 20}
+          disabled={
+            analyzingScenes || analyzingShortsOnly || sentences.length < 20
+          }
           className="text-xs uppercase tracking-wide transition-colors"
           style={{
             backgroundColor:
-              analyzingScenes || sentences.length < 20 ? "#d4d4d4" : "#8b5cf6",
+              analyzingScenes || analyzingShortsOnly || sentences.length < 20
+                ? "#d4d4d4"
+                : "#8b5cf6",
             color: "#ffffff",
             padding: "2px 8px",
             border: "none",
             cursor:
-              analyzingScenes || sentences.length < 20
+              analyzingScenes || analyzingShortsOnly || sentences.length < 20
                 ? "not-allowed"
                 : "pointer",
           }}
           title="AI가 롱폼 1개와 포인트 쇼츠 3~4개를 추천합니다"
           onMouseEnter={(e) => {
-            if (!analyzingScenes && sentences.length >= 20) {
+            if (
+              !analyzingScenes &&
+              !analyzingShortsOnly &&
+              sentences.length >= 20
+            ) {
               e.currentTarget.style.backgroundColor = "#7c3aed";
             }
           }}
           onMouseLeave={(e) => {
-            if (!analyzingScenes && sentences.length >= 20) {
+            if (
+              !analyzingScenes &&
+              !analyzingShortsOnly &&
+              sentences.length >= 20
+            ) {
               e.currentTarget.style.backgroundColor = "#8b5cf6";
             }
           }}
         >
           {analyzingScenes ? "분석 중..." : "AI 롱폼/쇼츠 분석"}
         </button>
+        {onAnalyzeShortsOnly && (
+          <button
+            onClick={onAnalyzeShortsOnly}
+            disabled={
+              analyzingShortsOnly || analyzingScenes || sentences.length < 20
+            }
+            className="text-xs uppercase tracking-wide transition-colors"
+            style={{
+              backgroundColor:
+                analyzingShortsOnly || analyzingScenes || sentences.length < 20
+                  ? "#d4d4d4"
+                  : "#0891b2",
+              color: "#ffffff",
+              padding: "2px 8px",
+              border: "none",
+              cursor:
+                analyzingShortsOnly || analyzingScenes || sentences.length < 20
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+            title="AI가 롱폼 없이 숏폼 2~3개만 추천합니다"
+            onMouseEnter={(e) => {
+              if (
+                !analyzingShortsOnly &&
+                !analyzingScenes &&
+                sentences.length >= 20
+              ) {
+                e.currentTarget.style.backgroundColor = "#0e7490";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (
+                !analyzingShortsOnly &&
+                !analyzingScenes &&
+                sentences.length >= 20
+              ) {
+                e.currentTarget.style.backgroundColor = "#0891b2";
+              }
+            }}
+          >
+            {analyzingShortsOnly ? "분석 중..." : "AI 숏폼만 분석"}
+          </button>
+        )}
         {onTranslateSelected && (
           <button
             onClick={() => {

@@ -128,8 +128,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   takeawayText: {
-    fontSize: font.size.lg,
-    lineHeight: leading(font.size.lg, font.lineHeight.relaxed),
+    fontSize: font.size.base,
+    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
     color: colors.text,
     fontWeight: font.weight.regular,
     letterSpacing: font.tracking.semiTight,

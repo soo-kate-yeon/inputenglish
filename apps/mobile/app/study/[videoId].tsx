@@ -573,7 +573,7 @@ export default function StudyScreen() {
             listRef.current?.scrollToIndex({
               index: idx,
               animated: true,
-              viewOffset: 60,
+              viewOffset: 4,
             });
           }
         }
@@ -1260,7 +1260,7 @@ export default function StudyScreen() {
       listRef.current?.scrollToIndex({
         index: activeIndex,
         animated: true,
-        viewOffset: LISTENING_SCROLL_VIEW_OFFSET,
+        viewOffset: 4,
       });
     });
 
@@ -1560,92 +1560,61 @@ export default function StudyScreen() {
           />
         ) : null}
 
-        {/* Floating action column — brief / script / translation (listening + shadowing only) */}
+        {/* Floating control group — brief / script / translation — overlaid on player bottom-left */}
         {!isRecording && mainTab !== "transformation" ? (
           <View
             style={[
-              styles.studyActionColumn,
-              { bottom: insets.bottom + spacing.lg },
+              styles.studyControlGroup,
+              {
+                top: insets.top + windowWidth * (9 / 16) - 44 - spacing.sm,
+              },
             ]}
           >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="브리프 보기"
-              style={styles.studyActionItem}
+              style={styles.studyControlBtn}
               onPress={() => setBriefExpanded(true)}
             >
-              <View style={styles.studyIconBtn}>
-                <Ionicons
-                  name="document-text-outline"
-                  size={18}
-                  color={colors.text}
-                />
-              </View>
-              <Text style={styles.studyActionLabel}>브리프</Text>
+              <Ionicons name="document-text-outline" size={18} color="white" />
             </Pressable>
-
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={
                 scriptVisible ? "스크립트 숨기기" : "스크립트 보기"
               }
-              style={styles.studyActionItem}
+              style={[
+                styles.studyControlBtn,
+                scriptVisible && styles.studyControlBtnActive,
+              ]}
               onPress={() => setScriptVisible((v) => !v)}
             >
-              <View
-                style={[
-                  styles.studyIconBtn,
-                  scriptVisible && styles.studyIconBtnActive,
-                ]}
-              >
-                <Ionicons
-                  name={
-                    scriptVisible
-                      ? "chatbox-ellipses"
-                      : "chatbox-ellipses-outline"
-                  }
-                  size={18}
-                  color={scriptVisible ? colors.textInverse : colors.text}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.studyActionLabel,
-                  scriptVisible && styles.studyActionLabelActive,
-                ]}
-              >
-                스크립트
-              </Text>
+              <Ionicons
+                name={
+                  scriptVisible
+                    ? "chatbox-ellipses"
+                    : "chatbox-ellipses-outline"
+                }
+                size={18}
+                color="white"
+              />
             </Pressable>
-
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={
                 translationVisible ? "번역 숨기기" : "번역 보기"
               }
-              style={styles.studyActionItem}
+              style={[
+                styles.studyControlBtn,
+                translationVisible && styles.studyControlBtnActive,
+              ]}
               onPress={() => setTranslationVisible((v) => !v)}
             >
-              <View
-                style={[
-                  styles.studyIconBtn,
-                  translationVisible && styles.studyIconBtnActive,
-                ]}
-              >
-                <Ionicons
-                  name={translationVisible ? "globe" : "globe-outline"}
-                  size={18}
-                  color={translationVisible ? colors.textInverse : colors.text}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.studyActionLabel,
-                  translationVisible && styles.studyActionLabelActive,
-                ]}
-              >
-                번역
-              </Text>
+              <Ionicons
+                name={translationVisible ? "globe" : "globe-outline"}
+                size={18}
+                color="white"
+              />
             </Pressable>
           </View>
         ) : null}
@@ -1881,41 +1850,24 @@ const styles = StyleSheet.create({
     textAlign: "left",
   },
 
-  // Floating action row (left) + recording FAB (right)
-  studyActionColumn: {
+  // Floating control group — brief/script/translation on player bottom-left
+  studyControlGroup: {
     position: "absolute",
-    left: spacing.lg,
+    left: spacing.md,
     flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xl,
-    zIndex: 20,
-  },
-  studyActionItem: {
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  studyIconBtn: {
-    width: 40,
-    height: 40,
+    backgroundColor: "rgba(0,0,0,0.65)",
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderWidth: 1,
-    borderColor: colors.border,
+    overflow: "hidden",
+    zIndex: 30,
+  },
+  studyControlBtn: {
+    width: 40,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  studyIconBtnActive: {
-    backgroundColor: colors.text,
-    borderColor: colors.text,
-  },
-  studyActionLabel: {
-    fontSize: font.size.xs,
-    lineHeight: 16,
-    color: colors.textMuted,
-    fontWeight: font.weight.medium,
-  },
-  studyActionLabelActive: {
-    color: colors.text,
+  studyControlBtnActive: {
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
   // Recording FAB (shadowing)
   shadowingRecordFab: {
