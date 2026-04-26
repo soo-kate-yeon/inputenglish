@@ -25,13 +25,18 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { SPEAKING_SITUATIONS, VIDEO_CATEGORIES } from "@inputenglish/shared";
+import {
+  GENRES,
+  SPEAKING_SITUATIONS,
+  SPEAKING_SITUATION_LABELS,
+} from "@inputenglish/shared";
 import type {
+  Genre,
   LearningGoalMode,
   LearningLevelBand,
   SpeakingSituation,
-  VideoCategory,
 } from "@inputenglish/shared";
+import { GENRE_LABELS } from "@/lib/professional-labels";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
 import { colors, font, radius, spacing } from "@/theme";
@@ -405,7 +410,7 @@ export default function OnboardingScreen() {
       focus_tags: learningProfile.focus_tags,
       preferred_speakers: learningProfile.preferred_speakers,
       preferred_situations: learningProfile.preferred_situations,
-      preferred_video_categories: learningProfile.preferred_video_categories,
+      preferred_genres: learningProfile.preferred_genres,
     });
 
     if (hydratedProfileKeyRef.current === profileHydrationKey) {
@@ -437,12 +442,12 @@ export default function OnboardingScreen() {
               SPEAKING_SITUATIONS.includes(item as SpeakingSituation),
             );
       const topics =
-        learningProfile.preferred_video_categories.length > 0
-          ? learningProfile.preferred_video_categories.filter((item) =>
-              VIDEO_CATEGORIES.includes(item as VideoCategory),
+        learningProfile.preferred_genres.length > 0
+          ? learningProfile.preferred_genres.filter((item) =>
+              GENRES.includes(item as Genre),
             )
           : learningProfile.focus_tags.filter((item) =>
-              VIDEO_CATEGORIES.includes(item as VideoCategory),
+              GENRES.includes(item as Genre),
             );
       setExpressionSituations(situations);
       setExpressionTopics(topics);
@@ -583,9 +588,11 @@ export default function OnboardingScreen() {
             : [],
         preferred_speakers: goalMode === "pronunciation" ? focusTags : [],
         preferred_situations:
-          goalMode === "expression" ? expressionSituations : [],
-        preferred_video_categories:
-          goalMode === "expression" ? expressionTopics : [],
+          goalMode === "expression"
+            ? (expressionSituations as SpeakingSituation[])
+            : [],
+        preferred_genres:
+          goalMode === "expression" ? (expressionTopics as Genre[]) : [],
         onboarding_completed_at: new Date().toISOString(),
       });
 
@@ -720,7 +727,7 @@ export default function OnboardingScreen() {
                 {SPEAKING_SITUATIONS.map((tag) => (
                   <ChoiceChip
                     key={tag}
-                    label={tag}
+                    label={SPEAKING_SITUATION_LABELS[tag]}
                     selected={expressionSituations.includes(tag)}
                     onPress={() =>
                       toggleSelection(tag, setExpressionSituations)
@@ -733,10 +740,10 @@ export default function OnboardingScreen() {
                 어떤 주제의 영상들이 있으면 하루라도 더 들어오고 싶어질까요?
               </Text>
               <View style={styles.chipWrap}>
-                {VIDEO_CATEGORIES.map((tag) => (
+                {GENRES.map((tag) => (
                   <ChoiceChip
                     key={tag}
-                    label={tag}
+                    label={GENRE_LABELS[tag]}
                     selected={expressionTopics.includes(tag)}
                     onPress={() => toggleSelection(tag, setExpressionTopics)}
                   />

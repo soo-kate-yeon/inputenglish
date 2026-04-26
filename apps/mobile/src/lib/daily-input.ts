@@ -1,4 +1,4 @@
-import { SPEAKING_SITUATIONS, VIDEO_CATEGORIES } from "@inputenglish/shared";
+import { SPEAKING_SITUATIONS } from "@inputenglish/shared";
 import type {
   CuratedVideo,
   LearningGoalMode,
@@ -56,12 +56,12 @@ const EXPRESSION_HINTS: Record<
 > = {
   "일상 잡담": {
     sourceTypes: ["podcast", "interview", "panel"],
-    genres: ["art", "business", "news"],
+    genres: ["entertainment", "business", "news"],
     titleKeywords: ["chat", "conversation", "talk", "daily"],
   },
   "친구/연애": {
     sourceTypes: ["podcast", "interview"],
-    genres: ["art", "fashion", "beauty"],
+    genres: ["entertainment", "lifestyle"],
     titleKeywords: ["relationship", "friend", "dating", "love"],
   },
   "학교/업무": {
@@ -91,12 +91,12 @@ const EXPRESSION_HINTS: Record<
   },
   서비스직: {
     sourceTypes: ["interview", "podcast"],
-    genres: ["business", "art"],
+    genres: ["business", "entertainment"],
     titleKeywords: ["service", "customer", "hospitality", "support"],
   },
   "자기소개/스몰토크": {
     sourceTypes: ["interview", "podcast", "panel"],
-    genres: ["business", "art", "news"],
+    genres: ["business", "entertainment", "news"],
     titleKeywords: ["introduce", "small talk", "icebreaker", "about me"],
   },
   "면접/자기소개": {
@@ -111,17 +111,17 @@ const EXPRESSION_HINTS: Record<
   },
   브이로그: {
     sourceTypes: ["podcast", "interview"],
-    genres: ["art", "fashion", "beauty"],
+    genres: ["lifestyle", "entertainment"],
     titleKeywords: ["vlog", "day", "routine", "life"],
   },
   "영화 속 장면들": {
     sourceTypes: ["interview", "panel"],
-    genres: ["art", "fashion"],
+    genres: ["entertainment"],
     titleKeywords: ["movie", "film", "scene", "cinema"],
   },
   "드라마 속 장면들": {
     sourceTypes: ["interview", "panel"],
-    genres: ["art", "fashion"],
+    genres: ["entertainment"],
     titleKeywords: ["drama", "series", "scene", "show"],
   },
   "연설이나 강단 발표": {
@@ -136,7 +136,7 @@ const EXPRESSION_HINTS: Record<
   },
   "셀럽 인터뷰": {
     sourceTypes: ["interview", "panel"],
-    genres: ["fashion", "beauty", "art"],
+    genres: ["entertainment", "lifestyle"],
     titleKeywords: ["interview", "celebrity", "star", "artist"],
   },
   "최신 시사 이슈": {
@@ -146,7 +146,7 @@ const EXPRESSION_HINTS: Record<
   },
   "티키타카를 배울 수 있는 팟캐스트/토크쇼": {
     sourceTypes: ["podcast", "panel", "interview"],
-    genres: ["art", "news", "business"],
+    genres: ["entertainment", "news", "business"],
     titleKeywords: ["talk show", "banter", "conversation", "podcast"],
   },
 };
@@ -246,7 +246,8 @@ function getProfileHash(profile: LearningProfile): string {
     focus_tags: sortStrings(profile.focus_tags),
     preferred_speakers: sortStrings(profile.preferred_speakers),
     preferred_situations: sortStrings(profile.preferred_situations),
-    preferred_video_categories: sortStrings(profile.preferred_video_categories),
+    preferred_source_types: sortStrings(profile.preferred_source_types),
+    preferred_genres: sortStrings(profile.preferred_genres),
   });
 }
 
@@ -297,14 +298,12 @@ function getPreferredExpressionSituations(profile: LearningProfile): string[] {
   );
 }
 
-function getPreferredVideoCategories(profile: LearningProfile): string[] {
-  if (profile.preferred_video_categories.length > 0) {
-    return profile.preferred_video_categories;
-  }
+function getPreferredSourceTypes(profile: LearningProfile): string[] {
+  return profile.preferred_source_types ?? [];
+}
 
-  return profile.focus_tags.filter((tag) =>
-    VIDEO_CATEGORIES.includes(tag as any),
-  );
+function getPreferredGenres(profile: LearningProfile): string[] {
+  return profile.preferred_genres ?? [];
 }
 
 function scoreLevelFit(
@@ -381,26 +380,26 @@ function scoreExpressionSession(
   let score = 0;
   const searchText = getSessionSearchText(session);
   const preferredSituations = getPreferredExpressionSituations(profile);
-  const preferredCategories = getPreferredVideoCategories(profile);
+  const preferredSourceTypes = getPreferredSourceTypes(profile);
+  const preferredGenres = getPreferredGenres(profile);
   const sessionSituations = normalizeTextArray(session.speaking_situations);
-  const sessionCategories = normalizeTextArray(session.video_categories);
   let exactCategoryMatch = false;
   let exactSituationMatch = false;
   const preferredTags = [
-    ...new Set(
-      [
-        ...preferredSituations,
-        ...preferredCategories,
-        ...profile.focus_tags,
-      ].filter(Boolean),
-    ),
+    ...new Set([...preferredSituations, ...profile.focus_tags].filter(Boolean)),
   ];
 
-  for (const category of preferredCategories) {
-    if (sessionCategories.includes(normalizeText(category))) {
-      exactCategoryMatch = true;
-      score += 14;
-    }
+  if (
+    session.source_type &&
+    preferredSourceTypes.includes(session.source_type)
+  ) {
+    exactCategoryMatch = true;
+    score += 8;
+  }
+
+  if (session.genre && preferredGenres.includes(session.genre)) {
+    exactCategoryMatch = true;
+    score += 6;
   }
 
   for (const situation of preferredSituations) {

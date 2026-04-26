@@ -19,7 +19,7 @@ export interface UseSentenceEditorReturn {
   mergeWithPrevious: (index: number) => void;
 }
 
-const MANUAL_SYNC_GAP_SECONDS = 0.1;
+const MANUAL_SYNC_GAP_SECONDS = 0.02;
 
 /**
  * Custom hook for managing sentence list CRUD operations
@@ -50,7 +50,7 @@ export function useSentenceEditor(
         const previous = next[index - 1];
         const autoEnd = Math.max(
           previous.startTime,
-          Number((value - MANUAL_SYNC_GAP_SECONDS).toFixed(1)),
+          Number((value - MANUAL_SYNC_GAP_SECONDS).toFixed(2)),
         );
         next[index - 1] = { ...previous, endTime: autoEnd };
       }

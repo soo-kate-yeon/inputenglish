@@ -68,29 +68,29 @@ function scoreSession(
   session: SessionListItem,
   options: {
     preferredSituations: string[];
-    preferredCategories: string[];
+    preferredSourceTypes: string[];
+    preferredGenres: string[];
     preferredSpeakers: string[];
   },
 ): number {
   let score = 0;
-
-  if (session.source_type === "podcast") score += 4;
-  if (session.source_type === "interview") score += 3;
-  if (session.source_type === "panel") score += 2;
 
   if (
     session.speaking_situations?.some((item) =>
       options.preferredSituations.includes(item),
     )
   ) {
-    score += 3;
+    score += 5;
   }
 
   if (
-    session.video_categories?.some((item) =>
-      options.preferredCategories.includes(item),
-    )
+    session.source_type &&
+    options.preferredSourceTypes.includes(session.source_type)
   ) {
+    score += 1;
+  }
+
+  if (session.genre && options.preferredGenres.includes(session.genre)) {
     score += 2;
   }
 
@@ -99,7 +99,7 @@ function scoreSession(
       options.preferredSpeakers.includes(item),
     )
   ) {
-    score += 2;
+    score += 3;
   }
 
   return score;
@@ -109,7 +109,8 @@ function sortRecommendedSessions(
   sessions: SessionListItem[],
   options: {
     preferredSituations: string[];
-    preferredCategories: string[];
+    preferredSourceTypes: string[];
+    preferredGenres: string[];
     preferredSpeakers: string[];
   },
 ): SessionListItem[] {
@@ -188,9 +189,13 @@ export default function HomeScreen() {
     () => learningProfile?.preferred_situations ?? [],
     [learningProfile?.preferred_situations],
   );
-  const preferredCategories = useMemo(
-    () => learningProfile?.preferred_video_categories ?? [],
-    [learningProfile?.preferred_video_categories],
+  const preferredSourceTypes = useMemo(
+    () => learningProfile?.preferred_source_types ?? [],
+    [learningProfile?.preferred_source_types],
+  );
+  const preferredGenres = useMemo(
+    () => learningProfile?.preferred_genres ?? [],
+    [learningProfile?.preferred_genres],
   );
   const preferredSpeakers = useMemo(
     () => learningProfile?.preferred_speakers ?? [],
@@ -299,7 +304,8 @@ export default function HomeScreen() {
 
       const sortedRecommended = sortRecommendedSessions(feedResult.sessions, {
         preferredSituations,
-        preferredCategories,
+        preferredSourceTypes,
+        preferredGenres,
         preferredSpeakers,
       });
 
@@ -329,7 +335,8 @@ export default function HomeScreen() {
     }
   }, [
     ensureVideoLoaded,
-    preferredCategories,
+    preferredSourceTypes,
+    preferredGenres,
     preferredSpeakers,
     preferredSituations,
   ]);

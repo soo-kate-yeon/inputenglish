@@ -54,6 +54,7 @@ export default function ShadowingScreen() {
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const activeIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isPollingRef = useRef(false);
 
   const {
     recordingState,
@@ -106,7 +107,7 @@ export default function ShadowingScreen() {
     return () => sub.remove();
   }, [recordingState, stopRecording]);
 
-  // 100ms poll: sentence sync
+  // 50ms poll: sentence sync + loop boundary
   useEffect(() => {
     if (!playing || !sentences.length || !video) {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -115,35 +116,41 @@ export default function ShadowingScreen() {
     const offset = video.snippet_start_time ?? 0;
 
     pollRef.current = setInterval(async () => {
-      const t = await playerRef.current?.getCurrentTime();
-      if (t === undefined) return;
-      const rel = t - offset;
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
+      try {
+        const t1 = Date.now();
+        const t = await playerRef.current?.getCurrentTime();
+        const bridgeMs = Date.now() - t1;
+        if (t === undefined) return;
+        // Compensate for WebView bridge latency: position is ~half round-trip ahead
+        const rel = t - offset + bridgeMs / 2000;
 
-      if (mode !== "total" && activeIdRef.current) {
-        const loopingSegment = sentences.find(
-          (item) => item.id === activeIdRef.current,
-        );
-        if (
-          loopingSegment &&
-          rel >= Math.max(loopingSegment.endTime - 0.05, 0)
-        ) {
-          playerRef.current?.seekTo(loopingSegment.startTime + offset);
-          return;
+        if (mode !== "total" && activeIdRef.current) {
+          const loopingSegment = sentences.find(
+            (item) => item.id === activeIdRef.current,
+          );
+          if (loopingSegment && rel >= loopingSegment.endTime) {
+            playerRef.current?.seekTo(loopingSegment.startTime + offset);
+            return;
+          }
         }
-      }
 
-      let activeSegment: Sentence | undefined;
-      for (let i = sentences.length - 1; i >= 0; i--) {
-        if (sentences[i].startTime <= rel) {
-          activeSegment = sentences[i];
-          break;
+        let activeSegment: Sentence | undefined;
+        for (let i = sentences.length - 1; i >= 0; i--) {
+          if (sentences[i].startTime <= rel) {
+            activeSegment = sentences[i];
+            break;
+          }
         }
+        if (activeSegment && activeSegment.id !== activeIdRef.current) {
+          activeIdRef.current = activeSegment.id;
+          setActiveSentenceId(activeSegment.id);
+        }
+      } finally {
+        isPollingRef.current = false;
       }
-      if (activeSegment && activeSegment.id !== activeIdRef.current) {
-        activeIdRef.current = activeSegment.id;
-        setActiveSentenceId(activeSegment.id);
-      }
-    }, 100);
+    }, 50);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);

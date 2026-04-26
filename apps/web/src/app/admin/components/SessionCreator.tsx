@@ -7,14 +7,19 @@ import type {
   LongformPack,
   SessionContext,
   KeyVocabularyEntry,
-  SessionRoleRelevance,
   SessionSourceType,
   Genre,
   Speaker,
+  SpeakingSituation,
   TransformationSet,
   TransformationExercise,
 } from "@inputenglish/shared";
-import { GENRES, SESSION_SOURCE_TYPES } from "@inputenglish/shared";
+import {
+  GENRES,
+  SESSION_SOURCE_TYPES,
+  SPEAKING_SITUATIONS,
+  SPEAKING_SITUATION_LABELS,
+} from "@inputenglish/shared";
 import { Plus, Trash2, Clock, Edit2, Sparkles, RefreshCw } from "lucide-react";
 import { TransformationExerciseEditor } from "./TransformationExerciseEditor";
 import {
@@ -33,18 +38,20 @@ const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
   interview: "인터뷰",
   panel: "패널 토크",
   "public-speech": "공적 말하기",
+  "talk-show": "토크쇼",
+  vlog: "브이로그",
+  "scripted-drama": "드라마/영화",
 };
 
 const GENRE_LABELS: Record<Genre, string> = {
   politics: "정치",
-  fashion: "패션",
   tech: "테크",
   economy: "경제",
   "current-affairs": "시사",
   news: "뉴스",
-  beauty: "뷰티",
-  art: "예술",
   business: "업무",
+  entertainment: "엔터테인먼트",
+  lifestyle: "라이프스타일",
 };
 
 function createEmptyContext(): SessionContext {
@@ -274,9 +281,12 @@ export function SessionCreator({
   const [editSourceType, setEditSourceType] =
     useState<SessionSourceType>("podcast");
   const [editGenre, setEditGenre] = useState<Genre | undefined>(undefined);
-  const [editRoleRelevance, setEditRoleRelevance] = useState<
-    SessionRoleRelevance[]
-  >(["pm"]);
+  const [editSpeakingSituations, setEditSpeakingSituations] = useState<
+    SpeakingSituation[]
+  >([]);
+  const [editDifficultyLevel, setEditDifficultyLevel] = useState<
+    1 | 2 | 3 | 4 | 5 | undefined
+  >(undefined);
   const [editPremiumRequired, setEditPremiumRequired] = useState(true);
   const [editPrimarySpeakerName, setEditPrimarySpeakerName] = useState("");
   const [editPrimarySpeakerId, setEditPrimarySpeakerId] = useState<
@@ -734,7 +744,12 @@ export function SessionCreator({
     setEditDifficulty(session.difficulty || "intermediate");
     setEditSourceType(session.source_type || "podcast");
     setEditGenre(session.genre ?? undefined);
-    setEditRoleRelevance(session.role_relevance || ["pm"]);
+    setEditSpeakingSituations(
+      (session.speaking_situations as SpeakingSituation[]) ?? [],
+    );
+    setEditDifficultyLevel(
+      session.difficulty_level as 1 | 2 | 3 | 4 | 5 | undefined,
+    );
     setEditPremiumRequired(session.premium_required ?? true);
     setEditPrimarySpeakerName(
       session.primary_speaker_name || editPrimarySpeakerName || "",
@@ -779,9 +794,10 @@ export function SessionCreator({
               subtitle: editSubtitle,
               description: editDescription,
               difficulty: editDifficulty,
+              difficulty_level: editDifficultyLevel,
+              speaking_situations: editSpeakingSituations,
               source_type: editSourceType,
               genre: editGenre,
-              role_relevance: editRoleRelevance,
               premium_required: editPremiumRequired,
               context: editContext,
               primary_speaker_id: speakerChoice.id,
@@ -824,7 +840,6 @@ export function SessionCreator({
       difficulty: "intermediate",
       order_index: createdSessions.length,
       source_type: "podcast",
-      role_relevance: ["pm"],
       primary_speaker_id: editPrimarySpeakerId,
       primary_speaker_name: editPrimarySpeakerName.trim() || null,
       primary_speaker_slug: editPrimarySpeakerSlug,
@@ -900,6 +915,12 @@ export function SessionCreator({
 
       const autofillData = await autofillResponse.json();
       setEditSubtitle(autofillData.subtitle || "");
+      if (autofillData.sourceType) setEditSourceType(autofillData.sourceType);
+      if (autofillData.genre) setEditGenre(autofillData.genre);
+      if (Array.isArray(autofillData.speakingSituations))
+        setEditSpeakingSituations(autofillData.speakingSituations);
+      if (autofillData.difficultyLevel)
+        setEditDifficultyLevel(autofillData.difficultyLevel);
 
       const contextResponse = await fetch(
         "/api/admin/generate-session-context",
@@ -927,7 +948,9 @@ export function SessionCreator({
       };
 
       setEditContext(contextData.context);
-      if (contextData.subtitle) {
+      // Don't overwrite subtitle when targetPattern is set — autofill already
+      // crafted it specifically to contain the pattern.
+      if (contextData.subtitle && !targetPattern?.trim()) {
         setEditSubtitle(contextData.subtitle);
       }
     } catch (error) {
@@ -963,7 +986,6 @@ export function SessionCreator({
         difficulty: "intermediate" as const,
         order_index: orderIndex,
         source_type: "podcast" as const,
-        role_relevance: ["pm"] as SessionRoleRelevance[],
         primary_speaker_id: editPrimarySpeakerId,
         primary_speaker_name: editPrimarySpeakerName.trim() || null,
         primary_speaker_slug: editPrimarySpeakerSlug,
@@ -990,7 +1012,6 @@ export function SessionCreator({
       difficulty: "intermediate" as const,
       order_index: orderIndex,
       source_type: "podcast" as const,
-      role_relevance: ["pm"] as SessionRoleRelevance[],
       primary_speaker_id: editPrimarySpeakerId,
       primary_speaker_name: editPrimarySpeakerName.trim() || null,
       primary_speaker_slug: editPrimarySpeakerSlug,
@@ -2456,6 +2477,78 @@ export function SessionCreator({
                     </select>
                   </label>
                 </div>
+                <div className="flex flex-col" style={{ gap: 4 }}>
+                  <span className="text-xs" style={{ color: "#737373" }}>
+                    말하기 상황
+                  </span>
+                  <div className="flex flex-wrap" style={{ gap: 6 }}>
+                    {SPEAKING_SITUATIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() =>
+                          setEditSpeakingSituations((prev) =>
+                            prev.includes(s)
+                              ? prev.filter((x) => x !== s)
+                              : [...prev, s],
+                          )
+                        }
+                        className="text-xs"
+                        style={{
+                          padding: "4px 10px",
+                          border: "1px solid",
+                          borderColor: editSpeakingSituations.includes(s)
+                            ? "#404040"
+                            : "#e5e5e5",
+                          backgroundColor: editSpeakingSituations.includes(s)
+                            ? "#404040"
+                            : "#ffffff",
+                          color: editSpeakingSituations.includes(s)
+                            ? "#ffffff"
+                            : "#737373",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {SPEAKING_SITUATION_LABELS[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex flex-col" style={{ gap: 4 }}>
+                  <span className="text-xs" style={{ color: "#737373" }}>
+                    난이도 레벨 (1-5)
+                  </span>
+                  <div className="flex" style={{ gap: 6 }}>
+                    {([1, 2, 3, 4, 5] as const).map((lv) => (
+                      <button
+                        key={lv}
+                        type="button"
+                        onClick={() =>
+                          setEditDifficultyLevel(
+                            editDifficultyLevel === lv ? undefined : lv,
+                          )
+                        }
+                        className="text-xs"
+                        style={{
+                          width: 32,
+                          height: 32,
+                          border: "1px solid",
+                          borderColor:
+                            editDifficultyLevel === lv ? "#404040" : "#e5e5e5",
+                          backgroundColor:
+                            editDifficultyLevel === lv ? "#404040" : "#ffffff",
+                          color:
+                            editDifficultyLevel === lv ? "#ffffff" : "#737373",
+                          cursor: "pointer",
+                          fontWeight:
+                            editDifficultyLevel === lv ? "600" : "400",
+                        }}
+                      >
+                        {lv}
+                      </button>
+                    ))}
+                  </div>
+                </label>
                 <div
                   style={{
                     display: "flex",

@@ -84,12 +84,6 @@ export const FEED_CHIPS: FeedChip[] = [
     value: "politics",
   },
   {
-    key: "fashion",
-    label: "\ud328\uc158",
-    type: "genre",
-    value: "fashion",
-  },
-  {
     key: "tech",
     label: "\ud14c\ud06c",
     type: "genre",
@@ -114,22 +108,22 @@ export const FEED_CHIPS: FeedChip[] = [
     value: "news",
   },
   {
-    key: "beauty",
-    label: "\ubdf0\ud2f0",
-    type: "genre",
-    value: "beauty",
-  },
-  {
-    key: "art",
-    label: "\uc608\uc220",
-    type: "genre",
-    value: "art",
-  },
-  {
     key: "business",
     label: "\uc5c5\ubb34",
     type: "genre",
     value: "business",
+  },
+  {
+    key: "entertainment",
+    label: "\uc5d4\ud130\ud14c\uc778\uba3c\ud2b8",
+    type: "genre",
+    value: "entertainment",
+  },
+  {
+    key: "lifestyle",
+    label: "\ub77c\uc774\ud504\uc2a4\ud0c0\uc77c",
+    type: "genre",
+    value: "lifestyle",
   },
 ];
 

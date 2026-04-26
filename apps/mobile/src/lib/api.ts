@@ -17,8 +17,8 @@ import type {
   PracticeMode,
   PracticePrompt,
   SessionContext,
-  SessionRoleRelevance,
   SessionSourceType,
+  SpeakingSituation,
   Sentence,
   Speaker,
 } from "@inputenglish/shared";
@@ -66,9 +66,8 @@ export interface SessionListItem {
   channel_name?: string;
   source_type?: SessionSourceType;
   genre?: Genre;
-  video_categories?: string[];
-  speaking_situations?: string[];
-  role_relevance?: SessionRoleRelevance[];
+  speaking_situations?: SpeakingSituation[];
+  difficulty_level?: 1 | 2 | 3 | 4 | 5;
   premium_required?: boolean;
   expected_takeaway?: string;
   context?: SessionContext | null;
@@ -78,7 +77,7 @@ export interface SessionListItem {
 }
 
 const SESSION_SELECT =
-  "id, source_video_id, longform_pack_id, title, subtitle, description, duration, start_time, end_time, sentence_ids, difficulty, thumbnail_url, order_index, source_type, genre, video_categories, speaking_situations, role_relevance, premium_required, session_contexts(expected_takeaway)" as const;
+  "id, source_video_id, longform_pack_id, title, subtitle, description, duration, start_time, end_time, sentence_ids, difficulty, difficulty_level, thumbnail_url, order_index, source_type, genre, speaking_situations, premium_required, session_contexts(expected_takeaway)" as const;
 
 const LONGFORM_PACK_SELECT = `
   id,
@@ -141,16 +140,12 @@ function mapSessionRow(
       ? (s.sentence_ids as string[])
       : [],
     difficulty: s.difficulty as SessionListItem["difficulty"],
+    difficulty_level: s.difficulty_level as SessionListItem["difficulty_level"],
     source_type: s.source_type as SessionListItem["source_type"],
     genre: s.genre as SessionListItem["genre"],
-    video_categories: Array.isArray(s.video_categories)
-      ? (s.video_categories as string[])
-      : [],
     speaking_situations: Array.isArray(s.speaking_situations)
-      ? (s.speaking_situations as string[])
+      ? (s.speaking_situations as SpeakingSituation[])
       : [],
-    role_relevance:
-      (s.role_relevance as SessionListItem["role_relevance"]) || [],
     premium_required: Boolean(s.premium_required),
     thumbnail_url:
       s.thumbnail_url ||
@@ -448,13 +443,12 @@ export async function fetchLearningSessionDetail(
         end_time,
         sentence_ids,
         difficulty,
+        difficulty_level,
         thumbnail_url,
         order_index,
         source_type,
         genre,
-        video_categories,
         speaking_situations,
-        role_relevance,
         premium_required,
         context:session_contexts (
           session_id,
@@ -508,14 +502,11 @@ export async function fetchLearningSessionDetail(
     order_index: data.order_index,
     source_type: data.source_type as SessionListItem["source_type"],
     genre: data.genre as SessionListItem["genre"],
-    video_categories: Array.isArray(data.video_categories)
-      ? (data.video_categories as string[])
-      : [],
+    difficulty_level:
+      data.difficulty_level as SessionListItem["difficulty_level"],
     speaking_situations: Array.isArray(data.speaking_situations)
-      ? (data.speaking_situations as string[])
+      ? (data.speaking_situations as SpeakingSituation[])
       : [],
-    role_relevance:
-      (data.role_relevance as SessionListItem["role_relevance"]) || [],
     premium_required: Boolean(data.premium_required),
     primary_speaker_name: speakerMeta?.primaryName,
     primary_speaker_slug: speakerMeta?.primarySlug,
@@ -817,7 +808,6 @@ export async function fetchSpeakerSessions(
       source_type: row.session_source_type as SessionListItem["source_type"],
       genre: row.session_genre as SessionListItem["genre"],
       premium_required: Boolean(row.session_premium_required),
-      role_relevance: [],
     });
   }
 
@@ -860,7 +850,6 @@ export async function ensurePracticePrompts(
     sessionId: session.id,
     title: session.title,
     description: session.description,
-    roleRelevance: session.role_relevance,
     context: session.context,
     userDisplayName,
   });

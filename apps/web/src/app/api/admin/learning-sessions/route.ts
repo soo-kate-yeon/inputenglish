@@ -225,10 +225,11 @@ export async function POST(request: NextRequest) {
         sentence_ids: s.sentence_ids,
         thumbnail_url: s.thumbnail_url,
         difficulty: s.difficulty,
+        difficulty_level: s.difficulty_level ?? null,
+        speaking_situations: s.speaking_situations ?? [],
         order_index: index,
         source_type: s.source_type,
         genre: s.genre ?? null,
-        role_relevance: s.role_relevance ?? [],
         premium_required: s.premium_required ?? false,
         created_by: null,
         // duration is generated column

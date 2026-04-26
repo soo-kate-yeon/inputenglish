@@ -108,29 +108,26 @@ export const LEARNING_GOAL_MODES = ["pronunciation", "expression"] as const;
 export type LearningGoalMode = (typeof LEARNING_GOAL_MODES)[number];
 
 export const SPEAKING_SITUATIONS = [
-  "일상 잡담",
-  "친구/연애",
-  "학교/업무",
-  "발표/회의",
-  "인터뷰",
-  "서비스직",
-  "자기소개/스몰토크",
+  "daily-chat",
+  "friendship-romance",
+  "school-work",
+  "presentation-meeting",
+  "interview",
+  "service-industry",
+  "self-intro-smalltalk",
 ] as const;
 
 export type SpeakingSituation = (typeof SPEAKING_SITUATIONS)[number];
 
-export const VIDEO_CATEGORIES = [
-  "브이로그",
-  "영화 속 장면들",
-  "드라마 속 장면들",
-  "연설이나 강단 발표",
-  "정보성 팟캐스트/인터뷰",
-  "셀럽 인터뷰",
-  "최신 시사 이슈",
-  "티키타카를 배울 수 있는 팟캐스트/토크쇼",
-] as const;
-
-export type VideoCategory = (typeof VIDEO_CATEGORIES)[number];
+export const SPEAKING_SITUATION_LABELS: Record<SpeakingSituation, string> = {
+  "daily-chat": "일상 잡담",
+  "friendship-romance": "친구/연애",
+  "school-work": "학교/업무",
+  "presentation-meeting": "발표/회의",
+  interview: "인터뷰",
+  "service-industry": "서비스직",
+  "self-intro-smalltalk": "자기소개/스몰토크",
+};
 
 export interface LearningProfile {
   user_id: string;
@@ -138,8 +135,9 @@ export interface LearningProfile {
   goal_mode: LearningGoalMode | null;
   focus_tags: string[];
   preferred_speakers: string[];
-  preferred_situations: string[];
-  preferred_video_categories: string[];
+  preferred_situations: SpeakingSituation[];
+  preferred_source_types: SessionSourceType[];
+  preferred_genres: Genre[];
   onboarding_completed_at: string | null;
   updated_at?: string | null;
 }
@@ -162,33 +160,25 @@ export const SESSION_SOURCE_TYPES = [
   "interview",
   "panel",
   "public-speech",
+  "talk-show",
+  "vlog",
+  "scripted-drama",
 ] as const;
 
 export type SessionSourceType = (typeof SESSION_SOURCE_TYPES)[number];
 
 export const GENRES = [
   "politics",
-  "fashion",
   "tech",
   "economy",
   "current-affairs",
   "news",
-  "beauty",
-  "art",
   "business",
+  "entertainment",
+  "lifestyle",
 ] as const;
 
 export type Genre = (typeof GENRES)[number];
-
-export const SESSION_ROLE_RELEVANCE = [
-  "engineer",
-  "pm",
-  "designer",
-  "founder",
-  "marketer",
-] as const;
-
-export type SessionRoleRelevance = (typeof SESSION_ROLE_RELEVANCE)[number];
 
 export const PRACTICE_MODES = [
   "slot-in",
@@ -341,10 +331,11 @@ export interface LearningSession {
   end_time: number; // seconds
   thumbnail_url?: string;
   difficulty?: "beginner" | "intermediate" | "advanced";
+  difficulty_level?: 1 | 2 | 3 | 4 | 5;
+  speaking_situations?: SpeakingSituation[];
   order_index: number;
   source_type?: SessionSourceType;
   genre?: Genre;
-  role_relevance?: SessionRoleRelevance[];
   primary_speaker_id?: string | null;
   primary_speaker_name?: string | null;
   primary_speaker_slug?: string | null;

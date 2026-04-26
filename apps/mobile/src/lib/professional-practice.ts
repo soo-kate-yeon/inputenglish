@@ -5,7 +5,6 @@ import type {
   PracticeMode,
   PracticePrompt,
   SessionContext,
-  SessionRoleRelevance,
 } from "@inputenglish/shared";
 import { PRACTICE_MODE_LABELS } from "./professional-labels";
 
@@ -13,18 +12,9 @@ interface DefaultPracticePromptInput {
   sessionId: string;
   title: string;
   description?: string;
-  roleRelevance?: SessionRoleRelevance[];
   context?: SessionContext | null;
   userDisplayName?: string | null;
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  engineer: "엔지니어",
-  pm: "PM",
-  designer: "디자이너",
-  founder: "창업가",
-  marketer: "마케터",
-};
 
 export function buildSlotTemplate(sourceSentence: string): string {
   const words = sourceSentence.split(/\s+/);
@@ -52,9 +42,7 @@ export function buildDefaultPracticePrompts(
   const userLabel = input.userDisplayName?.trim()
     ? input.userDisplayName.trim()
     : "나";
-  const roleLabel = input.roleRelevance?.[0]
-    ? ROLE_LABELS[input.roleRelevance[0]]
-    : "실무자";
+  const roleLabel = "실무자";
   const takeawayHint =
     input.context?.expected_takeaway ??
     "메시지는 구체적이고 차분하며 자연스럽게 들리게 유지하세요.";
