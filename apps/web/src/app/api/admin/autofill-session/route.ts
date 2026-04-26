@@ -163,14 +163,13 @@ Allowed enums:
 
 genre 판단 기준 — 이 클립의 주제/분야가 뭔지 보고 골라라:
 - politics: 정치, 외교, 정부, 선거 관련
-- fashion: 패션, 스타일, 의류, 트렌드 관련
 - tech: 기술, AI, 소프트웨어, 하드웨어 관련
 - economy: 경제, 금융, 주식, 투자 관련
 - current-affairs: 시사, 사회 이슈, 뉴스 배경 관련
 - news: 뉴스, 보도, 언론 관련
-- beauty: 뷰티, 화장품, 스킨케어 관련
-- art: 예술, 문화, 창작, 디자인 관련
 - business: 비즈니스, 창업, 경영, 마케팅 관련
+- entertainment: 영화, 드라마, 셀럽 인터뷰, 팝컬처, 예능 관련
+- lifestyle: 뷰티, 패션, 브이로그, 일상, 라이프스타일 관련
 
 ${videoTitleLine}
 ${primarySpeakerLine}
@@ -289,12 +288,15 @@ Return ONLY valid JSON:
         ? (Math.round(dl) as 1 | 2 | 3 | 4 | 5)
         : undefined;
 
+    const patternInstruction = targetPattern
+      ? ` ⚠️ 반드시 subtitle에 '${targetPattern}' 표현을 그대로 포함해야 한다. 이 표현을 제거하거나 바꾸면 안 된다.`
+      : "";
+
     autofillData = await rewriteCopyToKoreanIfNeeded({
       model,
       payload: autofillData,
       fieldPaths: ["title", "subtitle", "description"],
-      instructions:
-        "title, subtitle, description만 자연스러운 한국어 UX writing으로 다듬어라. 작은따옴표 안의 핵심 영어 표현은 유지해도 된다. 가능하면 문장 끝은 `~어요/~예요` 톤으로 정리해라.",
+      instructions: `title, subtitle, description만 자연스러운 한국어 UX writing으로 다듬어라.${patternInstruction} 작은따옴표 안의 핵심 영어 표현은 유지해도 된다. 가능하면 문장 끝은 \`~어요/~예요\` 톤으로 정리해라.`,
     });
 
     autofillData.premiumRequired = Boolean(autofillData.premiumRequired);

@@ -56,12 +56,12 @@ const EXPRESSION_HINTS: Record<
 > = {
   "일상 잡담": {
     sourceTypes: ["podcast", "interview", "panel"],
-    genres: ["art", "business", "news"],
+    genres: ["entertainment", "business", "news"],
     titleKeywords: ["chat", "conversation", "talk", "daily"],
   },
   "친구/연애": {
     sourceTypes: ["podcast", "interview"],
-    genres: ["art", "fashion", "beauty"],
+    genres: ["entertainment", "lifestyle"],
     titleKeywords: ["relationship", "friend", "dating", "love"],
   },
   "학교/업무": {
@@ -91,12 +91,12 @@ const EXPRESSION_HINTS: Record<
   },
   서비스직: {
     sourceTypes: ["interview", "podcast"],
-    genres: ["business", "art"],
+    genres: ["business", "entertainment"],
     titleKeywords: ["service", "customer", "hospitality", "support"],
   },
   "자기소개/스몰토크": {
     sourceTypes: ["interview", "podcast", "panel"],
-    genres: ["business", "art", "news"],
+    genres: ["business", "entertainment", "news"],
     titleKeywords: ["introduce", "small talk", "icebreaker", "about me"],
   },
   "면접/자기소개": {
@@ -111,17 +111,17 @@ const EXPRESSION_HINTS: Record<
   },
   브이로그: {
     sourceTypes: ["podcast", "interview"],
-    genres: ["art", "fashion", "beauty"],
+    genres: ["lifestyle", "entertainment"],
     titleKeywords: ["vlog", "day", "routine", "life"],
   },
   "영화 속 장면들": {
     sourceTypes: ["interview", "panel"],
-    genres: ["art", "fashion"],
+    genres: ["entertainment"],
     titleKeywords: ["movie", "film", "scene", "cinema"],
   },
   "드라마 속 장면들": {
     sourceTypes: ["interview", "panel"],
-    genres: ["art", "fashion"],
+    genres: ["entertainment"],
     titleKeywords: ["drama", "series", "scene", "show"],
   },
   "연설이나 강단 발표": {
@@ -136,7 +136,7 @@ const EXPRESSION_HINTS: Record<
   },
   "셀럽 인터뷰": {
     sourceTypes: ["interview", "panel"],
-    genres: ["fashion", "beauty", "art"],
+    genres: ["entertainment", "lifestyle"],
     titleKeywords: ["interview", "celebrity", "star", "artist"],
   },
   "최신 시사 이슈": {
@@ -146,7 +146,7 @@ const EXPRESSION_HINTS: Record<
   },
   "티키타카를 배울 수 있는 팟캐스트/토크쇼": {
     sourceTypes: ["podcast", "panel", "interview"],
-    genres: ["art", "news", "business"],
+    genres: ["entertainment", "news", "business"],
     titleKeywords: ["talk show", "banter", "conversation", "podcast"],
   },
 };

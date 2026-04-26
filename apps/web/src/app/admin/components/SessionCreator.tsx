@@ -45,14 +45,13 @@ const SOURCE_TYPE_LABELS: Record<SessionSourceType, string> = {
 
 const GENRE_LABELS: Record<Genre, string> = {
   politics: "정치",
-  fashion: "패션",
   tech: "테크",
   economy: "경제",
   "current-affairs": "시사",
   news: "뉴스",
-  beauty: "뷰티",
-  art: "예술",
   business: "업무",
+  entertainment: "엔터테인먼트",
+  lifestyle: "라이프스타일",
 };
 
 function createEmptyContext(): SessionContext {
@@ -949,7 +948,9 @@ export function SessionCreator({
       };
 
       setEditContext(contextData.context);
-      if (contextData.subtitle) {
+      // Don't overwrite subtitle when targetPattern is set — autofill already
+      // crafted it specifically to contain the pattern.
+      if (contextData.subtitle && !targetPattern?.trim()) {
         setEditSubtitle(contextData.subtitle);
       }
     } catch (error) {

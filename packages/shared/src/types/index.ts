@@ -169,14 +169,13 @@ export type SessionSourceType = (typeof SESSION_SOURCE_TYPES)[number];
 
 export const GENRES = [
   "politics",
-  "fashion",
   "tech",
   "economy",
   "current-affairs",
   "news",
-  "beauty",
-  "art",
   "business",
+  "entertainment",
+  "lifestyle",
 ] as const;
 
 export type Genre = (typeof GENRES)[number];
