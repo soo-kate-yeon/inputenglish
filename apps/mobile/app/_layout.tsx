@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { configureRevenueCat, logInRevenueCat } from "@/lib/revenue-cat";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { initSentry, setUser as setSentryUser, wrap } from "@/lib/sentry";
+import { identifyUser, resetAnalyticsUser } from "@/lib/posthog";
 import "react-native-url-polyfill/auto";
 import * as Notifications from "expo-notifications";
 
@@ -120,6 +121,15 @@ export function RootLayoutNav() {
   useEffect(() => {
     setSentryUser(user ? { id: user.id, email: user.email ?? null } : null);
   }, [user]);
+
+  // Identify/reset PostHog user for behavioural analytics
+  useEffect(() => {
+    if (user?.id) {
+      identifyUser(user.id, { email: user.email ?? undefined });
+    } else {
+      resetAnalyticsUser();
+    }
+  }, [user?.id]);
 
   // Handle deep links for OAuth callback (PKCE code exchange)
   useEffect(() => {

@@ -10,6 +10,7 @@ import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, font } from "../../theme";
+import { trackEvent } from "../../lib/analytics";
 
 const ICONS: Record<
   string,
@@ -60,6 +61,10 @@ export default function FloatingTabBar({
             canPreventDefault: true,
           });
           if (!isFocused && !event.defaultPrevented) {
+            trackEvent("tab_changed", {
+              from: state.routes[state.index]?.name,
+              to: route.name,
+            });
             navigation.navigate(route.name);
           }
         };

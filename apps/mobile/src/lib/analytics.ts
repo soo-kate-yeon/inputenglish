@@ -1,4 +1,5 @@
 import { addBreadcrumb } from "./sentry";
+import { posthog } from "./posthog";
 
 export type AnalyticsEventName =
   | "context_open"
@@ -7,10 +8,16 @@ export type AnalyticsEventName =
   | "intro_page_view"
   | "intro_login_click"
   | "intro_signup_open_click"
+  | "login_completed"
+  | "signup_completed"
   | "onboarding_start"
+  | "onboarding_step_viewed"
   | "onboarding_level_selected"
   | "onboarding_goal_selected"
   | "onboarding_complete"
+  | "tab_changed"
+  | "shorts_tab_entered"
+  | "shorts_tab_exited"
   | "daily_input_impression"
   | "daily_input_seek_play"
   | "daily_input_record_start"
@@ -39,7 +46,6 @@ export function trackEvent(
   event: AnalyticsEventName,
   properties: Record<string, unknown> = {},
 ) {
-  console.log("[Analytics]", event, properties);
   // @MX:NOTE: Feed analytics into Sentry breadcrumbs so error reports include
   //           the user's recent event trail (e.g., record_start -> failed).
   addBreadcrumb({
@@ -48,4 +54,6 @@ export function trackEvent(
     level: event.includes("failed") ? "warning" : "info",
     data: properties,
   });
+
+  posthog.capture(event, properties as any);
 }

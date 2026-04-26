@@ -397,6 +397,10 @@ export default function OnboardingScreen() {
   }, [isEditMode]);
 
   useEffect(() => {
+    trackEvent("onboarding_step_viewed", { step });
+  }, [step]);
+
+  useEffect(() => {
     if (!user) {
       router.replace("/intro?scene=9" as never);
       return;

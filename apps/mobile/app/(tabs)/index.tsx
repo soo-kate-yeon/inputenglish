@@ -341,9 +341,24 @@ export default function HomeScreen() {
     preferredSituations,
   ]);
 
+  const shortsEnteredAtRef = useRef<number | null>(null);
+
   useFocusEffect(
     useCallback(() => {
+      shortsEnteredAtRef.current = Date.now();
+      trackEvent("shorts_tab_entered");
       void loadSessions();
+
+      return () => {
+        if (shortsEnteredAtRef.current !== null) {
+          trackEvent("shorts_tab_exited", {
+            duration_seconds: Math.round(
+              (Date.now() - shortsEnteredAtRef.current) / 1000,
+            ),
+          });
+          shortsEnteredAtRef.current = null;
+        }
+      };
     }, [loadSessions]),
   );
 

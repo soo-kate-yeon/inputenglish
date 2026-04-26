@@ -21,6 +21,7 @@ import {
 import type { LearningProfile } from "@inputenglish/shared";
 import { supabase } from "@/lib/supabase";
 import { appStore } from "@/lib/stores";
+import { trackEvent } from "@/lib/analytics";
 import { clearDailyInputQueueCache } from "@/lib/daily-input";
 import {
   clearCachedLearningProfile,
@@ -210,6 +211,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setIsProfileLoading(true);
           void loadLearningProfile(newSession.user);
           appStore.getState().loadUserData().catch(console.error);
+          trackEvent("login_completed", {
+            provider: newSession.user.app_metadata?.provider ?? "email",
+          });
           // Navigation handled declaratively in _layout.tsx via useEffect
           // to avoid race condition where router.replace fires before React
           // commits the setUser state update, causing TabLayout to see
