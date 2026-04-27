@@ -89,6 +89,11 @@ function ShortSessionCard({
   const activeSessionIdRef = useRef(session.id);
   const isCardActiveRef = useRef(isActive);
   const pendingSentenceRef = useRef<Sentence | null>(null);
+  // Distinct from pendingSentenceRef (used by loop's playSentence): tap and
+  // nav use jumpToSentence which has session-remaining playback semantics, so
+  // queueing must remember which kind of pending action to drain when the
+  // player becomes ready.
+  const pendingJumpSentenceRef = useRef<Sentence | null>(null);
   const pendingAutoplayRef = useRef(false);
   const loopingSentenceIdRef = useRef<string | null>(null);
   const hasTrackedImpressionRef = useRef(false);
@@ -98,6 +103,10 @@ function ShortSessionCard({
   const handledNavigationNonceRef = useRef<number | null>(null);
   const onSessionEndRef = useRef(onSessionEnd);
   const sessionEndFiredRef = useRef(false);
+  // Blocks polling-driven activeSentenceId writes while a manual seek settles
+  // (currentTime is briefly still in the previous sentence's range after seekTo).
+  const seekLockRef = useRef(false);
+  const seekLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const savedSentences = appStore((state) => state.savedSentences);
   const addSavedSentence = appStore((state) => state.addSavedSentence);
@@ -132,6 +141,23 @@ function ShortSessionCard({
       clearTimeout(stopTimeoutRef.current);
       stopTimeoutRef.current = null;
     }
+  }, []);
+
+  const acquireSeekLock = useCallback((durationMs: number = 800) => {
+    if (seekLockTimeoutRef.current) clearTimeout(seekLockTimeoutRef.current);
+    seekLockRef.current = true;
+    seekLockTimeoutRef.current = setTimeout(() => {
+      seekLockRef.current = false;
+      seekLockTimeoutRef.current = null;
+    }, durationMs);
+  }, []);
+
+  const releaseSeekLock = useCallback(() => {
+    if (seekLockTimeoutRef.current) {
+      clearTimeout(seekLockTimeoutRef.current);
+      seekLockTimeoutRef.current = null;
+    }
+    seekLockRef.current = false;
   }, []);
 
   const clearProgressInterval = useCallback(() => {
@@ -184,6 +210,10 @@ function ShortSessionCard({
 
   const syncActiveSentence = useCallback(async () => {
     if (!video || !playerReady || sentences.length === 0) return;
+    // Block polling while a manual seek (tap/nav) is settling — otherwise
+    // polling reads currentTime that is briefly still in the previous
+    // sentence's range and overwrites the user-selected sentence.
+    if (seekLockRef.current) return;
     const requestedSessionId = activeSessionIdRef.current;
 
     const currentTime = await playerRef.current?.getCurrentTime();
@@ -241,7 +271,14 @@ function ShortSessionCard({
 
     clearPlaybackTimeout();
     setLoopingSentenceId(null);
-    setActiveSentenceId(null);
+
+    // Optimistic highlight: surface the first sentence immediately so the user
+    // sees feedback before the 250ms polling loop catches up. Polling will
+    // refine this within one tick.
+    const firstSentence = sentences[0];
+    if (firstSentence) {
+      setActiveSentenceId(firstSentence.id);
+    }
 
     if (!playerReady) {
       pendingAutoplayRef.current = true;
@@ -249,9 +286,10 @@ function ShortSessionCard({
       return;
     }
 
+    pendingAutoplayRef.current = false;
+    acquireSeekLock();
     playerRef.current?.seekTo(sessionStartSeconds, true);
     setPlaying(true);
-    pendingAutoplayRef.current = false;
 
     const durationMs = Math.max(
       (sessionEndSeconds - sessionStartSeconds) * 1000,
@@ -265,12 +303,61 @@ function ShortSessionCard({
       }
     }, durationMs);
   }, [
+    acquireSeekLock,
     clearPlaybackTimeout,
     playerReady,
+    sentences,
     sessionEndSeconds,
     sessionStartSeconds,
     video,
   ]);
+
+  /**
+   * Jump-and-continue: seeks to the given sentence's start time and continues
+   * playback through to the end of the session (NOT just the sentence). Used
+   * by sentence tap and the prev/next navigation arrows. The session-end
+   * timeout is rescheduled from the new playhead so onSessionEnd still fires
+   * at the correct time.
+   */
+  const jumpToSentence = useCallback(
+    (sentence: Sentence) => {
+      if (!playerReady || !video) {
+        pendingJumpSentenceRef.current = sentence;
+        return;
+      }
+
+      clearPlaybackTimeout();
+      const seekSeconds = (video.snippet_start_time ?? 0) + sentence.startTime;
+      const remainingMs = Math.max(
+        (sessionEndSeconds - seekSeconds) * 1000,
+        1000,
+      );
+
+      pendingSentenceRef.current = null;
+      pendingJumpSentenceRef.current = null;
+      pendingAutoplayRef.current = false;
+      setLoopingSentenceId(null);
+      setActiveSentenceId(sentence.id);
+      setPlaying(true);
+      acquireSeekLock();
+      playerRef.current?.seekTo(seekSeconds, true);
+
+      stopTimeoutRef.current = setTimeout(() => {
+        setPlaying(false);
+        if (!sessionEndFiredRef.current) {
+          sessionEndFiredRef.current = true;
+          onSessionEndRef.current?.();
+        }
+      }, remainingMs);
+    },
+    [
+      acquireSeekLock,
+      clearPlaybackTimeout,
+      playerReady,
+      sessionEndSeconds,
+      video,
+    ],
+  );
 
   const playSentence = useCallback(
     (sentence: Sentence) => {
@@ -291,6 +378,7 @@ function ShortSessionCard({
       pendingAutoplayRef.current = false;
       setActiveSentenceId(sentence.id);
       setPlaying(true);
+      acquireSeekLock();
       playerRef.current?.seekTo(seekSeconds, true);
 
       stopTimeoutRef.current = setTimeout(() => {
@@ -302,7 +390,7 @@ function ShortSessionCard({
         setPlaying(false);
       }, durationMs);
     },
-    [clearPlaybackTimeout, playerReady, video],
+    [acquireSeekLock, clearPlaybackTimeout, playerReady, video],
   );
 
   useEffect(() => {
@@ -330,20 +418,21 @@ function ShortSessionCard({
   }, [activeSentenceId, isActive, onActiveSentenceChange]);
 
   useEffect(() => {
+    // Reset transcript scroll on every active/inactive transition so the new
+    // session's script starts at the top regardless of where the previous
+    // session was scrolled.
+    resetScriptScrollPosition();
+
     if (!isActive) {
       pendingSentenceRef.current = null;
+      pendingJumpSentenceRef.current = null;
       pendingAutoplayRef.current = false;
-      resetScriptScrollPosition();
+      releaseSeekLock();
       setLoopingSentenceId(null);
       setActiveSentenceId(null);
       stopPlayback();
     }
-  }, [isActive, resetScriptScrollPosition, stopPlayback]);
-
-  useEffect(() => {
-    if (!isActive) return;
-    resetScriptScrollPosition();
-  }, [isActive, resetScriptScrollPosition]);
+  }, [isActive, releaseSeekLock, resetScriptScrollPosition, stopPlayback]);
 
   useEffect(() => {
     setPlayerReady(false);
@@ -367,10 +456,20 @@ function ShortSessionCard({
     }
   }, [resetScriptScrollPosition, scriptVisible]);
 
+  // Stable ref to startSessionPlayback so the activation effect below does not
+  // re-fire whenever the callback identity changes (playerReady, sessionStart/End,
+  // sentences, video — any of these recreate the callback). Without this guard,
+  // a single activation could trigger multiple seeks and blank the highlight
+  // mid-flight.
+  const startSessionPlaybackRef = useRef(startSessionPlayback);
+  useEffect(() => {
+    startSessionPlaybackRef.current = startSessionPlayback;
+  }, [startSessionPlayback]);
+
   useEffect(() => {
     if (!isActive || !video) return;
-    startSessionPlayback();
-  }, [isActive, startSessionPlayback, video?.video_id]);
+    startSessionPlaybackRef.current();
+  }, [isActive, video?.video_id]);
 
   useEffect(() => {
     if (!isActive || hasTrackedImpressionRef.current) return;
@@ -386,15 +485,30 @@ function ShortSessionCard({
   useEffect(() => {
     if (!playerReady || !isActive) return;
 
+    // Latest user intent wins: a queued tap/nav (jump-and-continue) takes
+    // precedence over a queued autoplay or loop preview.
+    if (pendingJumpSentenceRef.current) {
+      const sentence = pendingJumpSentenceRef.current;
+      pendingJumpSentenceRef.current = null;
+      pendingSentenceRef.current = null;
+      pendingAutoplayRef.current = false;
+      jumpToSentence(sentence);
+      return;
+    }
+
     if (pendingSentenceRef.current) {
-      playSentence(pendingSentenceRef.current);
+      const sentence = pendingSentenceRef.current;
+      pendingSentenceRef.current = null;
+      pendingAutoplayRef.current = false;
+      playSentence(sentence);
       return;
     }
 
     if (pendingAutoplayRef.current) {
+      pendingAutoplayRef.current = false;
+      acquireSeekLock();
       playerRef.current?.seekTo(sessionStartSeconds, true);
       setPlaying(true);
-      pendingAutoplayRef.current = false;
       const durationMs = Math.max(
         (sessionEndSeconds - sessionStartSeconds) * 1000,
         1000,
@@ -408,7 +522,9 @@ function ShortSessionCard({
       }, durationMs);
     }
   }, [
+    acquireSeekLock,
     isActive,
+    jumpToSentence,
     playSentence,
     playerReady,
     sessionEndSeconds,
@@ -419,6 +535,7 @@ function ShortSessionCard({
     return () => {
       clearPlaybackTimeout();
       clearProgressInterval();
+      if (seekLockTimeoutRef.current) clearTimeout(seekLockTimeoutRef.current);
     };
   }, [clearPlaybackTimeout, clearProgressInterval]);
 
@@ -454,16 +571,30 @@ function ShortSessionCard({
 
   const handleSentencePress = useCallback(
     (sentence: Sentence) => {
-      playSentence(sentence);
+      // Tap a sentence → seek there and continue session playback (TikTok/Reels
+      // style). Use playSentence only for loop semantics (handleLoopToggle).
+      jumpToSentence(sentence);
     },
-    [playSentence],
+    [jumpToSentence],
   );
 
   const handleSentenceLayout = useCallback(
     (sentenceId: string, event: LayoutChangeEvent) => {
       sentenceOffsetsRef.current[sentenceId] = event.nativeEvent.layout.y;
+
+      // If the active sentence's real layout just arrived, realign so we use
+      // the actual offset instead of the SCRIPT_LINE_HEIGHT fallback (which
+      // is wrong for translated lines).
+      if (
+        sentenceId === activeSentenceIdRef.current &&
+        isCardActiveRef.current &&
+        !shouldResetScriptPositionRef.current &&
+        lastAlignedSentenceIdRef.current !== sentenceId
+      ) {
+        alignTranscriptToSentence(sentenceId);
+      }
     },
-    [],
+    [alignTranscriptToSentence],
   );
 
   const handleScriptViewportLayout = useCallback(
@@ -531,9 +662,11 @@ function ShortSessionCard({
     );
 
     if (nextSentence) {
-      playSentence(nextSentence);
+      // Prev/next nav arrows → seek and continue playback through the rest of
+      // the session (so the auto-scroll keeps following the playhead).
+      jumpToSentence(nextSentence);
     }
-  }, [isActive, navigationRequest, playSentence, sentences]);
+  }, [isActive, jumpToSentence, navigationRequest, sentences]);
 
   const handleLoopToggle = useCallback(
     (sentence: Sentence) => {
