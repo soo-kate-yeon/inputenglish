@@ -5,9 +5,14 @@ export function mapAuthError(err: unknown): string {
   if (msg.includes("User already registered"))
     return "이미 가입된 이메일입니다.";
   if (msg.includes("Invalid login credentials"))
-    return "이메일 또는 비밀번호가 올바르지 않습니다.";
+    return "이메일 또는 비밀번호가 올바르지 않습니다. 소셜(Google·Apple·카카오)로 가입하셨다면 위의 소셜 버튼으로 로그인해 주세요.";
   if (msg.includes("Email not confirmed"))
     return "이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.";
+  if (
+    msg.includes("Unable to exchange external code") ||
+    msg.includes("exchange external code")
+  )
+    return "소셜 로그인 연동에 일시적인 문제가 발생했어요. 잠시 후 다시 시도해주세요.";
   if (msg.includes("rate limit"))
     return "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
   if (msg.includes("Unable to validate email"))

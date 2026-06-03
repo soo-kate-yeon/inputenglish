@@ -240,7 +240,7 @@ describe("StudyScreen professional context flow", () => {
       expect(getByText("쉐도잉")).toBeTruthy();
     });
 
-    expect(getByText("스크립트가 숨겨져 있어요")).toBeTruthy();
+    expect(getByText("자막이 숨겨져 있어요")).toBeTruthy();
     expect(queryByText("Session 첫 문장")).toBeNull();
     expect(queryByText("Session 둘째 문장")).toBeNull();
     expect(queryByText("Session 밖 문장")).toBeNull();

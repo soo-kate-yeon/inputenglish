@@ -75,6 +75,7 @@ import { useAuth } from "../../src/contexts/AuthContext";
 import { recordSessionVisit } from "../../src/lib/recent-sessions";
 import { useSubscription } from "../../src/hooks/useSubscription";
 import { resolveSentencesByIdsOrRange } from "../../src/lib/transcript-navigation";
+import { consumeTransformationTrial } from "../../src/lib/free-usage";
 import {
   colors,
   font,
@@ -948,14 +949,18 @@ export default function StudyScreen() {
   }, [resetRecording]);
 
   const handleTransformationTabPress = useCallback(() => {
-    if (plan === "FREE") {
+    // Already in transformation — don't spend a free trial on a repeat press.
+    if (mainTab === "transformation") return;
+    // FREE users get a lifetime allowance of free transformation trials; once
+    // exhausted, route to the paywall instead of opening the tab.
+    if (plan === "FREE" && !consumeTransformationTrial()) {
       router.push("/paywall");
       return;
     }
     loopIdRef.current = null;
     setLoopingSentenceId(null);
     setMainTab("transformation");
-  }, [plan]);
+  }, [mainTab, plan]);
 
   const handleExpressionSentenceTap = useCallback(
     (sentence: Sentence) => {
@@ -1457,13 +1462,12 @@ export default function StudyScreen() {
             ) : null
           ) : !scriptVisible ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>스크립트가 숨겨져 있어요</Text>
+              <Text style={styles.emptyTitle}>자막이 숨겨져 있어요</Text>
               {mainTab === "listening" ? (
                 <>
                   <Text style={styles.emptySubtitle}>
-                    처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나
-                    하나도 들리지 않는다면 난이도가 더 쉬운 영상으로 먼저
-                    공부하세요.
+                    처음에는 자막 없이 끝까지 들어보세요. 너무 어렵거나 하나도
+                    들리지 않는다면 난이도가 더 쉬운 영상으로 먼저 공부하세요.
                   </Text>
                 </>
               ) : null}
@@ -1577,12 +1581,11 @@ export default function StudyScreen() {
               onPress={() => setBriefExpanded(true)}
             >
               <Ionicons name="document-text-outline" size={18} color="white" />
+              <Text style={styles.studyControlLabel}>브리프</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={
-                scriptVisible ? "스크립트 숨기기" : "스크립트 보기"
-              }
+              accessibilityLabel={scriptVisible ? "자막 숨기기" : "자막 보기"}
               style={[
                 styles.studyControlBtn,
                 scriptVisible && styles.studyControlBtnActive,
@@ -1598,6 +1601,7 @@ export default function StudyScreen() {
                 size={18}
                 color="white"
               />
+              <Text style={styles.studyControlLabel}>자막</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -1615,6 +1619,7 @@ export default function StudyScreen() {
                 size={18}
                 color="white"
               />
+              <Text style={styles.studyControlLabel}>번역</Text>
             </Pressable>
           </View>
         ) : null}
@@ -1861,10 +1866,17 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   studyControlBtn: {
-    width: 40,
-    height: 44,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 12,
+  },
+  studyControlLabel: {
+    fontSize: 12,
+    color: "white",
+    fontWeight: font.weight.medium,
   },
   studyControlBtnActive: {
     backgroundColor: "rgba(255,255,255,0.18)",

@@ -1,17 +1,20 @@
 module.exports = function (api) {
   api.cache(true);
   return {
-    presets: ['babel-preset-expo'],
+    presets: ["babel-preset-expo"],
     plugins: [
       [
-        'module-resolver',
+        "module-resolver",
         {
-          root: ['./src'],
+          root: ["./src"],
           alias: {
-            '@': './src',
+            "@": "./src",
           },
         },
       ],
+      // react-native-reanimated/plugin MUST be last in the plugins array.
+      // Required for worklet compilation (UI-thread animations).
+      "react-native-reanimated/plugin",
     ],
   };
 };

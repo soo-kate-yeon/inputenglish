@@ -31,9 +31,9 @@ describe("AppEntryScreen", () => {
     };
   });
 
-  it("routes signed-out users to intro", () => {
+  it("routes signed-out users straight to login (intro funnel removed)", () => {
     const { getByText } = render(<AppEntryScreen />);
-    expect(getByText("/intro")).toBeTruthy();
+    expect(getByText("/(auth)/login")).toBeTruthy();
   });
 
   it("routes signed-in users without onboarding completion to onboarding", () => {

@@ -8,7 +8,6 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -17,7 +16,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { appStore, studyStore } from "@/lib/stores";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { getCustomerInfo } from "@/lib/revenue-cat";
 import { colors, font, radius, shadow, spacing } from "@/theme";
 
@@ -241,8 +239,6 @@ export default function ProfileScreen() {
 
   const sessions = studyStore((s) => s.sessions);
   const completedSessions = sessions.filter((s) => s.isCompleted).length;
-  const { studyReminder, newContent, streak, toggle } =
-    useNotificationSettings();
 
   const isPremium = plan === "PREMIUM";
 
@@ -427,50 +423,6 @@ export default function ProfileScreen() {
               <Text style={styles.statValue}>{completedSessions}</Text>
               <Text style={styles.statLabel}>완료 세션</Text>
             </View>
-          </View>
-        </View>
-
-        {/* Notification settings */}
-        <View style={styles.group}>
-          <Text style={styles.groupLabel}>알림 설정</Text>
-          <View style={styles.groupSurface}>
-            <SettingRow
-              label="학습 리마인더"
-              right={
-                <Switch
-                  value={studyReminder}
-                  onValueChange={() => toggle("studyReminder")}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.bg}
-                  accessibilityLabel="학습 리마인더 알림 토글"
-                />
-              }
-            />
-            <SettingRow
-              label="새 콘텐츠"
-              right={
-                <Switch
-                  value={newContent}
-                  onValueChange={() => toggle("newContent")}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.bg}
-                  accessibilityLabel="새 콘텐츠 알림 토글"
-                />
-              }
-            />
-            <SettingRow
-              label="연속 학습"
-              last
-              right={
-                <Switch
-                  value={streak}
-                  onValueChange={() => toggle("streak")}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.bg}
-                  accessibilityLabel="연속 학습 알림 토글"
-                />
-              }
-            />
           </View>
         </View>
 

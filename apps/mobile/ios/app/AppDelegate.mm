@@ -1,5 +1,8 @@
 #import "AppDelegate.h"
 
+#import <AuthenticationServices/AuthenticationServices.h>
+#import <SafariServices/SafariServices.h>
+#import <FBSDKCoreKit/FBSDKCoreKit-Swift.h>
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
 
@@ -12,6 +15,9 @@
   // You can add your custom initial props in the dictionary below.
   // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
+
+  [[FBSDKApplicationDelegate sharedInstance] application:application
+                       didFinishLaunchingWithOptions:launchOptions];
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }
@@ -32,7 +38,13 @@
 
 // Linking API
 - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
-  return [super application:application openURL:url options:options] || [RCTLinkingManager application:application openURL:url options:options];
+  BOOL handledByFacebook = [[FBSDKApplicationDelegate sharedInstance] application:application
+                                                                          openURL:url
+                                                                          options:options];
+  BOOL handledBySuper = [super application:application openURL:url options:options];
+  BOOL handledByReactNative = [RCTLinkingManager application:application openURL:url options:options];
+
+  return handledByFacebook || handledBySuper || handledByReactNative;
 }
 
 // Universal Links

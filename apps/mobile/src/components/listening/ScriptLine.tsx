@@ -110,8 +110,6 @@ const styles = StyleSheet.create({
 
   containerActive: {},
   containerDark: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderOnDark,
     backgroundColor: "transparent",
   },
   containerDarkActive: {

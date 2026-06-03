@@ -63,7 +63,7 @@ export const INTRO_SCENES: IntroScene[] = [
     id: "scene-5",
     title:
       "그냥 수십 번, 수백 번, 수천 번 문장을 보고 읽고 만들어보면 되는 거예요.",
-    mediaLabel: "스크립트, 카드, 녹음을 상징하는 placeholder",
+    mediaLabel: "자막, 카드, 녹음을 상징하는 placeholder",
     mediaSource: INTRO_MEDIA_SOURCES[4],
   },
   {

@@ -13,14 +13,16 @@ export interface NetworkStatus {
   isConnected: boolean;
 }
 
-// How long to wait before confirming offline — prevents false positives on app foreground
-const OFFLINE_DEBOUNCE_MS = 3000;
+// How long to wait before confirming offline — prevents false positives on app
+// foreground (e.g. iOS re-checking connectivity on resume can take a few seconds).
+const OFFLINE_DEBOUNCE_MS = 5000;
 
 function isStateOnline(s: NetworkState): boolean {
-  return (
-    s.isConnected &&
-    (s.isInternetReachable === null || s.isInternetReachable === true)
-  );
+  // Only a true link loss (isConnected === false) counts as offline. Captive
+  // portals, slow cellular, and iOS foreground re-checks transiently report
+  // isInternetReachable === false while the device is still usable — that was
+  // the main source of false-positive offline banners, so we ignore it here.
+  return s.isConnected !== false;
 }
 
 export function useNetworkStatus(): NetworkStatus {

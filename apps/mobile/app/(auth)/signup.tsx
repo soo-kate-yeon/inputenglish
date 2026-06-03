@@ -1,6 +1,143 @@
 import React from "react";
-import { Redirect } from "expo-router";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ImageBackground,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Link } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OAuthButtons } from "@/components/auth/OAuthButtons";
+import { SignupForm } from "@/components/auth/SignupForm";
 
 export default function SignupScreen() {
-  return <Redirect href="/intro?scene=9" />;
+  const insets = useSafeAreaInsets();
+
+  return (
+    <ImageBackground
+      source={require("../../assets/images/paywall-bg.png")}
+      style={styles.root}
+      resizeMode="cover"
+    >
+      {/* Gradient Dimming Layer */}
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.4)", "rgba(0,0,0,0.88)"]}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Slogan - centered */}
+      <View style={styles.sloganContainer}>
+        <Text style={styles.slogan}>
+          가장 좋은 영어 인풋을{"\n"}무제한으로, 매일 받아보세요
+        </Text>
+        <Text style={styles.body}>
+          엄선된 테크 리더, 정재계 인사, 업계 전문가의{"\n"}표현을 따라 말하며
+          체화해보세요.{"\n"}좋은 인풋이 통하는 영어 실력을 만듭니다.
+        </Text>
+      </View>
+
+      {/* Auth CTAs - bottom */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.keyboardAvoid}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.ctaContainer,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <OAuthButtons />
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>또는</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <SignupForm />
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>이미 계정이 있으신가요? </Text>
+            <Link href="/(auth)/login">
+              <Text style={styles.footerLink}>로그인</Text>
+            </Link>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  sloganContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+  },
+  slogan: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: "#fff",
+    textAlign: "center",
+    lineHeight: 46,
+    letterSpacing: -1,
+  },
+  body: {
+    marginTop: 16,
+    fontSize: 15,
+    fontWeight: "400",
+    color: "rgba(255,255,255,0.65)",
+    textAlign: "center",
+    lineHeight: 24,
+    letterSpacing: 0.1,
+  },
+  keyboardAvoid: {
+    maxHeight: "68%",
+  },
+  ctaContainer: {
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  dividerText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  footerText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
+  },
+  footerLink: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});

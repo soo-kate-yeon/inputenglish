@@ -202,9 +202,9 @@ export default function LongformScriptSheet({
           style={styles.headerRow}
           onPress={() => animateTo(!expanded)}
           accessibilityRole="button"
-          accessibilityLabel={expanded ? "스크립트 접기" : "스크립트 펼치기"}
+          accessibilityLabel={expanded ? "자막 접기" : "자막 펼치기"}
         >
-          <Text style={styles.headerTitle}>스크립트</Text>
+          <Text style={styles.headerTitle}>자막</Text>
           <View style={styles.headerActions}>
             <Ionicons
               name={expanded ? "chevron-down" : "chevron-up"}
@@ -214,7 +214,7 @@ export default function LongformScriptSheet({
             {expanded ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="스크립트 닫기"
+                accessibilityLabel="자막 닫기"
                 hitSlop={8}
                 onPress={() => animateTo(false)}
                 style={styles.closeButton}
@@ -258,7 +258,7 @@ export default function LongformScriptSheet({
                   !scriptHidden && styles.toggleChipTextActive,
                 ]}
               >
-                스크립트 표시
+                자막 표시
               </Text>
             </Pressable>
           </View>

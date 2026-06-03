@@ -56,25 +56,43 @@ export function OAuthButtons() {
         redirectTo,
       );
 
-      if (result.type === "success") {
+      if (result.type === "success" && result.url) {
         const url = new URL(result.url);
+        const errParam =
+          url.searchParams.get("error_description") ??
+          url.searchParams.get("error");
+        if (errParam) {
+          throw new Error(`OAuth provider returned an error: ${errParam}`);
+        }
         const code = url.searchParams.get("code");
         if (code) {
           await completeOAuthCodeExchange(code);
+          return;
         }
+        // Returned to the app scheme but without a code — usually means the
+        // Supabase Redirect URL allowlist is missing `inputenglish://auth/callback`,
+        // so the OAuth callback fell back to the Site URL.
+        console.warn(
+          `[OAuthButtons] ${provider} callback had no code: ${result.url}`,
+        );
+      } else if (result.type !== "success") {
+        // dismiss / cancel — the auth browser closed before returning to the app
+        // scheme (the "bounce"). Most often a redirect-URL misconfiguration.
+        console.warn(
+          `[OAuthButtons] ${provider} auth session did not complete: ${result.type}`,
+        );
       }
     } catch (err: unknown) {
-      if (
-        err &&
-        typeof err === "object" &&
-        "message" in err &&
-        typeof err.message === "string" &&
-        err.message.includes("Code verifier")
-      ) {
-        // If the root deep-link handler already consumed the code, treat it as a
-        // completed sign-in instead of surfacing a false failure toast.
-        return;
-      }
+      // The code exchange is de-duped in AuthContext, so a thrown error here is
+      // real — but the deep-link listener may have completed sign-in on another
+      // path. Treat an existing session as success; otherwise surface the error
+      // (previously a "Code verifier" error was silently swallowed, leaving the
+      // user stuck on the login screen with no feedback).
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) return;
+
       console.error(`[OAuthButtons] ${provider} sign in failed:`, err);
       Alert.alert("로그인 오류", mapAuthError(err));
     } finally {

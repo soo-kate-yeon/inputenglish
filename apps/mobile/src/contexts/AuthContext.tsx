@@ -8,6 +8,7 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   ReactNode,
 } from "react";
 import { AppState, AppStateStatus, Platform } from "react-native";
@@ -20,6 +21,8 @@ import {
 } from "@supabase/supabase-js";
 import type { LearningProfile } from "@inputenglish/shared";
 import { supabase } from "@/lib/supabase";
+import { AUTH_CALLBACK_URL } from "@/constants/config";
+import { normalizeEmail } from "@/lib/email";
 import { appStore } from "@/lib/stores";
 import { trackEvent } from "@/lib/analytics";
 import { clearDailyInputQueueCache } from "@/lib/daily-input";
@@ -51,6 +54,10 @@ interface AuthContextType {
   ) => Promise<void>;
   signInWithApple: () => Promise<void>;
   completeOAuthCodeExchange: (code: string) => Promise<Session | null>;
+  resendConfirmationEmail: (email: string) => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
+  isPasswordRecovery: boolean;
   refreshUser: () => Promise<void>;
   refreshLearningProfile: () => Promise<void>;
   updateLearningProfile: (
@@ -142,6 +149,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   );
 
+  // True while a password-recovery deep link is being handled, so the root
+  // navigation guard routes to the reset-password screen instead of the app.
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+
+  // De-dupes OAuth code exchange: the WebBrowser result and the deep-link
+  // listener can both deliver the same single-use PKCE code. Exchanging it
+  // twice fails the second call with a "Code verifier" error.
+  const oauthExchangeRef = useRef<{
+    code: string;
+    promise: Promise<Session | null>;
+  } | null>(null);
+
   const applyAuthenticatedSession = useCallback(
     async (nextSession: Session): Promise<void> => {
       setIsProfileLoading(true);
@@ -207,6 +226,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(newSession?.user ?? null);
         setIsLoading(false);
 
+        if (event === "PASSWORD_RECOVERY") {
+          // Recovery deep link consumed — route to the reset-password screen.
+          setIsPasswordRecovery(true);
+        }
+
         if (event === "SIGNED_IN" && newSession) {
           setIsProfileLoading(true);
           void loadLearningProfile(newSession.user);
@@ -223,7 +247,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser(null);
           setSession(null);
           setLearningProfile(null);
-          router.replace("/intro?scene=9" as never);
+          router.replace("/(auth)/login" as never);
         } else if (event === "TOKEN_REFRESHED" && newSession) {
           setUser(newSession.user);
         }
@@ -262,7 +286,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         const { data, error: signInError } =
           await supabase.auth.signInWithPassword({
-            email,
+            email: normalizeEmail(email),
             password,
           });
 
@@ -297,7 +321,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setError(null);
 
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
+          email: normalizeEmail(email),
           password,
           options: {
             data: {
@@ -337,7 +361,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setSession(null);
       setLearningProfile(null);
-      router.replace("/intro?scene=9" as never);
+      router.replace("/(auth)/login" as never);
     } catch (err) {
       console.error("[AuthContext] Sign out error:", err);
       setError(err instanceof Error ? err : new Error("Failed to sign out"));
@@ -433,23 +457,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const completeOAuthCodeExchange = useCallback(
     async (code: string): Promise<Session | null> => {
-      try {
-        setIsLoading(true);
-        setError(null);
+      // Exchange a single-use PKCE code exactly once. Both the WebBrowser result
+      // (OAuthButtons) and the deep-link listener (_layout) can deliver the same
+      // code; concurrent/duplicate callers await the same in-flight result
+      // instead of double-spending the code (which fails the 2nd with a "Code
+      // verifier" error and previously left the user stranded on login).
+      if (oauthExchangeRef.current?.code === code) {
+        return oauthExchangeRef.current.promise;
+      }
 
+      const exchange = (async (): Promise<Session | null> => {
         const { data, error: exchangeError } =
           await supabase.auth.exchangeCodeForSession(code);
-
         if (exchangeError) {
           throw exchangeError;
         }
-
         if (data.session) {
           await applyAuthenticatedSession(data.session);
           return data.session;
         }
-
         return null;
+      })();
+
+      oauthExchangeRef.current = { code, promise: exchange };
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        return await exchange;
       } catch (err) {
         console.error("[AuthContext] OAuth code exchange error:", err);
         setError(
@@ -463,6 +498,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     },
     [applyAuthenticatedSession],
+  );
+
+  const resendConfirmationEmail = useCallback(
+    async (email: string): Promise<void> => {
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: normalizeEmail(email),
+      });
+      if (resendError) throw resendError;
+    },
+    [],
+  );
+
+  const sendPasswordResetEmail = useCallback(
+    async (email: string): Promise<void> => {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        normalizeEmail(email),
+        { redirectTo: AUTH_CALLBACK_URL },
+      );
+      if (resetError) throw resetError;
+    },
+    [],
+  );
+
+  const updatePassword = useCallback(
+    async (newPassword: string): Promise<void> => {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updateError) throw updateError;
+      setIsPasswordRecovery(false);
+    },
+    [],
   );
 
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -507,7 +575,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setSession(null);
       setLearningProfile(null);
-      router.replace("/intro?scene=9" as never);
+      router.replace("/(auth)/login" as never);
     } catch (err) {
       console.error("[AuthContext] Delete account error:", err);
       setError(
@@ -535,6 +603,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signInWithOAuth,
       signInWithApple,
       completeOAuthCodeExchange,
+      resendConfirmationEmail,
+      sendPasswordResetEmail,
+      updatePassword,
+      isPasswordRecovery,
       refreshUser,
       refreshLearningProfile,
       updateLearningProfile,
@@ -554,6 +626,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signInWithOAuth,
       signInWithApple,
       completeOAuthCodeExchange,
+      resendConfirmationEmail,
+      sendPasswordResetEmail,
+      updatePassword,
+      isPasswordRecovery,
       refreshUser,
       refreshLearningProfile,
       updateLearningProfile,

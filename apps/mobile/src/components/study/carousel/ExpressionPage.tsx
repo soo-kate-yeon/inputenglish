@@ -76,10 +76,7 @@ export function ExpressionPage({
             <Text style={styles.eyebrow}>PLAY</Text>
             <Text style={styles.sentenceText}>{sentence.text}</Text>
             {sentence.translation ? (
-              <Text style={styles.translationText}>
-                {"// "}
-                {sentence.translation}
-              </Text>
+              <Text style={styles.translationText}>{sentence.translation}</Text>
             ) : null}
           </Pressable>
         ))}

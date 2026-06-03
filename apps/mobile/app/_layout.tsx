@@ -13,6 +13,7 @@ import { configureRevenueCat, logInRevenueCat } from "@/lib/revenue-cat";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { initSentry, setUser as setSentryUser, wrap } from "@/lib/sentry";
 import { identifyUser, resetAnalyticsUser } from "@/lib/posthog";
+import { initializeFacebookSdk } from "@/lib/facebook-sdk";
 import "react-native-url-polyfill/auto";
 import * as Notifications from "expo-notifications";
 
@@ -28,6 +29,7 @@ export function RootLayoutNav() {
     completeOAuthCodeExchange,
     isInitialized,
     isProfileLoading,
+    isPasswordRecovery,
     learningProfile,
     user,
   } = useAuth();
@@ -48,6 +50,17 @@ export function RootLayoutNav() {
   useEffect(() => {
     if (!isInitialized) return;
     if (user && isProfileLoading) return;
+
+    // Password recovery: the reset deep link signs the user in, but we must
+    // route them to set a new password rather than into the app.
+    if (isPasswordRecovery) {
+      const inResetPassword =
+        segments[0] === "(auth)" && segments[1] === "reset-password";
+      if (!inResetPassword) {
+        router.replace("/(auth)/reset-password" as never);
+      }
+      return;
+    }
 
     const inAuthGroup = segments[0] === "(auth)";
     const inIntro = segments[0] === "intro";
@@ -73,6 +86,7 @@ export function RootLayoutNav() {
     user,
     isInitialized,
     isProfileLoading,
+    isPasswordRecovery,
     learningProfile,
     segments,
     edit,
@@ -87,6 +101,10 @@ export function RootLayoutNav() {
     } catch (e) {
       console.warn("[Notifications] setupNotificationHandler failed:", e);
     }
+  }, []);
+
+  useEffect(() => {
+    initializeFacebookSdk();
   }, []);
 
   // Register push token when user logs in (AC-PUSH-001, 002)
@@ -138,7 +156,11 @@ export function RootLayoutNav() {
         const urlObj = new URL(url);
         const code = urlObj.searchParams.get("code");
         if (code) {
-          await completeOAuthCodeExchange(code);
+          try {
+            await completeOAuthCodeExchange(code);
+          } catch (err) {
+            console.warn("[deeplink] OAuth code exchange failed:", err);
+          }
         }
       }
     };

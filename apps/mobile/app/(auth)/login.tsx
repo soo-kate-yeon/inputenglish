@@ -19,7 +19,7 @@ export default function LoginScreen() {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/login-bg.png")}
+      source={require("../../assets/images/paywall-bg.png")}
       style={styles.root}
       resizeMode="cover"
     >
@@ -32,7 +32,9 @@ export default function LoginScreen() {
 
       {/* Slogan - centered */}
       <View style={styles.sloganContainer}>
-        <Text style={styles.slogan}>리더들의 영어를,{"\n"}당신의 영어로</Text>
+        <Text style={styles.slogan}>
+          가장 좋은 영어 인풋을{"\n"}무제한으로, 매일 받아보세요
+        </Text>
         <Text style={styles.body}>
           엄선된 테크 리더, 정재계 인사, 업계 전문가의{"\n"}표현을 따라 말하며
           체화해보세요.{"\n"}좋은 인풋이 통하는 영어 실력을 만듭니다.

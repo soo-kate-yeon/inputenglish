@@ -354,17 +354,17 @@ export default function ShadowingScreen() {
       <View style={styles.content}>
         {!scriptVisible ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>스크립트가 숨겨져 있어요</Text>
+            <Text style={styles.emptyTitle}>자막이 숨겨져 있어요</Text>
             <Text style={styles.emptySubtitle}>
-              소리만 듣고 따라 말해보세요. 필요할 때만 스크립트를 열어서
-              확인하면 더 집중하기 쉬워요.
+              소리만 듣고 따라 말해보세요. 필요할 때만 자막을 열어서 확인하면 더
+              집중하기 쉬워요.
             </Text>
           </View>
         ) : !currentSentence ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>스크립트가 없어요</Text>
+            <Text style={styles.emptyTitle}>자막이 없어요</Text>
             <Text style={styles.emptySubtitle}>
-              이 영상에는 쉐도잉에 사용할 스크립트가 아직 준비되지 않았어요.
+              이 영상에는 쉐도잉에 사용할 자막이 아직 준비되지 않았어요.
             </Text>
           </View>
         ) : (
@@ -452,7 +452,7 @@ export default function ShadowingScreen() {
               onPress={() => setScriptVisible((v) => !v)}
             >
               <Text style={styles.scriptToggleText}>
-                {scriptVisible ? "스크립트 숨기기" : "스크립트 보기"}
+                {scriptVisible ? "자막 숨기기" : "자막 보기"}
               </Text>
             </Pressable>
           </View>

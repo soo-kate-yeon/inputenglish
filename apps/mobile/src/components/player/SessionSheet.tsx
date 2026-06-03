@@ -267,7 +267,7 @@ export default function SessionSheet() {
 
       {/* Script */}
       <View style={styles.scriptHeader}>
-        <Text style={styles.scriptLabel}>스크립트</Text>
+        <Text style={styles.scriptLabel}>자막</Text>
       </View>
 
       <FlatList

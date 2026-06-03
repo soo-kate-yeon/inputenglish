@@ -1,3 +1,11 @@
+// @MX:NOTE: Shorts session card — audio↔transcript sync (100ms polling) and
+//   active-sentence auto-scroll. The transcript is a plain ScrollView (NOT a
+//   FlatList) because it is nested inside the vertical paging shorts feed:
+//   nesting a same-orientation VirtualizedList breaks programmatic scroll.
+//   ScrollView.scrollTo works even with scrollEnabled=false, so the feed keeps
+//   its swipe gesture while we drive the active line to the top via measured
+//   row offsets (re-applied when onLayout reports a row's real position).
+// @MX:SPEC: SPEC-MOBILE-019
 import React, {
   useCallback,
   useEffect,
@@ -7,8 +15,9 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  LayoutChangeEvent,
+  type LayoutChangeEvent,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,12 +30,12 @@ import type {
 } from "@inputenglish/shared";
 import type { SessionListItem } from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
+import { safeSelectionAsync, safeImpactAsync } from "@/lib/safeHaptic";
+import { ImpactFeedbackStyle } from "expo-haptics";
 import YouTubePlayer, {
   type YouTubePlayerHandle,
 } from "@/components/player/YouTubePlayer";
-import ScriptLine, {
-  SCRIPT_LINE_HEIGHT,
-} from "@/components/listening/ScriptLine";
+import ScriptLine from "@/components/listening/ScriptLine";
 import {
   getAdjacentSentence,
   resolveSentencesByIdsOrRange,
@@ -76,16 +85,22 @@ function ShortSessionCard({
     null,
   );
   const [activeSentenceId, setActiveSentenceId] = useState<string | null>(null);
-  const [transcriptOffset, setTranscriptOffset] = useState(0);
+  // Height of the transcript viewport. Used as the content bottom padding so
+  // even the last sentence can be scrolled all the way to the top.
+  const [scriptViewportHeight, setScriptViewportHeight] = useState(0);
 
   const playerRef = useRef<YouTubePlayerHandle>(null);
+  // Plain ScrollView (see file header for why not FlatList). scrollTo() drives
+  // the active line to the top.
+  const scrollRef = useRef<ScrollView>(null);
+  // Measured top offset (within the scroll content) of each sentence row,
+  // keyed by sentence id. Repopulated on every layout pass (translation toggle,
+  // session change) so scrollTo always targets the row's real position.
+  const sentenceYRef = useRef<Record<string, number>>({});
   const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
-  const sentenceOffsetsRef = useRef<Record<string, number>>({});
-  const lastAlignedSentenceIdRef = useRef<string | null>(null);
-  const shouldResetScriptPositionRef = useRef(true);
   const activeSessionIdRef = useRef(session.id);
   const isCardActiveRef = useRef(isActive);
   const pendingSentenceRef = useRef<Sentence | null>(null);
@@ -98,8 +113,6 @@ function ShortSessionCard({
   const loopingSentenceIdRef = useRef<string | null>(null);
   const hasTrackedImpressionRef = useRef(false);
   const activeSentenceIdRef = useRef<string | null>(null);
-  const scriptViewportHeightRef = useRef(0);
-  const scriptContentHeightRef = useRef(0);
   const handledNavigationNonceRef = useRef<number | null>(null);
   const onSessionEndRef = useRef(onSessionEnd);
   const sessionEndFiredRef = useRef(false);
@@ -167,46 +180,24 @@ function ShortSessionCard({
     }
   }, []);
 
-  const clampTranscriptOffset = useCallback((offset: number) => {
-    const maxOffset = Math.max(
-      scriptContentHeightRef.current - scriptViewportHeightRef.current,
-      0,
-    );
-    return Math.max(0, Math.min(offset, maxOffset));
-  }, []);
-
-  const updateTranscriptOffset = useCallback(
-    (offset: number) => {
-      setTranscriptOffset(clampTranscriptOffset(offset));
+  // Scroll the active sentence to the TOP of the transcript viewport. Uses the
+  // measured row offset; if the row hasn't been measured yet, this is a no-op
+  // and handleSentenceLayout will scroll once its onLayout fires. We do not gate
+  // on seekLock: when the active sentence changes (tap/jump/polling) we always
+  // want the list to follow it.
+  const scrollActiveSentenceToTop = useCallback(
+    (sentenceId: string | null, animated: boolean) => {
+      if (!sentenceId) return;
+      const y = sentenceYRef.current[sentenceId];
+      if (typeof y !== "number") return;
+      scrollRef.current?.scrollTo({ y: Math.max(y, 0), animated });
     },
-    [clampTranscriptOffset],
+    [],
   );
 
   const resetScriptScrollPosition = useCallback(() => {
-    shouldResetScriptPositionRef.current = true;
-    lastAlignedSentenceIdRef.current = null;
-    sentenceOffsetsRef.current = {};
-    scriptViewportHeightRef.current = 0;
-    scriptContentHeightRef.current = 0;
-    updateTranscriptOffset(0);
-  }, [updateTranscriptOffset]);
-
-  const alignTranscriptToSentence = useCallback(
-    (sentenceId: string) => {
-      const sentenceOffset = sentenceOffsetsRef.current[sentenceId];
-      const fallbackIndex = sentences.findIndex(
-        (sentence) => sentence.id === sentenceId,
-      );
-      const targetOffset =
-        typeof sentenceOffset === "number"
-          ? sentenceOffset
-          : Math.max(fallbackIndex, 0) * SCRIPT_LINE_HEIGHT;
-
-      updateTranscriptOffset(Math.max(targetOffset - spacing.xs, 0));
-      lastAlignedSentenceIdRef.current = sentenceId;
-    },
-    [sentences, updateTranscriptOffset],
-  );
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
 
   const syncActiveSentence = useCallback(async () => {
     if (!video || !playerReady || sentences.length === 0) return;
@@ -273,7 +264,7 @@ function ShortSessionCard({
     setLoopingSentenceId(null);
 
     // Optimistic highlight: surface the first sentence immediately so the user
-    // sees feedback before the 250ms polling loop catches up. Polling will
+    // sees feedback before the 100ms polling loop catches up. Polling will
     // refine this within one tick.
     const firstSentence = sentences[0];
     if (firstSentence) {
@@ -440,14 +431,18 @@ function ShortSessionCard({
     hasTrackedImpressionRef.current = false;
     handledNavigationNonceRef.current = null;
     sessionEndFiredRef.current = false;
+    // New session/video → previously measured row offsets are stale.
+    sentenceYRef.current = {};
     resetScriptScrollPosition();
     setLoopingSentenceId(null);
     setActiveSentenceId(null);
   }, [resetScriptScrollPosition, session.id, video?.video_id]);
 
   useEffect(() => {
-    sentenceOffsetsRef.current = {};
-    lastAlignedSentenceIdRef.current = null;
+    // Translation toggle changes row heights → previously measured offsets are
+    // stale. Clear them; onLayout will repopulate and re-scroll to the active
+    // row (handleSentenceLayout), and the effect below re-fires on showTranslation.
+    sentenceYRef.current = {};
   }, [showTranslation]);
 
   useEffect(() => {
@@ -552,9 +547,12 @@ function ShortSessionCard({
     }
 
     void syncActiveSentence();
+    // 100ms matches the regular study tab's polling cadence so the active-line
+    // highlight and auto-scroll follow the audio without the ~250ms lag that
+    // made shorts sync feel unstable.
     progressIntervalRef.current = setInterval(() => {
       void syncActiveSentence();
-    }, 250);
+    }, 100);
 
     return () => {
       clearProgressInterval();
@@ -573,79 +571,51 @@ function ShortSessionCard({
     (sentence: Sentence) => {
       // Tap a sentence → seek there and continue session playback (TikTok/Reels
       // style). Use playSentence only for loop semantics (handleLoopToggle).
+      // REQ-019-P3-02: fire-and-forget selection haptic before seek.
+      safeSelectionAsync();
       jumpToSentence(sentence);
     },
     [jumpToSentence],
   );
 
+  const handleScriptViewportLayout = useCallback((event: LayoutChangeEvent) => {
+    setScriptViewportHeight(event.nativeEvent.layout.height);
+  }, []);
+
   const handleSentenceLayout = useCallback(
     (sentenceId: string, event: LayoutChangeEvent) => {
-      sentenceOffsetsRef.current[sentenceId] = event.nativeEvent.layout.y;
-
-      // If the active sentence's real layout just arrived, realign so we use
-      // the actual offset instead of the SCRIPT_LINE_HEIGHT fallback (which
-      // is wrong for translated lines).
+      sentenceYRef.current[sentenceId] = event.nativeEvent.layout.y;
+      // When the active sentence's real position arrives (initial layout, or a
+      // height change from the translation toggle), scroll to it now. This is
+      // the fix for the old bug where a one-shot align ran before measurement
+      // and was never corrected — so the active line never rose to the top.
       if (
         sentenceId === activeSentenceIdRef.current &&
         isCardActiveRef.current &&
-        !shouldResetScriptPositionRef.current &&
-        lastAlignedSentenceIdRef.current !== sentenceId
+        scriptVisible
       ) {
-        alignTranscriptToSentence(sentenceId);
+        scrollActiveSentenceToTop(sentenceId, true);
       }
     },
-    [alignTranscriptToSentence],
+    [scriptVisible, scrollActiveSentenceToTop],
   );
 
-  const handleScriptViewportLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      scriptViewportHeightRef.current = event.nativeEvent.layout.height;
-      if (
-        activeSentenceIdRef.current &&
-        !shouldResetScriptPositionRef.current
-      ) {
-        alignTranscriptToSentence(activeSentenceIdRef.current);
-      }
-    },
-    [alignTranscriptToSentence],
-  );
-
-  const handleScriptContentLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      scriptContentHeightRef.current = event.nativeEvent.layout.height;
-
-      if (shouldResetScriptPositionRef.current) {
-        shouldResetScriptPositionRef.current = false;
-        updateTranscriptOffset(0);
-        return;
-      }
-
-      if (
-        activeSentenceIdRef.current &&
-        scriptVisible &&
-        isCardActiveRef.current
-      ) {
-        alignTranscriptToSentence(activeSentenceIdRef.current);
-      }
-    },
-    [alignTranscriptToSentence, scriptVisible, updateTranscriptOffset],
-  );
-
+  // Follow the active sentence: scroll it to the top whenever it changes, or
+  // when the translation toggle alters row heights. requestAnimationFrame lets
+  // the new layout settle before we read the measured offset.
   useEffect(() => {
     if (!isActive || !scriptVisible || !activeSentenceId) return;
-    if (shouldResetScriptPositionRef.current) return;
-    if (lastAlignedSentenceIdRef.current === activeSentenceId) return;
 
     const frame = requestAnimationFrame(() => {
-      alignTranscriptToSentence(activeSentenceId);
+      scrollActiveSentenceToTop(activeSentenceId, true);
     });
 
     return () => cancelAnimationFrame(frame);
   }, [
     activeSentenceId,
-    alignTranscriptToSentence,
     isActive,
     scriptVisible,
+    scrollActiveSentenceToTop,
     showTranslation,
   ]);
 
@@ -670,6 +640,8 @@ function ShortSessionCard({
 
   const handleLoopToggle = useCallback(
     (sentence: Sentence) => {
+      // REQ-019-P3-03: Light impact haptic on loop toggle (fire-and-forget).
+      safeImpactAsync(ImpactFeedbackStyle.Light);
       setLoopingSentenceId((current) => {
         const next = current === sentence.id ? null : sentence.id;
         loopingSentenceIdRef.current = next;
@@ -689,6 +661,8 @@ function ShortSessionCard({
 
   const handleSentenceSaveToggle = useCallback(
     (sentence: Sentence) => {
+      // REQ-019-P3-04: Light impact haptic on sentence save toggle (fire-and-forget).
+      safeImpactAsync(ImpactFeedbackStyle.Light);
       const existing = savedSentences.find(
         (item) =>
           item.sentenceId === sentence.id &&
@@ -781,32 +755,35 @@ function ShortSessionCard({
         ]}
         onLayout={handleScriptViewportLayout}
       >
-        {/* Keep only the outer shorts pager scrollable; transcript movement is programmatic. */}
-        <View
-          key={`${session.id}-${video?.video_id ?? "pending"}-${
-            showTranslation ? "translation" : "original"
-          }-${isActive ? "active" : "inactive"}`}
-          style={[
-            styles.scriptContent,
-            {
-              paddingBottom: spacing.xl + bottomOverlayInset,
-              transform: [{ translateY: -transcriptOffset }],
-            },
-          ]}
-          onLayout={handleScriptContentLayout}
-        >
-          {!scriptVisible ? (
-            <View style={styles.scriptHiddenState}>
-              <Text style={styles.scriptHiddenTitle}>
-                스크립트가 숨겨져 있어요
-              </Text>
-              <Text style={styles.scriptHiddenSubtitle}>
-                처음에는 스크립트 없이 끝까지 들어보세요. 너무 어렵거나 하나도
-                들리지 않는다면 난이도가 더 쉬운 영상으로 먼저 공부하세요.
-              </Text>
-            </View>
-          ) : sentences.length > 0 ? (
-            sentences.map((sentence) => (
+        {!scriptVisible ? (
+          <View style={styles.scriptHiddenState}>
+            <Text style={styles.scriptHiddenTitle}>자막이 숨겨져 있어요</Text>
+            <Text style={styles.scriptHiddenSubtitle}>
+              처음에는 자막 없이 끝까지 들어보세요. 너무 어렵거나 하나도 들리지
+              않는다면 난이도가 더 쉬운 영상으로 먼저 공부하세요.
+            </Text>
+          </View>
+        ) : sentences.length > 0 ? (
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scriptList}
+            contentContainerStyle={[
+              styles.scriptContent,
+              {
+                // Bottom padding ≈ viewport height so even the last sentence can
+                // be scrolled all the way to the top.
+                paddingBottom:
+                  Math.max(scriptViewportHeight, spacing.xl) +
+                  bottomOverlayInset,
+              },
+            ]}
+            // Programmatic-scroll only: the vertical shorts pager owns swipe
+            // gestures, so the transcript must not capture pan. scrollTo() still
+            // works with scrollEnabled=false on both iOS and Android.
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          >
+            {sentences.map((sentence) => (
               <View
                 key={sentence.id}
                 onLayout={(event) => handleSentenceLayout(sentence.id, event)}
@@ -816,9 +793,9 @@ function ShortSessionCard({
                   isActive={activeSentenceId === sentence.id}
                   isLooping={loopingSentenceId === sentence.id}
                   isSaved={savedSentences.some(
-                    (item) =>
-                      item.sentenceId === sentence.id &&
-                      item.videoId === session.source_video_id,
+                    (saved) =>
+                      saved.sentenceId === sentence.id &&
+                      saved.videoId === session.source_video_id,
                   )}
                   tone="dark"
                   scriptHidden={false}
@@ -829,13 +806,11 @@ function ShortSessionCard({
                   onSaveToggle={handleSentenceSaveToggle}
                 />
               </View>
-            ))
-          ) : (
-            <Text style={styles.placeholderText}>
-              스크립트를 준비하는 중이에요.
-            </Text>
-          )}
-        </View>
+            ))}
+          </ScrollView>
+        ) : (
+          <Text style={styles.placeholderText}>자막을 준비하는 중이에요.</Text>
+        )}
       </View>
     </View>
   );
@@ -892,6 +867,9 @@ const styles = StyleSheet.create({
     minHeight: 0,
     backgroundColor: colors.bgDark,
     overflow: "hidden",
+  },
+  scriptList: {
+    flex: 1,
   },
   scriptContent: {
     paddingTop: spacing.sm,

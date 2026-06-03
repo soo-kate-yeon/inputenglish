@@ -12,14 +12,25 @@ import { mapAuthError } from "@/lib/auth-errors";
 import { colors, font, radius, spacing } from "@/theme";
 
 export function SignupForm() {
-  const { signUp } = useAuth();
+  const { signUp, resendConfirmationEmail } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [needsConfirm, setNeedsConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleResendConfirmation = async () => {
+    setError(null);
+    try {
+      await resendConfirmationEmail(email);
+      setSuccess("인증 메일을 다시 보냈습니다. 이메일을 확인해주세요.");
+    } catch (err) {
+      setError(mapAuthError(err));
+    }
+  };
 
   const handleSignUp = async () => {
     setError(null);
@@ -50,6 +61,7 @@ export function SignupForm() {
 
       if (needsEmailConfirmation) {
         setSuccess("인증 메일을 발송했습니다. 이메일을 확인해주세요.");
+        setNeedsConfirm(true);
       }
       // If no email confirmation needed, navigation is handled by _layout.tsx
     } catch (err) {
@@ -71,6 +83,12 @@ export function SignupForm() {
         <View style={styles.successBox}>
           <Text style={styles.successText}>{success}</Text>
         </View>
+      )}
+
+      {needsConfirm && (
+        <TouchableOpacity onPress={handleResendConfirmation}>
+          <Text style={styles.linkText}>인증 메일 다시 보내기</Text>
+        </TouchableOpacity>
       )}
 
       <TextInput
@@ -160,6 +178,12 @@ const styles = StyleSheet.create({
   successText: {
     color: colors.success,
     fontSize: font.size.sm,
+  },
+  linkText: {
+    color: colors.primary,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.semibold,
+    textAlign: "center",
   },
   input: {
     borderWidth: 1,

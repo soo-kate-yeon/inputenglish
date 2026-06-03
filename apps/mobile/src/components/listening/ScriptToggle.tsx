@@ -11,9 +11,7 @@ interface ScriptToggleProps {
 export default function ScriptToggle({ hidden, onPress }: ScriptToggleProps) {
   return (
     <TouchableOpacity style={styles.button} onPress={onPress}>
-      <Text style={styles.text}>
-        {hidden ? "스크립트 보기" : "스크립트 숨기기"}
-      </Text>
+      <Text style={styles.text}>{hidden ? "자막 보기" : "자막 숨기기"}</Text>
     </TouchableOpacity>
   );
 }

@@ -23,7 +23,7 @@ export default function AppEntryScreen() {
   }
 
   if (!user) {
-    return <Redirect href="/intro" />;
+    return <Redirect href="/(auth)/login" />;
   }
 
   if (!learningProfile?.onboarding_completed_at) {

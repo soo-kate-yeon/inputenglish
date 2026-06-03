@@ -29,6 +29,9 @@ import {
   fetchSessionsByIds,
 } from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
+import { safeImpactAsync } from "@/lib/safeHaptic";
+import { canViewShort, recordShortView } from "@/lib/free-usage";
+import { ImpactFeedbackStyle } from "expo-haptics";
 import { useSubscription } from "@/hooks/useSubscription";
 import SentenceNavigationBar from "@/components/common/SentenceNavigationBar";
 import ShortSessionCard from "@/components/shorts/ShortSessionCard";
@@ -178,6 +181,13 @@ export default function HomeScreen() {
   const lastRecordedSessionIdRef = useRef<string | null>(null);
   const activeIndexRef = useRef(0);
   const currentFeedLengthRef = useRef(0);
+  // Refs mirroring state for the free-shorts gate inside updateActiveIndex,
+  // which is captured once by the viewability callback (stable identity).
+  const currentFeedRef = useRef<SessionListItem[]>([]);
+  const planRef = useRef(plan);
+  const feedModeRef = useRef(feedMode);
+  const viewportHeightRef = useRef(viewportHeight);
+  const shortsPaywallGuardRef = useRef(false);
   const cachedVideosRef = useRef<Record<string, CuratedVideo>>({});
   const videoLoadStateRef = useRef<Record<string, VideoLoadState>>({});
   const inFlightVideoRequestsRef = useRef<
@@ -377,10 +387,31 @@ export default function HomeScreen() {
       Math.min(nextIndex, currentFeedLengthRef.current - 1),
     );
     if (!Number.isFinite(clampedIndex)) return;
-    if (clampedIndex !== activeIndexRef.current) {
-      activeIndexRef.current = clampedIndex;
-      setActiveIndex(clampedIndex);
+    if (clampedIndex === activeIndexRef.current) return;
+
+    // Free shorts daily quota (recommended feed only): block the move to a new
+    // short once today's allowance is spent, snap back to the last allowed
+    // short, and present the paywall. Re-watching already-seen shorts is free.
+    if (planRef.current === "FREE" && feedModeRef.current !== "saved") {
+      const nextSession = currentFeedRef.current[clampedIndex];
+      if (nextSession && !canViewShort(nextSession.id)) {
+        if (!shortsPaywallGuardRef.current) {
+          shortsPaywallGuardRef.current = true;
+          flatListRef.current?.scrollToOffset({
+            offset: activeIndexRef.current * viewportHeightRef.current,
+            animated: true,
+          });
+          router.push("/paywall");
+          setTimeout(() => {
+            shortsPaywallGuardRef.current = false;
+          }, 800);
+        }
+        return;
+      }
     }
+
+    activeIndexRef.current = clampedIndex;
+    setActiveIndex(clampedIndex);
   }, []);
 
   const activeSession = currentFeed[activeIndex] ?? null;
@@ -435,6 +466,22 @@ export default function HomeScreen() {
   }, [currentFeed.length]);
 
   useEffect(() => {
+    currentFeedRef.current = currentFeed;
+  }, [currentFeed]);
+
+  useEffect(() => {
+    planRef.current = plan;
+  }, [plan]);
+
+  useEffect(() => {
+    feedModeRef.current = feedMode;
+  }, [feedMode]);
+
+  useEffect(() => {
+    viewportHeightRef.current = viewportHeight;
+  }, [viewportHeight]);
+
+  useEffect(() => {
     setActiveIndex(0);
     activeIndexRef.current = 0;
     flatListRef.current?.scrollToOffset({ animated: false, offset: 0 });
@@ -471,6 +518,10 @@ export default function HomeScreen() {
 
     lastRecordedSessionIdRef.current = activeSession.id;
     recordSessionVisit(activeSession.id, activeSession.source_video_id);
+    // Count this distinct recommended short against the FREE daily quota.
+    if (planRef.current === "FREE" && feedModeRef.current !== "saved") {
+      recordShortView(activeSession.id);
+    }
     setRecentSessionIds((current) => [
       activeSession.id,
       ...current.filter((item) => item !== activeSession.id),
@@ -497,6 +548,10 @@ export default function HomeScreen() {
       const nextIndex = Math.round(
         event.nativeEvent.contentOffset.y / viewportHeight,
       );
+      // REQ-019-P3-05: Medium impact haptic only when activeIndex actually changes.
+      if (nextIndex !== activeIndexRef.current) {
+        safeImpactAsync(ImpactFeedbackStyle.Medium);
+      }
       updateActiveIndex(nextIndex);
     },
     [updateActiveIndex, viewportHeight],
@@ -524,6 +579,8 @@ export default function HomeScreen() {
   );
 
   const handleToggleShortSave = useCallback((session: SessionListItem) => {
+    // REQ-019-P3-04: Light impact haptic on session save toggle (fire-and-forget).
+    safeImpactAsync(ImpactFeedbackStyle.Light);
     const result = toggleSavedShortSession(session.id, session.source_video_id);
     const nextIds = result.entries.map((entry) => entry.sessionId);
 
@@ -899,7 +956,7 @@ export default function HomeScreen() {
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="스크립트 토글"
+                    accessibilityLabel="자막 토글"
                     style={styles.actionItem}
                     onPress={() => setScriptVisible((current) => !current)}
                   >
@@ -927,7 +984,7 @@ export default function HomeScreen() {
                         scriptVisible && styles.actionLabelActive,
                       ]}
                     >
-                      스크립트
+                      자막
                     </Text>
                   </Pressable>
                   <Pressable

@@ -402,7 +402,7 @@ export default function OnboardingScreen() {
 
   useEffect(() => {
     if (!user) {
-      router.replace("/intro?scene=9" as never);
+      router.replace("/(auth)/login" as never);
       return;
     }
 
