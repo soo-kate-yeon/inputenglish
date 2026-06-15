@@ -11,7 +11,11 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import type { PremiumSession } from "@inputenglish/shared";
-import { fetchTodayPremiumSession } from "@/lib/premium-api";
+import {
+  fetchTodayPremiumSession,
+  fetchTodayCiSession,
+  type TodayCiSessionShape,
+} from "@/lib/premium-api";
 import {
   getPremiumSessionProgress,
   type PremiumSessionProgress,
@@ -50,20 +54,31 @@ export default function PremiumHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<PremiumSessionProgress | null>(null);
+  const [ciSession, setCiSession] = useState<TodayCiSessionShape | null>(null);
 
   const loadToday = useCallback(async () => {
     setError(null);
     try {
-      const payload = await fetchTodayPremiumSession();
-      if (payload.entitlement && !payload.entitlement.hasAccess) {
+      const [premiumPayload, ciPayload] = await Promise.allSettled([
+        fetchTodayPremiumSession(),
+        fetchTodayCiSession(),
+      ]);
+
+      const payload =
+        premiumPayload.status === "fulfilled" ? premiumPayload.value : null;
+      if (payload?.entitlement && !payload.entitlement.hasAccess) {
         setSession(null);
         setProgress(null);
         router.push("/paywall");
-      } else if (payload.session) {
+      } else if (payload?.session) {
         setSession(payload.session);
         setProgress(getPremiumSessionProgress(payload.session.id));
-      } else {
+      } else if (!payload?.session && !payload?.entitlement) {
         router.push("/paywall");
+      }
+
+      if (ciPayload.status === "fulfilled") {
+        setCiSession(ciPayload.value.session);
       }
     } catch (nextError) {
       setError(
@@ -122,6 +137,27 @@ export default function PremiumHomeScreen() {
         <Text style={styles.greetingName}>오늘의 인풋</Text>
       </View>
       <Text style={styles.sectionTitle}>오늘 도착한 큐레이션</Text>
+
+      {ciSession && (
+        <Pressable
+          testID="ci-session-card"
+          style={({ pressed }) => [
+            styles.ciSessionCard,
+            pressed && styles.sessionCardPressed,
+          ]}
+          onPress={() => router.push("/premium" as never)}
+        >
+          <Text style={styles.ciSessionLabel}>오늘의 세션</Text>
+          {ciSession.readingPiece ? (
+            <Text style={styles.ciSessionTitle} numberOfLines={2}>
+              {ciSession.readingPiece.topic}
+            </Text>
+          ) : null}
+          <Text style={styles.ciSessionMeta}>
+            영상 {ciSession.segments.length}편 포함
+          </Text>
+        </Pressable>
+      )}
 
       {loading ? (
         <View style={styles.stateBox}>
@@ -486,5 +522,31 @@ const styles = StyleSheet.create({
     color: colors.textPremium,
     fontSize: font.size.sm,
     fontWeight: font.weight.bold,
+  },
+  ciSessionCard: {
+    borderRadius: radius.xl,
+    backgroundColor: colors.bgPremiumCard,
+    borderWidth: 1,
+    borderColor: colors.borderPremium,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  ciSessionLabel: {
+    color: colors.textPremiumSecondary,
+    fontSize: font.size.xs,
+    fontWeight: font.weight.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  ciSessionTitle: {
+    color: colors.textPremium,
+    fontSize: font.size.lg,
+    fontWeight: font.weight.bold,
+    lineHeight: leading(font.size.lg, font.lineHeight.tight),
+  },
+  ciSessionMeta: {
+    color: colors.textPremiumSecondary,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.semibold,
   },
 });

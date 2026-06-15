@@ -10,6 +10,9 @@ import {
 
 const mockPush = jest.fn();
 const mockFetchTodayPremiumSession = jest.fn();
+const mockFetchTodayCiSession = jest
+  .fn()
+  .mockResolvedValue({ session: null, remainingQuestionCap: 100 });
 
 jest.mock("expo-router", () => ({
   router: {
@@ -24,6 +27,7 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/premium-api", () => ({
   fetchTodayPremiumSession: (...args: unknown[]) =>
     mockFetchTodayPremiumSession(...args),
+  fetchTodayCiSession: (...args: unknown[]) => mockFetchTodayCiSession(...args),
 }));
 
 describe("PremiumHomeScreen", () => {
