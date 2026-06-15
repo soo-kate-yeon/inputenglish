@@ -227,6 +227,7 @@ export interface SessionContext {
 
 // ==================== Premium Session Types ====================
 
+/** @deprecated - Remove after Stage B(4) DB drop (premium_sessions/premium_expression_cards/premium_articles tables) */
 export const PREMIUM_SESSION_STEPS = [
   "article",
   "content-catch",
@@ -236,6 +237,7 @@ export const PREMIUM_SESSION_STEPS = [
   "completion",
 ] as const;
 
+/** @deprecated - Remove after Stage B(4) DB drop */
 export type PremiumSessionStep = (typeof PREMIUM_SESSION_STEPS)[number];
 
 export const PREMIUM_SESSION_STATUSES = [
@@ -270,6 +272,7 @@ export interface PremiumArticle {
   reviewed: boolean;
 }
 
+/** @deprecated - Remove after Stage B(4) DB drop */
 export interface PremiumDeliveryAnalysis {
   id: string;
   line_id: string;
@@ -300,6 +303,7 @@ export interface PremiumExpressionSavedAtoms {
   examples: string[];
 }
 
+/** @deprecated - Remove after Stage B(4) DB drop (premium_expression_cards table) */
 export interface PremiumExpressionCard {
   id: string;
   session_id?: string;
@@ -330,6 +334,7 @@ export interface PremiumRoleplayTurn {
   expression_ids?: string[];
 }
 
+/** @deprecated - Remove after Stage B(4) DB drop */
 export interface PremiumRoleplay {
   title: string;
   situation: string;
