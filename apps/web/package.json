@@ -37,6 +37,7 @@
     "@framingui/ui": "^0.6.12",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
+    "@inputenglish/design-tokens": "workspace:*",
     "@inputenglish/shared": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

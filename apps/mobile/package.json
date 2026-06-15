@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
+    "@inputenglish/design-tokens": "workspace:*",
     "@expo/vector-icons": "^14.0.4",
     "@inputenglish/shared": "workspace:*",
     "@react-native-async-storage/async-storage": "^1.23.1",
