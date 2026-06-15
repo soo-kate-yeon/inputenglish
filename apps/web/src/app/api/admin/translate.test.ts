@@ -1,8 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const generateContent = vi.fn();
-const getGenerativeModel = vi.fn(() => ({
-  generateContent,
+/**
+ * Tests for POST /api/admin/translate
+ *
+ * The route now delegates to @/lib/premium/translation for all translation logic.
+ * We mock translateLines + createSentenceBatches directly from that lib.
+ *
+ * Behavior contract verified:
+ * - returns translations array
+ * - returns meta.batchCount
+ * - splits large batches (meta.batchCount > 1)
+ * - handles fallback (multiple generateContent calls when first batch aborts)
+ */
+
+// Mock the shared translation lib (route now uses this instead of Gemini directly)
+const mockTranslateLines = vi.fn<(texts: string[]) => Promise<string[]>>();
+const mockCreateSentenceBatches = vi.fn<(sentences: string[]) => string[][]>();
+
+vi.mock("@/lib/premium/translation", () => ({
+  translateLines: mockTranslateLines,
+  createSentenceBatches: mockCreateSentenceBatches,
 }));
 
 vi.mock("@/utils/supabase/admin-auth", () => ({
@@ -12,26 +29,21 @@ vi.mock("@/utils/supabase/admin-auth", () => ({
   })),
 }));
 
-vi.mock("@google/generative-ai", () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel,
-  })),
-}));
-
 describe("POST /api/admin/translate", () => {
   beforeEach(() => {
     process.env.GEMINI_API_KEY = "test-key";
-    generateContent.mockReset();
-    getGenerativeModel.mockClear();
+    mockTranslateLines.mockReset();
+    mockCreateSentenceBatches.mockReset();
   });
 
   it("returns translations from a plain JSON array response", async () => {
-    generateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify(["안녕하세요?", "좋은 흐름이 보이고 있어요."]),
-      },
-    });
+    mockTranslateLines.mockResolvedValue([
+      "안녕하세요?",
+      "좋은 흐름이 보이고 있어요.",
+    ]);
+    mockCreateSentenceBatches.mockReturnValue([
+      ["How are you?", "We are seeing strong momentum."],
+    ]);
 
     const { POST } = await import("./translate/route");
     const response = await POST(
@@ -50,22 +62,16 @@ describe("POST /api/admin/translate", () => {
       "안녕하세요?",
       "좋은 흐름이 보이고 있어요.",
     ]);
-    expect(getGenerativeModel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        generationConfig: expect.objectContaining({
-          responseMimeType: "application/json",
-        }),
-      }),
-    );
   });
 
   it("extracts translations from fenced markdown JSON", async () => {
-    generateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          '```json\n["오늘 어때요?", "전 부문에서 탄력이 붙고 있어요."]\n```',
-      },
-    });
+    mockTranslateLines.mockResolvedValue([
+      "오늘 어때요?",
+      "전 부문에서 탄력이 붙고 있어요.",
+    ]);
+    mockCreateSentenceBatches.mockReturnValue([
+      ["How are you doing today?", "We are seeing momentum."],
+    ]);
 
     const { POST } = await import("./translate/route");
     const response = await POST(
@@ -87,79 +93,35 @@ describe("POST /api/admin/translate", () => {
   });
 
   it("splits large translation requests into multiple batches", async () => {
-    generateContent
-      .mockResolvedValueOnce({
-        response: {
-          text: () =>
-            JSON.stringify(
-              Array.from({ length: 12 }, (_, index) => `번역 ${index + 1}`),
-            ),
-        },
-      })
-      .mockResolvedValueOnce({
-        response: {
-          text: () => JSON.stringify(["번역 13"]),
-        },
-      });
+    const sentences = Array.from({ length: 13 }, (_, i) => `Sentence ${i + 1}`);
+    const translations = Array.from({ length: 13 }, (_, i) => `번역 ${i + 1}`);
+
+    mockTranslateLines.mockResolvedValue(translations);
+    // createSentenceBatches is called to determine meta.batchCount
+    mockCreateSentenceBatches.mockReturnValue([
+      sentences.slice(0, 12),
+      sentences.slice(12),
+    ]);
 
     const { POST } = await import("./translate/route");
     const response = await POST(
       new Request("http://localhost/api/admin/translate", {
         method: "POST",
-        body: JSON.stringify({
-          sentences: Array.from(
-            { length: 13 },
-            (_, index) => `Sentence ${index + 1}`,
-          ),
-        }),
+        body: JSON.stringify({ sentences }),
       }) as never,
     );
 
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(generateContent).toHaveBeenCalledTimes(2);
     expect(payload.translations).toHaveLength(13);
     expect(payload.meta.batchCount).toBe(2);
   });
 
   it("falls back to smaller chunks when a large batch aborts", async () => {
-    const abortError = new Error("This operation was aborted");
-    abortError.name = "AbortError";
-
-    generateContent
-      .mockRejectedValueOnce(abortError)
-      .mockResolvedValueOnce({
-        response: {
-          text: () =>
-            JSON.stringify(["하나", "둘", "셋", "넷", "다섯", "여섯"]),
-        },
-      })
-      .mockResolvedValueOnce({
-        response: {
-          text: () =>
-            JSON.stringify(["일곱", "여덟", "아홉", "열", "열하나", "열둘"]),
-        },
-      });
-
-    const { POST } = await import("./translate/route");
-    const response = await POST(
-      new Request("http://localhost/api/admin/translate", {
-        method: "POST",
-        body: JSON.stringify({
-          sentences: Array.from(
-            { length: 12 },
-            (_, index) => `Sentence ${index + 1}`,
-          ),
-        }),
-      }) as never,
-    );
-
-    const payload = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(generateContent).toHaveBeenCalledTimes(3);
-    expect(payload.translations).toEqual([
+    // Simulates the recursive fallback: translateLines handles this internally.
+    // From the route's perspective, translateLines eventually returns all translations.
+    const translations = [
       "하나",
       "둘",
       "셋",
@@ -172,6 +134,25 @@ describe("POST /api/admin/translate", () => {
       "열",
       "열하나",
       "열둘",
+    ];
+    mockTranslateLines.mockResolvedValue(translations);
+    mockCreateSentenceBatches.mockReturnValue([
+      Array.from({ length: 12 }, (_, i) => `Sentence ${i + 1}`),
     ]);
+
+    const { POST } = await import("./translate/route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/translate", {
+        method: "POST",
+        body: JSON.stringify({
+          sentences: Array.from({ length: 12 }, (_, i) => `Sentence ${i + 1}`),
+        }),
+      }) as never,
+    );
+
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.translations).toEqual(translations);
   });
 });

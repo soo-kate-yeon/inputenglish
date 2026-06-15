@@ -737,6 +737,8 @@ export interface TranscriptLine {
   start: number;
   end: number;
   text: string;
+  /** Korean gloss translation — filled by ingest chain (SPEC-INPUT-002 Phase 1). Optional for backward compat. */
+  translation?: string;
 }
 
 export interface VideoSegment {
