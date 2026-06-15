@@ -333,16 +333,17 @@ describe("TransformationCarousel", () => {
 });
 
 describe("ExerciseRecordingBar", () => {
-  it("renders the idle recording CTA when recordingState is idle", async () => {
+  it("renders the idle recording control when recordingState is idle", async () => {
     const {
       ExerciseRecordingBar,
     } = require("../../src/components/study/carousel/ExerciseRecordingBar");
-    const { findByText } = render(
+    const { findByTestId } = render(
       <ExerciseRecordingBar
         recordingState="idle"
         duration={0}
         isPlaying={false}
         playbackProgress={0}
+        onStart={jest.fn()}
         onStop={jest.fn()}
         onPlay={jest.fn()}
         onPause={jest.fn()}
@@ -351,7 +352,7 @@ describe("ExerciseRecordingBar", () => {
       />,
     );
 
-    expect(await findByText("녹음 시작")).toBeTruthy();
+    expect(await findByTestId("start-recording-button")).toBeTruthy();
   });
 
   it("renders null container for idle but delegates to RecordingBar when recording", async () => {
@@ -376,8 +377,9 @@ describe("ExerciseRecordingBar", () => {
     expect(await findByTestId("stop-button")).toBeTruthy();
   });
 
-  it("calls onConfirm when DONE button is pressed", async () => {
-    const onConfirm = jest.fn();
+  it("renders playback controls and calls playback actions", async () => {
+    const onPlay = jest.fn();
+    const onReRecord = jest.fn();
     const {
       ExerciseRecordingBar,
     } = require("../../src/components/study/carousel/ExerciseRecordingBar");
@@ -388,17 +390,18 @@ describe("ExerciseRecordingBar", () => {
         isPlaying={false}
         playbackProgress={0}
         onStop={jest.fn()}
-        onPlay={jest.fn()}
+        onPlay={onPlay}
         onPause={jest.fn()}
-        onReRecord={jest.fn()}
-        onConfirm={onConfirm}
+        onReRecord={onReRecord}
+        onConfirm={jest.fn()}
       />,
     );
 
-    const doneButton = await findByTestId("confirm-button");
-    fireEvent.press(doneButton);
+    fireEvent.press(await findByTestId("play-button"));
+    fireEvent.press(await findByTestId("rerecord-button"));
 
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    expect(onReRecord).toHaveBeenCalledTimes(1);
   });
 });
 

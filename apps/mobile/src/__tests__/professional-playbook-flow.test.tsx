@@ -17,7 +17,10 @@ const mockPlaybookEntries = [
     practice_mode: "slot-in" as const,
     user_rewrite:
       "Revenue momentum improved by 18% after the launch, which raised our baseline.",
-    attempt_metadata: {},
+    attempt_metadata: {
+      premiumSessionId: "session-1",
+      sessionTitle: "지표 설명 세션",
+    },
     mastery_status: "new" as const,
     created_at: "2026-03-14T12:00:00.000Z",
     updated_at: "2026-03-14T12:00:00.000Z",
@@ -30,7 +33,10 @@ const mockPlaybookEntries = [
     practice_mode: "role-play" as const,
     user_rewrite:
       "The rollout is on schedule, and the team is ready for launch.",
-    attempt_metadata: {},
+    attempt_metadata: {
+      premiumSessionId: "session-2",
+      sessionTitle: "핵심 요약 세션",
+    },
     mastery_status: "practicing" as const,
     created_at: "2026-03-13T12:00:00.000Z",
     updated_at: "2026-03-13T12:00:00.000Z",
@@ -59,10 +65,6 @@ jest.mock("../../src/contexts/AuthContext", () => ({
 
 jest.mock("../../src/lib/api", () => ({
   fetchPlaybookEntries: jest.fn().mockResolvedValue(mockPlaybookEntries),
-  fetchLearningSessions: jest.fn().mockResolvedValue([
-    { id: "session-1", title: "지표 설명 세션" },
-    { id: "session-2", title: "핵심 요약 세션" },
-  ]),
   fetchCardComments: jest.fn().mockResolvedValue([]),
   createCardComment: jest.fn(),
   updateCardComment: jest.fn(),

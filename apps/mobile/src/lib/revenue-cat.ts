@@ -18,9 +18,19 @@ export type Plan = "FREE" | "PREMIUM";
 // These consts are evaluated at bundle time, NOT runtime.
 const RC_IOS_KEY = process.env.EXPO_PUBLIC_RC_IOS_KEY ?? "";
 const RC_ANDROID_KEY = process.env.EXPO_PUBLIC_RC_ANDROID_KEY ?? "";
+const WEB_API_URL = process.env.EXPO_PUBLIC_WEB_API_URL ?? "";
 
 function getApiKey(): string {
   return Platform.OS === "ios" ? RC_IOS_KEY : RC_ANDROID_KEY;
+}
+
+function getWebApiUrl(): string | null {
+  const trimmed = (
+    process.env["INPUTENGLISH_WEB_API_URL"] ??
+    WEB_API_URL ??
+    ""
+  ).trim();
+  return trimmed.length > 0 ? trimmed.replace(/\/$/, "") : null;
 }
 
 // ---- SDK Lifecycle ----
@@ -147,6 +157,17 @@ export async function getOfferings(
   return null;
 }
 
+export function findPremiumMonthlyPackage(
+  packages: PurchasesPackage[],
+): PurchasesPackage | null {
+  return (
+    packages.find((pkg) => {
+      const id = pkg.product.identifier.toLowerCase();
+      return id.includes("monthly") || id.includes("month_1");
+    }) ?? null
+  );
+}
+
 // ---- Purchase ----
 
 export async function purchasePackage(
@@ -179,18 +200,40 @@ export function getPlanFromCustomerInfo(info: CustomerInfo): Plan {
 // ---- Supabase Sync ----
 
 export async function syncPlanToSupabase(plan: Plan): Promise<void> {
+  const webApiUrl = getWebApiUrl();
+  if (!webApiUrl) {
+    console.error(
+      "[RevenueCat] syncPlanToSupabase failed: web API URL missing",
+    );
+    return;
+  }
+
   try {
     const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id;
-    if (!userId) return;
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      console.error(
+        "[RevenueCat] syncPlanToSupabase failed: auth token missing",
+      );
+      return;
+    }
 
-    const { error } = await supabase
-      .from("users")
-      .update({ plan })
-      .eq("id", userId);
+    const response = await fetch(`${webApiUrl}/api/premium/entitlement/sync`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ expectedClientPlan: plan }),
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
 
-    if (error) {
-      console.error("[RevenueCat] syncPlanToSupabase error:", error.message);
+    if (!response.ok) {
+      throw new Error(
+        payload?.error ?? "Failed to sync RevenueCat entitlement",
+      );
     }
   } catch (err) {
     console.error("[RevenueCat] syncPlanToSupabase failed:", err);

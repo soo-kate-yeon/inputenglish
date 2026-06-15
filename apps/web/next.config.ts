@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   // Transpile monorepo packages
-  transpilePackages: ["@inputenglish/shared"],
+  transpilePackages: ["@inputenglish/shared", "@inputenglish/design-tokens"],
 
   // Enable standalone output for Docker builds
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,

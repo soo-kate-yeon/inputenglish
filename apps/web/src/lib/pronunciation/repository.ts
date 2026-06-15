@@ -38,9 +38,10 @@ function toJob(row: AnalysisRow): PronunciationAnalysisJob {
 export async function createPronunciationAnalysis(input: {
   userId: string;
   sessionId?: string | null;
+  premiumSessionId?: string | null;
   videoId: string;
   sentenceId: string;
-  source: "daily-input" | "study";
+  source: "daily-input" | "study" | "premium-roleplay";
   providerLocale: string;
   recordingUrl: string;
   referenceText: string;
@@ -50,7 +51,9 @@ export async function createPronunciationAnalysis(input: {
     .from("pronunciation_analyses")
     .insert({
       user_id: input.userId,
-      session_id: input.sessionId ?? null,
+      session_id:
+        input.source === "premium-roleplay" ? null : (input.sessionId ?? null),
+      premium_session_id: input.premiumSessionId ?? null,
       video_id: input.videoId,
       sentence_id: input.sentenceId,
       source: input.source,

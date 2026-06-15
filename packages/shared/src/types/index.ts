@@ -225,6 +225,154 @@ export interface SessionContext {
   updated_at?: string;
 }
 
+// ==================== Premium Session Types ====================
+
+export const PREMIUM_SESSION_STEPS = [
+  "article",
+  "content-catch",
+  "delivery-analysis",
+  "expression-cards",
+  "roleplay",
+  "completion",
+] as const;
+
+export type PremiumSessionStep = (typeof PREMIUM_SESSION_STEPS)[number];
+
+export const PREMIUM_SESSION_STATUSES = [
+  "draft",
+  "published",
+  "archived",
+] as const;
+
+export type PremiumSessionStatus = (typeof PREMIUM_SESSION_STATUSES)[number];
+
+export const PREMIUM_EXPRESSION_DEPTHS = ["anchor", "support"] as const;
+
+export type PremiumExpressionDepth = (typeof PREMIUM_EXPRESSION_DEPTHS)[number];
+
+export interface PremiumTranscriptLine {
+  id: string;
+  text: string;
+  translation?: string;
+  startTime: number;
+  endTime: number;
+  speaker?: string | null;
+  delivery_note?: string | null;
+  analysis_note?: string | null;
+}
+
+export interface PremiumArticle {
+  title: string;
+  subtitle?: string | null;
+  body: string;
+  summary_bullets?: string[];
+  reading_minutes?: number | null;
+  reviewed: boolean;
+}
+
+export interface PremiumDeliveryAnalysis {
+  id: string;
+  line_id: string;
+  intonation_note: string;
+  style_note: string;
+  coaching_note: string;
+  reviewed: boolean;
+}
+
+export interface PremiumExpressionPronunciation {
+  stress: string;
+  linking: string;
+  trap_ko: string;
+  ipa: string;
+  say_it_ko: string;
+  drill: string;
+}
+
+export interface PremiumExpressionVariation {
+  en: string;
+  when_ko: string;
+}
+
+export interface PremiumExpressionSavedAtoms {
+  headword: string;
+  one_line_nuance_ko: string;
+  register_ko: string;
+  examples: string[];
+}
+
+export interface PremiumExpressionCard {
+  id: string;
+  session_id?: string;
+  source_sentence_id?: string | null;
+  order_index: number;
+  depth: PremiumExpressionDepth;
+  expression: string;
+  source_line: string;
+  timestamp: string;
+  natural_meaning_ko: string;
+  story: string;
+  pronunciation: PremiumExpressionPronunciation;
+  variations: PremiumExpressionVariation[];
+  saved_atoms: PremiumExpressionSavedAtoms;
+  reviewed: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PremiumRoleplayTurn {
+  id: string;
+  speaker: "coach" | "user";
+  avatar_label?: string | null;
+  line?: string | null;
+  translation?: string | null;
+  hidden?: boolean;
+  reference_text?: string | null;
+  expression_ids?: string[];
+}
+
+export interface PremiumRoleplay {
+  title: string;
+  situation: string;
+  user_role: string;
+  partner_role: string;
+  turns: PremiumRoleplayTurn[];
+  target_expression_ids: string[];
+  analysis_reference_text?: string | null;
+  reviewed: boolean;
+}
+
+export interface PremiumSession {
+  id: string;
+  slug?: string | null;
+  source_video_id: string;
+  source_url: string;
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+  thumbnail_url?: string | null;
+  channel_name?: string | null;
+  speaker_name?: string | null;
+  source_type?: SessionSourceType | null;
+  genre?: Genre | null;
+  speaking_situations?: SpeakingSituation[];
+  interest_tags?: string[];
+  difficulty_level?: 1 | 2 | 3 | 4 | 5 | null;
+  duration_seconds: number;
+  segment_start_time: number;
+  segment_end_time: number;
+  transcript: PremiumTranscriptLine[];
+  article: PremiumArticle;
+  delivery_analysis: PremiumDeliveryAnalysis[];
+  expression_cards: PremiumExpressionCard[];
+  roleplay: PremiumRoleplay;
+  status: PremiumSessionStatus;
+  reviewed: boolean;
+  published_on?: string | null;
+  published_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface PracticePrompt {
   id: string;
   session_id: string;
@@ -341,7 +489,6 @@ export interface LearningSession {
   primary_speaker_slug?: string | null;
   primary_speaker_description?: string | null;
   primary_speaker_avatar_url?: string | null;
-  premium_required?: boolean;
   created_at: string;
   created_by?: string;
 
@@ -349,21 +496,6 @@ export interface LearningSession {
   sentences?: Sentence[];
   source_video?: CuratedVideo;
   context?: SessionContext | null;
-}
-
-export interface SceneRecommendation {
-  startIndex: number;
-  endIndex: number;
-  title: string;
-  reason: string;
-  learningPoints: string[];
-  estimatedDuration: number; // seconds
-  difficulty?: "beginner" | "intermediate" | "advanced";
-}
-
-export interface SceneAnalysisResponse {
-  scenes: SceneRecommendation[];
-  totalAnalyzed: number;
 }
 
 export interface LongformContext {
@@ -402,32 +534,6 @@ export interface LongformPack {
   created_by?: string | null;
   updated_at?: string;
   context?: LongformContext | null;
-  shorts?: LearningSession[];
-}
-
-export interface LongformRecommendation {
-  startIndex: number;
-  endIndex: number;
-  title: string;
-  subtitle: string;
-  description: string;
-  reason: string;
-  speakerSummary: string;
-  conversationType: string;
-  topicTags: string[];
-  contentTags: string[];
-  estimatedDuration: number;
-}
-
-export interface ShortRecommendation extends SceneRecommendation {
-  patternFocus: string;
-  difficulty: "beginner" | "intermediate" | "advanced";
-}
-
-export interface ContentStructureAnalysisResponse {
-  longform: LongformRecommendation;
-  shorts: ShortRecommendation[];
-  totalAnalyzed: number;
 }
 
 // ==================== App Store Types ====================
@@ -466,6 +572,8 @@ export interface AppHighlight {
 export interface SavedSentence {
   id: string;
   videoId: string;
+  premiumSessionId?: string;
+  sessionTitle?: string;
   sentenceId: string; // Reference to the sentence ID
   sentenceText: string;
   startTime: number;

@@ -15,6 +15,8 @@ const mockSavedSentences = [
   {
     id: "s1",
     videoId: "v1",
+    premiumSessionId: "premium-session-1",
+    sessionTitle: "Test Premium Session",
     sentenceId: "sent-1",
     sentenceText: "Test sentence one",
     startTime: 0,
@@ -57,11 +59,6 @@ jest.mock("../../src/contexts/AuthContext", () => ({
 
 jest.mock("../../src/lib/api", () => ({
   fetchPlaybookEntries: jest.fn().mockResolvedValue([]),
-  fetchLearningSessions: jest
-    .fn()
-    .mockResolvedValue([
-      { id: "session-1", source_video_id: "v1", title: "Test Session" },
-    ]),
   fetchCardComments: jest.fn().mockResolvedValue(mockComments),
   createCardComment: (...args: unknown[]) => mockCreateCardComment(...args),
   updateCardComment: (...args: unknown[]) => mockUpdateCardComment(...args),

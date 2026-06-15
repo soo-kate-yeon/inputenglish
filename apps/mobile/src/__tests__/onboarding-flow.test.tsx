@@ -48,17 +48,23 @@ describe("OnboardingScreen", () => {
     fireEvent.press(getByText("일상 회화는 가능해요"));
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
     fireEvent.press(getByText("학교/업무"));
-    fireEvent.press(getByText("셀럽 인터뷰"));
+    fireEvent.press(getByText("업무"));
     fireEvent.press(getByLabelText("온보딩 완료하기"));
 
     await waitFor(() => {
       expect(mockUpdateLearningProfile).toHaveBeenCalledWith({
         level_band: "conversation",
         goal_mode: "expression",
-        focus_tags: ["학교/업무", "셀럽 인터뷰"],
+        focus_tags: ["school-work", "business"],
         preferred_speakers: [],
-        preferred_situations: ["학교/업무"],
-        preferred_video_categories: ["셀럽 인터뷰"],
+        preferred_situations: ["school-work"],
+        preferred_source_types: [
+          "public-speech",
+          "interview",
+          "podcast",
+          "keynote",
+        ],
+        preferred_genres: ["business"],
         onboarding_completed_at: expect.any(String),
       });
       expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
@@ -78,7 +84,8 @@ describe("OnboardingScreen", () => {
       focus_tags: ["Jensen Huang"],
       preferred_speakers: ["Jensen Huang"],
       preferred_situations: [],
-      preferred_video_categories: [],
+      preferred_source_types: [],
+      preferred_genres: [],
       onboarding_completed_at: null,
     };
 
@@ -86,17 +93,23 @@ describe("OnboardingScreen", () => {
 
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
     fireEvent.press(getByText("학교/업무"));
-    fireEvent.press(getByText("셀럽 인터뷰"));
+    fireEvent.press(getByText("업무"));
     fireEvent.press(getByText("저장하기"));
 
     await waitFor(() => {
       expect(mockUpdateLearningProfile).toHaveBeenCalledWith({
         level_band: "professional",
         goal_mode: "expression",
-        focus_tags: ["학교/업무", "셀럽 인터뷰"],
+        focus_tags: ["school-work", "business"],
         preferred_speakers: [],
-        preferred_situations: ["학교/업무"],
-        preferred_video_categories: ["셀럽 인터뷰"],
+        preferred_situations: ["school-work"],
+        preferred_source_types: [
+          "public-speech",
+          "interview",
+          "podcast",
+          "keynote",
+        ],
+        preferred_genres: ["business"],
         onboarding_completed_at: expect.any(String),
       });
     });
@@ -112,7 +125,7 @@ describe("OnboardingScreen", () => {
     fireEvent.press(getByText("일상 회화는 가능해요"));
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
     fireEvent.press(getByText("학교/업무"));
-    fireEvent.press(getByText("셀럽 인터뷰"));
+    fireEvent.press(getByText("업무"));
     fireEvent.press(getByLabelText("온보딩 완료하기"));
 
     expect(

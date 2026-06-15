@@ -16,6 +16,13 @@ const MASTERY_OPTIONS: { key: PlaybookMasteryStatus; label: string }[] = [
   { key: "mastered", label: PLAYBOOK_MASTERY_LABELS.mastered },
 ];
 
+function getPlaybookPremiumSessionId(entry: PlaybookEntry): string {
+  const premiumSessionId = entry.attempt_metadata?.premiumSessionId;
+  return typeof premiumSessionId === "string" && premiumSessionId.length > 0
+    ? premiumSessionId
+    : entry.session_id;
+}
+
 interface PlaybookCardProps {
   entry: PlaybookEntry;
   sessionTitle?: string;
@@ -36,9 +43,7 @@ export default function PlaybookCard({
         <TouchableOpacity
           style={styles.sessionRef}
           onPress={() =>
-            router.push(
-              `/study/${entry.source_video_id}?sessionId=${entry.session_id}`,
-            )
+            router.push(`/premium/${getPlaybookPremiumSessionId(entry)}`)
           }
           activeOpacity={0.6}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

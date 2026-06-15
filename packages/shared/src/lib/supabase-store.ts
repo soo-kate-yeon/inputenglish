@@ -30,6 +30,8 @@ function generateUuid(): string {
 function mapSavedSentenceRow(item: {
   id: string;
   video_id: string;
+  premium_session_id?: string | null;
+  session_title?: string | null;
   sentence_id: string;
   sentence_text: string;
   start_time: number;
@@ -39,6 +41,8 @@ function mapSavedSentenceRow(item: {
   return {
     id: item.id,
     videoId: item.video_id,
+    premiumSessionId: item.premium_session_id ?? undefined,
+    sessionTitle: item.session_title ?? undefined,
     sentenceId: item.sentence_id,
     sentenceText: item.sentence_text,
     startTime: item.start_time,
@@ -258,6 +262,8 @@ export const createSupabaseStore = (client: SupabaseClient) => ({
     const payload = {
       user_id: userId,
       video_id: sentence.videoId,
+      premium_session_id: sentence.premiumSessionId ?? null,
+      session_title: sentence.sessionTitle ?? null,
       sentence_id: sentence.sentenceId,
       sentence_text: sentence.sentenceText,
       start_time: sentence.startTime,

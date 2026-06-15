@@ -3,6 +3,9 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
+      "@inputenglish/design-tokens": [
+        "../../packages/design-tokens/src/index.ts"
+      ],
       "@inputenglish/shared": ["../../packages/shared/src/index.ts"],
       "@/*": ["./src/*"]
     }

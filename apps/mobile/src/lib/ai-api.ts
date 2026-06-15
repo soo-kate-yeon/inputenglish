@@ -67,7 +67,8 @@ export interface RequestPronunciationAnalysisInput {
   sentenceId: string;
   videoId: string;
   sessionId?: string | null;
-  source: "daily-input" | "study";
+  premiumSessionId?: string | null;
+  source: "daily-input" | "study" | "premium-roleplay";
   providerLocale?: string;
 }
 

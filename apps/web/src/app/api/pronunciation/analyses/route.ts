@@ -12,7 +12,8 @@ const pronunciationAnalysisRequestSchema = z.object({
   sentenceId: z.string().min(1),
   videoId: z.string().min(1),
   sessionId: z.string().uuid().optional().nullable(),
-  source: z.enum(["daily-input", "study"]),
+  premiumSessionId: z.string().uuid().optional().nullable(),
+  source: z.enum(["daily-input", "study", "premium-roleplay"]),
   providerLocale: z.string().min(1).optional(),
 });
 
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
       source: parsed.data.source,
       sentenceId: parsed.data.sentenceId,
       sessionId: parsed.data.sessionId ?? null,
+      premiumSessionId: parsed.data.premiumSessionId ?? null,
       videoId: parsed.data.videoId,
       providerLocale: parsed.data.providerLocale ?? null,
     });
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
     const job = await requestPronunciationAnalysis({
       userId: user.id,
       sessionId: parsed.data.sessionId ?? null,
+      premiumSessionId: parsed.data.premiumSessionId ?? null,
       videoId: parsed.data.videoId,
       sentenceId: parsed.data.sentenceId,
       source: parsed.data.source,

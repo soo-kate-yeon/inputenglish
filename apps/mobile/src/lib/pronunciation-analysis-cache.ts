@@ -3,7 +3,7 @@ import storage from "@/lib/mmkv";
 
 interface PronunciationAnalysisCacheParams {
   userId: string;
-  source: "daily-input" | "study";
+  source: "daily-input" | "study" | "premium-roleplay";
   sessionId?: string | null;
   sentenceId: string;
 }

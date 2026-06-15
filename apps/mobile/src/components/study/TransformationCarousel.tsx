@@ -1,5 +1,5 @@
 // @MX:NOTE: [AUTO] Main carousel component replacing TransformationPracticePanel (SPEC-MOBILE-011).
-// @MX:ANCHOR: [AUTO] Central integration point for transformation practice; consumed by study/[videoId].tsx
+// @MX:ANCHOR: [AUTO] Central integration point for transformation practice; reused by premium roleplay.
 // @MX:REASON: High fan_in - used by study screen and tested by multiple test suites
 import React, {
   useCallback,

@@ -25,7 +25,6 @@ import { AUTH_CALLBACK_URL } from "@/constants/config";
 import { normalizeEmail } from "@/lib/email";
 import { appStore } from "@/lib/stores";
 import { trackEvent } from "@/lib/analytics";
-import { clearDailyInputQueueCache } from "@/lib/daily-input";
 import {
   clearCachedLearningProfile,
   fetchLearningProfile,
@@ -555,7 +554,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsProfileLoading(true);
       try {
         const nextProfile = await persistLearningProfile(user.id, patch);
-        clearDailyInputQueueCache(user.id);
         setLearningProfile(nextProfile);
         return nextProfile;
       } finally {

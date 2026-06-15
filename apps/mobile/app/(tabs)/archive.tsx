@@ -21,11 +21,9 @@ import {
   deleteCardComment,
   deleteCardCommentsByTarget,
   fetchCardComments,
-  fetchLearningSessions,
   fetchPlaybookEntries,
   updateCardComment,
   updatePlaybookEntryMastery,
-  SessionListItem,
 } from "@/lib/api";
 import { appStore } from "@/lib/stores";
 import type {
@@ -51,11 +49,6 @@ interface PendingDelete {
   timer: ReturnType<typeof setTimeout>;
 }
 
-interface VideoInfo {
-  title: string;
-  sessionId: string;
-}
-
 export default function ArchiveScreen() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const savedSentences = appStore((state) => state.savedSentences);
@@ -72,11 +65,6 @@ export default function ArchiveScreen() {
   );
   const [playbookEntries, setPlaybookEntries] = useState<PlaybookEntry[]>([]);
   const [playbookLoading, setPlaybookLoading] = useState(false);
-  const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
-  // source_video_id → { title, sessionId } — avoids raw UUID display
-  const [videoInfoMap, setVideoInfoMap] = useState<Record<string, VideoInfo>>(
-    {},
-  );
   const [comments, setComments] = useState<CardComment[]>([]);
   const [commentSaving, setCommentSaving] = useState(false);
   const [errorToast, setErrorToast] = useState<{
@@ -100,20 +88,11 @@ export default function ArchiveScreen() {
       Promise.all([
         loadUserData(),
         fetchPlaybookEntries(user.id),
-        fetchLearningSessions(),
         fetchCardComments(user.id),
       ])
-        .then(([, entries, sessions, cardComments]) => {
+        .then(([, entries, cardComments]) => {
           setPlaybookEntries(entries);
           setComments(cardComments);
-          const sMap: Record<string, string> = {};
-          const vMap: Record<string, VideoInfo> = {};
-          for (const s of sessions as SessionListItem[]) {
-            sMap[s.id] = s.title;
-            vMap[s.source_video_id] = { title: s.title, sessionId: s.id };
-          }
-          setSessionMap(sMap);
-          setVideoInfoMap(vMap);
         })
         .catch((error) => {
           console.error("[MobileArchive] Failed to load archive data:", error);
@@ -311,11 +290,33 @@ export default function ArchiveScreen() {
   );
 
   const resolveVideoTitle = useCallback(
-    (videoId: string): string => {
-      if (videoInfoMap[videoId]) return videoInfoMap[videoId].title;
-      return getVideo(videoId)?.title ?? "영상 보기";
+    (sentence: SavedSentence): string => {
+      return (
+        sentence.sessionTitle ??
+        getVideo(sentence.videoId)?.title ??
+        "프리미엄 세션"
+      );
     },
-    [videoInfoMap, getVideo],
+    [getVideo],
+  );
+
+  const resolvePremiumSessionPath = useCallback(
+    (sentence: SavedSentence): `/premium/${string}` => {
+      return `/premium/${sentence.premiumSessionId ?? sentence.videoId}`;
+    },
+    [],
+  );
+
+  const resolveFallbackVideoTitle = useCallback(
+    (videoId: string): string => {
+      return getVideo(videoId)?.title ?? "프리미엄 세션";
+    },
+    [getVideo],
+  );
+
+  const resolveFallbackPremiumSessionPath = useCallback(
+    (videoId: string): `/premium/${string}` => `/premium/${videoId}`,
+    [],
   );
 
   const visibleSentences = savedSentences.filter(
@@ -340,7 +341,7 @@ export default function ArchiveScreen() {
 
   const renderSentenceItem = useCallback(
     ({ item, index }: { item: SavedSentence; index: number }) => {
-      const videoTitle = resolveVideoTitle(item.videoId);
+      const videoTitle = resolveVideoTitle(item);
       return (
         <View style={styles.cardShadow}>
           <SwipeableRow onDelete={() => handleDelete(item.id, "sentences")}>
@@ -348,10 +349,7 @@ export default function ArchiveScreen() {
               <TouchableOpacity
                 style={styles.videoTitleRow}
                 onPress={() => {
-                  const info = videoInfoMap[item.videoId];
-                  router.push(
-                    `/study/${item.videoId}?sessionId=${info?.sessionId ?? ""}`,
-                  );
+                  router.push(resolvePremiumSessionPath(item));
                 }}
                 accessibilityRole="link"
                 accessibilityLabel={`${videoTitle} 열기`}
@@ -382,6 +380,7 @@ export default function ArchiveScreen() {
     },
     [
       resolveVideoTitle,
+      resolvePremiumSessionPath,
       handleDelete,
       commentsByTarget,
       handleAddComment,
@@ -394,7 +393,7 @@ export default function ArchiveScreen() {
 
   const renderHighlightItem = useCallback(
     ({ item, index }: { item: AppHighlight; index: number }) => {
-      const videoTitle = resolveVideoTitle(item.videoId);
+      const videoTitle = resolveFallbackVideoTitle(item.videoId);
       return (
         <View style={styles.cardShadow}>
           <SwipeableRow onDelete={() => handleDelete(item.id, "highlights")}>
@@ -402,10 +401,7 @@ export default function ArchiveScreen() {
               <TouchableOpacity
                 style={styles.videoTitleRow}
                 onPress={() => {
-                  const info = videoInfoMap[item.videoId];
-                  router.push(
-                    `/study/${item.videoId}?sessionId=${info?.sessionId ?? ""}`,
-                  );
+                  router.push(resolveFallbackPremiumSessionPath(item.videoId));
                 }}
                 accessibilityRole="link"
                 accessibilityLabel={`${videoTitle} 열기`}
@@ -436,7 +432,8 @@ export default function ArchiveScreen() {
       );
     },
     [
-      resolveVideoTitle,
+      resolveFallbackVideoTitle,
+      resolveFallbackPremiumSessionPath,
       handleDelete,
       commentsByTarget,
       handleAddComment,
@@ -448,16 +445,23 @@ export default function ArchiveScreen() {
   );
 
   const renderPlaybookItem = useCallback(
-    ({ item }: { item: PlaybookEntry }) => (
-      <SwipeableRow onDelete={() => handleDelete(item.id, "playbook")}>
-        <PlaybookCard
-          entry={item}
-          sessionTitle={sessionMap[item.session_id]}
-          onSetMastery={handleSetMastery}
-        />
-      </SwipeableRow>
-    ),
-    [handleSetMastery, handleDelete, sessionMap],
+    ({ item }: { item: PlaybookEntry }) => {
+      const sessionTitle =
+        typeof item.attempt_metadata?.sessionTitle === "string"
+          ? item.attempt_metadata.sessionTitle
+          : undefined;
+
+      return (
+        <SwipeableRow onDelete={() => handleDelete(item.id, "playbook")}>
+          <PlaybookCard
+            entry={item}
+            sessionTitle={sessionTitle}
+            onSetMastery={handleSetMastery}
+          />
+        </SwipeableRow>
+      );
+    },
+    [handleSetMastery, handleDelete],
   );
 
   if (isLoading) {

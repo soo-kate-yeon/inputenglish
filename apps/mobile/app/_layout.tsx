@@ -193,31 +193,10 @@ export function RootLayoutNav() {
           options={{ headerShown: false, gestureEnabled: false }}
         />
         <Stack.Screen
-          name="study/[videoId]"
+          name="premium/[sessionId]"
           options={{
             headerShown: false,
             gestureEnabled: true,
-          }}
-        />
-        <Stack.Screen
-          name="longform/[packId]"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="shadowing/[videoId]"
-          options={{
-            headerShown: true,
-            title: "Shadowing",
-            headerBackButtonDisplayMode: "minimal",
-          }}
-        />
-        <Stack.Screen
-          name="speaker/[slug]"
-          options={{
-            headerShown: true,
-            headerBackButtonDisplayMode: "minimal",
           }}
         />
         <Stack.Screen
