@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Content Automation Layer (SPEC-INPUT-002)
+
+**Agentic video ingest (REQ-AUTO-001)**
+
+- `POST /api/admin/premium/ingest` now completes the chain: transcript fetch → per-line Korean `translation` → segment split → difficulty + `band_coverage` + `topic_tags` scoring → `video_segments` persist (no more empty `{}`/`[]` placeholders)
+- `lib/premium/translation.ts` — extracted reusable `translateLines` (fixture-mode short-circuit); `translate/route.ts` is now a thin adapter
+- `lib/premium/band-coverage.ts` — `computeBandCoverage`, `extractTopicTags`
+- Optional Gemini `self_contained` path (`SEGMENT_SELF_CONTAINED_LLM`); dual auth (admin session OR `CRON_SECRET`) for autonomous trigger
+
+**Daily reading batch (REQ-AUTO-002)**
+
+- `lib/premium/reading-batch.ts` `runDailyReadingBatch` — band × format × topic pool pre-generation; LLM cost scales with bands, not users
+- Pool rows are always `user_id = NULL` + `band`; coverage validation gate; topic dedup/rotation; `expires_at` lifecycle
+- Migration `20260615001000_reading_pieces_pool.sql` — `reading_pieces` += `band`, `expires_at`, partial pool index
+
+**Level-aware session assembly (REQ-AUTO-003)**
+
+- `GET /api/premium/today` now selects band-matched pool reading + `band_coverage`-ranked segments (replaces random selection); ±1 band fallback; explicit `assemblyMeta.status="preparing"` when the pool is empty (not cached)
+- Fixed pre-existing bugs: `fetchReadingPieceById` queried `user_id` instead of `id`; segment fetch now uses `.in("id", …)`
+
+**Scheduling & cost (REQ-AUTO-004)**
+
+- `GET /api/cron/reading-batch` — Vercel Cron entrypoint, fail-closed `CRON_SECRET` auth, whole-batch idempotency, cell-windowing (`READING_BATCH_MAX_CELLS_PER_RUN` + rotating offset)
+- `vercel.json` — daily `crons` entry (00:00 UTC) + `maxDuration` 300
+
+**Legacy freeze (REQ-AUTO-005)**
+
+- Static guard test asserts the automation pipeline never references legacy premium tables/types or the legacy admin UI
+
 ## [1.3.0] — 2026-06-15
 
 ### Added — Comprehensible Input Two-Track Engine (SPEC-INPUT-001)
