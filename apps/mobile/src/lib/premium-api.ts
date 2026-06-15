@@ -1,4 +1,10 @@
-import type { PremiumSession } from "@inputenglish/shared";
+import type {
+  AskedItemSourceRef,
+  CiSession,
+  PremiumSession,
+  ReadingPiece,
+  VideoSegment,
+} from "@inputenglish/shared";
 import { premiumSessionFixture } from "@/fixtures/premium-session";
 import { supabase } from "@/lib/supabase";
 
@@ -163,10 +169,97 @@ export function fetchTodayPremiumSession(): Promise<PremiumSessionResponse> {
   return fetchPremiumJson("/api/premium/today");
 }
 
+// --- v1.3 CI Session (SPEC-INPUT-001) ---
+
+export interface TodayCiSessionShape {
+  id: string;
+  date: string;
+  readingPiece: ReadingPiece | null;
+  segments: VideoSegment[];
+  assemblyMeta: Record<string, unknown>;
+}
+
+export interface TodayCiSessionResponse {
+  session: TodayCiSessionShape | null;
+  remainingQuestionCap: number;
+}
+
+export interface CiSessionResponse {
+  ciSession: CiSession | null;
+}
+
+export async function fetchTodayCiSession(): Promise<TodayCiSessionResponse> {
+  const webApiUrl = getWebApiUrl();
+  if (shouldForceFixtureMode(webApiUrl)) {
+    return { session: null, remainingQuestionCap: 100 };
+  }
+  if (!webApiUrl) {
+    throw new PremiumApiConfigurationError();
+  }
+
+  const response = await fetch(`${webApiUrl}/api/premium/today`, {
+    method: "GET",
+    headers: await getAuthHeaders(),
+  });
+
+  if (!response.ok && response.status !== 402) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(
+      payload.error ?? `오늘의 세션을 불러오지 못했어요. (${response.status})`,
+    );
+  }
+
+  return response.json() as Promise<TodayCiSessionResponse>;
+}
+
 export function fetchPremiumSessionById(
   sessionId: string,
 ): Promise<PremiumSessionResponse> {
   return fetchPremiumJson(`/api/premium/sessions/${sessionId}`, {
     fixtureSessionId: sessionId,
   });
+}
+
+// --- Question Agent ---
+
+export interface QuestionRequest {
+  highlightText: string;
+  question: string;
+  sourceType: "reading" | "segment";
+  sourceRef: AskedItemSourceRef;
+}
+
+export interface QuestionResponse {
+  answer: string;
+  model: string;
+  remainingCap: number;
+  capNotice?: string;
+}
+
+export async function askHighlightQuestion(
+  params: QuestionRequest,
+): Promise<QuestionResponse> {
+  const webApiUrl = getWebApiUrl();
+  if (!webApiUrl) {
+    throw new PremiumApiConfigurationError();
+  }
+
+  const response = await fetch(`${webApiUrl}/api/premium/question`, {
+    method: "POST",
+    headers: await getAuthHeaders(),
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(
+      payload.error ?? `질문 요청에 실패했어요. (${response.status})`,
+    );
+  }
+
+  return response.json() as Promise<QuestionResponse>;
 }
