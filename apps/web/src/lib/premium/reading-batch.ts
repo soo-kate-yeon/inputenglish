@@ -90,6 +90,33 @@ function computeExpiresAt(): string {
   return d.toISOString();
 }
 
+// ── Windowing options ─────────────────────────────────────────────────────────
+
+/**
+ * Optional windowing parameters for runDailyReadingBatch.
+ *
+ * @MX:NOTE: [AUTO] Cell-windowing intent: 168 LLM calls in one serverless
+ * invocation exceeds Vercel's maxDuration limit (max ~300s Pro). The cron route
+ * passes a window so each daily run processes only a slice of the matrix.
+ * Full coverage is achieved by rotating the offset across daily runs using
+ * day-of-year % totalCells. Supabase scheduled functions are the scale fallback
+ * when the full matrix must run in one shot (REQ-AUTO-004-U3).
+ *
+ * Default (no options) = full matrix — all existing Phase 2 tests stay green.
+ */
+export interface BatchWindowOptions {
+  /**
+   * Maximum number of cells to process. Cells are sliced as
+   * cells.slice(offset, offset + maxCells).
+   */
+  maxCells?: number;
+  /**
+   * Start offset into the full matrix cell array. Used for daily rotation.
+   * Default: 0.
+   */
+  offset?: number;
+}
+
 // ── Batch executor ────────────────────────────────────────────────────────────
 
 /**
@@ -98,16 +125,27 @@ function computeExpiresAt(): string {
  * All pool writing flows through this function; no other code path may write
  * pool rows (user_id=NULL + band) to reading_pieces.
  *
- * Iterates the full matrix, generates one piece per cell, validates coverage,
- * and persists with band + expires_at. DB failures are isolated per-cell.
+ * Iterates the full matrix (or a windowed slice when options.maxCells is set),
+ * generates one piece per cell, validates coverage, and persists with band +
+ * expires_at. DB failures are isolated per-cell.
  *
  * @param deps - Injectable dependencies for testability (DB, dedup).
+ * @param options - Optional windowing: { maxCells, offset } to process a slice.
+ *   When omitted, the full matrix is processed (backward-compatible default).
  * @returns BatchSummary — metrics for observability and cost verification.
  */
 export async function runDailyReadingBatch(
   deps: BatchDeps,
+  options?: BatchWindowOptions,
 ): Promise<BatchSummary> {
-  const cells = enumerateMatrixCells();
+  const allCells = enumerateMatrixCells();
+
+  // Apply optional windowing (offset + maxCells slice).
+  // Default (no options): full matrix — existing tests unaffected.
+  const start = options?.offset ?? 0;
+  const end =
+    options?.maxCells != null ? start + options.maxCells : allCells.length;
+  const cells = allCells.slice(start, end);
   const expiresAt = computeExpiresAt();
 
   let cellsProcessed = 0;
