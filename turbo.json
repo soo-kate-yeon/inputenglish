@@ -3,7 +3,16 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", ".expo/**", "dist/**"]
+      "outputs": [".next/**", ".expo/**", "dist/**", "bin/**"],
+      "env": [
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "GEMINI_API_KEY",
+        "AZURE_OPENAI_ENDPOINT",
+        "AZURE_OPENAI_API_KEY",
+        "AZURE_OPENAI_DEPLOYMENT",
+        "AZURE_OPENAI_API_VERSION",
+        "REVENUECAT_SECRET_API_KEY"
+      ]
     },
     "dev": {
       "cache": false,
