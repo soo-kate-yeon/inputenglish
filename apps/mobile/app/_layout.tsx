@@ -33,7 +33,7 @@ export function RootLayoutNav() {
     learningProfile,
     user,
   } = useAuth();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const { edit } = useGlobalSearchParams<{ edit?: string }>();
   const router = useRouter();
 
