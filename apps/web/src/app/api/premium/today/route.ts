@@ -53,6 +53,9 @@ function mapReadingPieceRow(row: Record<string, unknown>): ReadingPiece {
     sourceFacts: (row.source_facts as Record<string, unknown>) ?? {},
     userId: row.user_id as string | null,
     createdAt: String(row.created_at),
+    // SPEC-INPUT-002 Phase 2: new pool columns
+    band: (row.band as ReadingPiece["band"]) ?? null,
+    expiresAt: (row.expires_at as string | null) ?? null,
   };
 }
 

@@ -720,6 +720,10 @@ export interface ReadingPiece {
   sourceFacts: Record<string, unknown>;
   userId: string | null;
   createdAt: string;
+  /** Pool band assignment (SPEC-INPUT-002 Phase 2). Null for per-user pieces. */
+  band?: VocabBand | null;
+  /** Pool row expiry timestamp (SPEC-INPUT-002 Phase 2, REQ-AUTO-002-U2). */
+  expiresAt?: string | null;
 }
 
 export interface Channel {
