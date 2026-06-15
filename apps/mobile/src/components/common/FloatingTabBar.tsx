@@ -20,14 +20,12 @@ const ICONS: Record<
   }
 > = {
   index: { active: "play-circle", inactive: "play-circle-outline" },
-  explore: { active: "compass", inactive: "compass-outline" },
   archive: { active: "albums", inactive: "albums-outline" },
   profile: { active: "person", inactive: "person-outline" },
 };
 
 const LABELS: Record<string, string> = {
-  index: "쇼츠",
-  explore: "탐색",
+  index: "오늘",
   archive: "보관함",
   profile: "프로필",
 };

@@ -41,10 +41,10 @@ export default function ListeningHeader({
         </Text>
         {videoId && (
           <TouchableOpacity
-            onPress={() => router.push(`/shadowing/${videoId}`)}
+            onPress={() => router.push("/(tabs)")}
             style={styles.shadowingButton}
           >
-            <Text style={styles.shadowingText}>쉐도잉 →</Text>
+            <Text style={styles.shadowingText}>오늘 →</Text>
           </TouchableOpacity>
         )}
       </View>

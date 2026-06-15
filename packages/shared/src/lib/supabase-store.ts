@@ -1,12 +1,20 @@
 // @MX:ANCHOR: createSupabaseStore - platform-agnostic Supabase operations factory
 // @MX:REASON: [AUTO] fan_in >= 3: used by app-store, study-store, and future mobile store; eliminates singleton client dependency
 // @MX:SPEC: SPEC-MOBILE-001 - factory pattern for cross-platform shared code
+// @MX:ANCHOR: createSupabaseStore — fan_in>=3 (vocab profile, known words, asked items)
+// @MX:REASON: All v1.3 persistence flows through this factory. Adding mappers here.
 import { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Session,
   AppHighlight,
   SavedSentence,
   AINote,
+  UserVocabProfile,
+  KnownWord,
+  KnownWordSource,
+  AskedItem,
+  AskedItemSourceRef,
+  VocabBand,
 } from "../types/index";
 
 const UUID_PATTERN =
@@ -30,6 +38,8 @@ function generateUuid(): string {
 function mapSavedSentenceRow(item: {
   id: string;
   video_id: string;
+  premium_session_id?: string | null;
+  session_title?: string | null;
   sentence_id: string;
   sentence_text: string;
   start_time: number;
@@ -39,6 +49,8 @@ function mapSavedSentenceRow(item: {
   return {
     id: item.id,
     videoId: item.video_id,
+    premiumSessionId: item.premium_session_id ?? undefined,
+    sessionTitle: item.session_title ?? undefined,
     sentenceId: item.sentence_id,
     sentenceText: item.sentence_text,
     startTime: item.start_time,
@@ -108,6 +120,46 @@ function mapAINoteRow(item: {
     userFeedback: item.user_feedback,
     aiResponse: item.ai_response,
     createdAt: new Date(item.created_at).getTime(),
+  };
+}
+
+export function mapVocabProfileRow(
+  row: Record<string, unknown>,
+): UserVocabProfile {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    estimatedBand: row.estimated_band as VocabBand,
+    estimatedLevel: row.estimated_level as string,
+    updateHistory:
+      (row.update_history as UserVocabProfile["updateHistory"]) ?? [],
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export function mapKnownWordRow(row: Record<string, unknown>): KnownWord {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    lemma: row.lemma as string,
+    frequencyBand: row.frequency_band as KnownWord["frequencyBand"],
+    source: row.source as KnownWordSource,
+    lastSeen: row.last_seen as string | null,
+    createdAt: row.created_at as string,
+  };
+}
+
+export function mapAskedItemRow(row: Record<string, unknown>): AskedItem {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    sourceType: row.source_type as AskedItem["sourceType"],
+    sourceRef: row.source_ref as AskedItemSourceRef,
+    highlightText: row.highlight_text as string,
+    question: row.question as string | null,
+    answer: row.answer as string | null,
+    createdAt: row.created_at as string,
   };
 }
 
@@ -258,6 +310,8 @@ export const createSupabaseStore = (client: SupabaseClient) => ({
     const payload = {
       user_id: userId,
       video_id: sentence.videoId,
+      premium_session_id: sentence.premiumSessionId ?? null,
+      session_title: sentence.sessionTitle ?? null,
       sentence_id: sentence.sentenceId,
       sentence_text: sentence.sentenceText,
       start_time: sentence.startTime,

@@ -1,1211 +1,552 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
-  LayoutChangeEvent,
-  Platform,
+  ImageBackground,
   Pressable,
-  SafeAreaView,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
-  UIManager,
-  useWindowDimensions,
   View,
-  type ViewToken,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import type { CuratedVideo } from "@inputenglish/shared";
-import type { SessionListItem } from "@/lib/api";
+import type { PremiumSession } from "@inputenglish/shared";
 import {
-  fetchCuratedVideo,
-  fetchLearningSessionsPaginated,
-  fetchSessionsByIds,
-} from "@/lib/api";
-import { trackEvent } from "@/lib/analytics";
-import { safeImpactAsync } from "@/lib/safeHaptic";
-import { canViewShort, recordShortView } from "@/lib/free-usage";
-import { ImpactFeedbackStyle } from "expo-haptics";
-import { useSubscription } from "@/hooks/useSubscription";
-import SentenceNavigationBar from "@/components/common/SentenceNavigationBar";
-import ShortSessionCard from "@/components/shorts/ShortSessionCard";
-import { useAuth } from "@/contexts/AuthContext";
-import { ShortsUIProvider } from "@/contexts/ShortsUIContext";
-import { getRecentSessionIds, recordSessionVisit } from "@/lib/recent-sessions";
+  fetchTodayPremiumSession,
+  fetchTodayCiSession,
+  type TodayCiSessionShape,
+} from "@/lib/premium-api";
 import {
-  getLongformPressDestination,
-  getSessionPressDestination,
-} from "@/lib/session-access";
-import {
-  getSavedShortSessionIds,
-  toggleSavedShortSession,
-} from "@/lib/saved-shorts";
-import {
-  findSentenceIndex,
-  resolveSentencesByIdsOrRange,
-} from "@/lib/transcript-navigation";
-import {
-  getVideoCache,
-  isVideoCacheStale,
-  setVideoCache as persistVideoCache,
-} from "@/lib/video-cache";
-import { colors, font, radius, spacing } from "@/theme";
+  getPremiumSessionProgress,
+  type PremiumSessionProgress,
+} from "@/lib/premium-session-progress";
+import { colors, font, leading, radius, spacing } from "@/theme";
 
-type FeedMode = "recommended" | "saved";
-type VideoLoadState = {
-  status: "idle" | "loading" | "loaded" | "error";
-  error?: string | null;
+const STEP_STATUS_LABELS: Record<string, string> = {
+  article: "오늘 배워갈 것",
+  "content-catch": "영상 시청하기",
+  "delivery-analysis": "분석하며 듣기",
+  "expression-cards": "오늘 핵심표현",
+  roleplay: "말하기 연습",
+  completion: "학습 마치기",
 };
 
-const FALLBACK_VIEWPORT_HEIGHT = 720;
-const SHORTS_OVERLAY_HEIGHT = 220;
-const SHORTS_SCRIPT_TOP_INSET = 52;
-const SHORTS_SCRIPT_BOTTOM_INSET = 112;
-function scoreSession(
-  session: SessionListItem,
-  options: {
-    preferredSituations: string[];
-    preferredSourceTypes: string[];
-    preferredGenres: string[];
-    preferredSpeakers: string[];
-  },
-): number {
-  let score = 0;
-
-  if (
-    session.speaking_situations?.some((item) =>
-      options.preferredSituations.includes(item),
-    )
-  ) {
-    score += 5;
-  }
-
-  if (
-    session.source_type &&
-    options.preferredSourceTypes.includes(session.source_type)
-  ) {
-    score += 1;
-  }
-
-  if (session.genre && options.preferredGenres.includes(session.genre)) {
-    score += 2;
-  }
-
-  if (
-    session.speaker_names?.some((item) =>
-      options.preferredSpeakers.includes(item),
-    )
-  ) {
-    score += 3;
-  }
-
-  return score;
+function formatDuration(seconds: number): string {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return `${minutes}분 소요`;
 }
 
-function sortRecommendedSessions(
-  sessions: SessionListItem[],
-  options: {
-    preferredSituations: string[];
-    preferredSourceTypes: string[];
-    preferredGenres: string[];
-    preferredSpeakers: string[];
-  },
-): SessionListItem[] {
-  return [...sessions].sort((left, right) => {
-    const scoreDifference =
-      scoreSession(right, options) - scoreSession(left, options);
-    if (scoreDifference !== 0) return scoreDifference;
-    return left.order_index - right.order_index;
-  });
-}
-
-function getEmptyStateCopy(mode: FeedMode): {
-  title: string;
-  body: string;
-} {
-  switch (mode) {
-    case "saved":
-      return {
-        title: "저장한 쇼츠가 아직 없어요",
-        body: "흥미로운 구간을 저장해두면 출퇴근 시간에 바로 다시 볼 수 있어요.",
-      };
-    default:
-      return {
-        title: "지금 볼 쇼츠를 준비하지 못했어요",
-        body: "잠시 후 다시 시도하거나 탐색 탭에서 세션을 둘러봐 주세요.",
-      };
+function getProgressDetail(
+  progress: PremiumSessionProgress | null,
+): string | null {
+  if (!progress) return null;
+  if (progress.status === "completed") {
+    return `${progress.savedExpressionCount}개 표현이 복습 자산에 저장됐어요.`;
   }
+  return `마지막 위치: ${
+    STEP_STATUS_LABELS[progress.lastStep] ?? "오늘의 세션"
+  }`;
 }
 
-export default function HomeScreen() {
-  const { learningProfile, isProfileLoading } = useAuth();
-  const { plan } = useSubscription();
-  const { width: windowWidth } = useWindowDimensions();
-
-  const [viewportHeight, setViewportHeight] = useState(
-    FALLBACK_VIEWPORT_HEIGHT,
-  );
-  const [isLoading, setIsLoading] = useState(true);
+export default function PremiumHomeScreen() {
+  const [session, setSession] = useState<PremiumSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [feedMode, setFeedMode] = useState<FeedMode>("recommended");
-  const [recommendedSessions, setRecommendedSessions] = useState<
-    SessionListItem[]
-  >([]);
-  const [savedSessions, setSavedSessions] = useState<SessionListItem[]>([]);
-  const [recentSessions, setRecentSessions] = useState<SessionListItem[]>([]);
-  const [savedSessionIds, setSavedSessionIds] = useState<string[]>([]);
-  const [recentSessionIds, setRecentSessionIds] = useState<string[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [scriptVisible, setScriptVisible] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(false);
-  const [activeSentenceId, setActiveSentenceId] = useState<string | null>(null);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [sentenceNavigationRequest, setSentenceNavigationRequest] = useState<{
-    direction: "prev" | "next";
-    nonce: number;
-  } | null>(null);
-  const [videoCache, setVideoCache] = useState<Record<string, CuratedVideo>>(
-    {},
-  );
-  const [videoLoadState, setVideoLoadState] = useState<
-    Record<string, VideoLoadState>
-  >({});
+  const [progress, setProgress] = useState<PremiumSessionProgress | null>(null);
+  const [ciSession, setCiSession] = useState<TodayCiSessionShape | null>(null);
 
-  const flatListRef = useRef<FlatList<SessionListItem>>(null);
-  const lastRecordedSessionIdRef = useRef<string | null>(null);
-  const activeIndexRef = useRef(0);
-  const currentFeedLengthRef = useRef(0);
-  // Refs mirroring state for the free-shorts gate inside updateActiveIndex,
-  // which is captured once by the viewability callback (stable identity).
-  const currentFeedRef = useRef<SessionListItem[]>([]);
-  const planRef = useRef(plan);
-  const feedModeRef = useRef(feedMode);
-  const viewportHeightRef = useRef(viewportHeight);
-  const shortsPaywallGuardRef = useRef(false);
-  const cachedVideosRef = useRef<Record<string, CuratedVideo>>({});
-  const videoLoadStateRef = useRef<Record<string, VideoLoadState>>({});
-  const inFlightVideoRequestsRef = useRef<
-    Partial<Record<string, Promise<CuratedVideo | null>>>
-  >({});
-  const sentenceNavigationNonceRef = useRef(0);
-
-  const preferredSituations = useMemo(
-    () => learningProfile?.preferred_situations ?? [],
-    [learningProfile?.preferred_situations],
-  );
-  const preferredSourceTypes = useMemo(
-    () => learningProfile?.preferred_source_types ?? [],
-    [learningProfile?.preferred_source_types],
-  );
-  const preferredGenres = useMemo(
-    () => learningProfile?.preferred_genres ?? [],
-    [learningProfile?.preferred_genres],
-  );
-  const preferredSpeakers = useMemo(
-    () => learningProfile?.preferred_speakers ?? [],
-    [learningProfile?.preferred_speakers],
-  );
-
-  const ensureVideoLoaded = useCallback(async (videoId: string) => {
-    if (!videoId) return null;
-
-    // 1. In-memory cache
-    if (cachedVideosRef.current[videoId]) {
-      return cachedVideosRef.current[videoId];
-    }
-
-    // 2. MMKV persistent cache (instant, no network)
-    const persisted = getVideoCache(videoId);
-    if (persisted) {
-      cachedVideosRef.current[videoId] = persisted;
-      videoLoadStateRef.current[videoId] = { status: "loaded", error: null };
-      setVideoCache((current) =>
-        current[videoId] ? current : { ...current, [videoId]: persisted },
-      );
-      setVideoLoadState((current) => ({
-        ...current,
-        [videoId]: { status: "loaded", error: null },
-      }));
-
-      // Stale-while-revalidate: if cache is older than 1h, refresh in background
-      // so newly added translations or other changes are picked up.
-      if (isVideoCacheStale(videoId)) {
-        fetchCuratedVideo(videoId)
-          .then((fresh) => {
-            cachedVideosRef.current[videoId] = fresh;
-            setVideoCache((current) => ({ ...current, [videoId]: fresh }));
-            persistVideoCache(videoId, fresh);
-          })
-          .catch(() => {});
-      }
-
-      return persisted;
-    }
-
-    // 3. In-flight dedup
-    if (inFlightVideoRequestsRef.current[videoId]) {
-      return inFlightVideoRequestsRef.current[videoId];
-    }
-
-    videoLoadStateRef.current[videoId] = { status: "loading", error: null };
-    setVideoLoadState((current) => ({
-      ...current,
-      [videoId]: { status: "loading", error: null },
-    }));
-
-    const request = fetchCuratedVideo(videoId)
-      .then((video) => {
-        cachedVideosRef.current[videoId] = video;
-        videoLoadStateRef.current[videoId] = {
-          status: "loaded",
-          error: null,
-        };
-        setVideoCache((current) => ({ ...current, [videoId]: video }));
-        setVideoLoadState((current) => ({
-          ...current,
-          [videoId]: { status: "loaded", error: null },
-        }));
-        persistVideoCache(videoId, video);
-        return video;
-      })
-      .catch((nextError: Error) => {
-        const message = nextError?.message ?? "세션 영상을 불러오지 못했어요.";
-        videoLoadStateRef.current[videoId] = {
-          status: "error",
-          error: message,
-        };
-        setVideoLoadState((current) => ({
-          ...current,
-          [videoId]: { status: "error", error: message },
-        }));
-        return null;
-      })
-      .finally(() => {
-        delete inFlightVideoRequestsRef.current[videoId];
-      });
-
-    inFlightVideoRequestsRef.current[videoId] = request;
-    return request;
-  }, []);
-
-  const loadSessions = useCallback(async () => {
-    setIsLoading(true);
+  const loadToday = useCallback(async () => {
     setError(null);
-
     try {
-      const savedIds = getSavedShortSessionIds();
-      const recentIds = getRecentSessionIds();
-
-      const [feedResult, savedResult, recentResult] = await Promise.all([
-        fetchLearningSessionsPaginated(0),
-        savedIds.length > 0
-          ? fetchSessionsByIds(savedIds)
-          : Promise.resolve([]),
-        recentIds.length > 0
-          ? fetchSessionsByIds(recentIds)
-          : Promise.resolve([]),
+      const [premiumPayload, ciPayload] = await Promise.allSettled([
+        fetchTodayPremiumSession(),
+        fetchTodayCiSession(),
       ]);
 
-      const sortedRecommended = sortRecommendedSessions(feedResult.sessions, {
-        preferredSituations,
-        preferredSourceTypes,
-        preferredGenres,
-        preferredSpeakers,
-      });
+      const payload =
+        premiumPayload.status === "fulfilled" ? premiumPayload.value : null;
+      if (payload?.entitlement && !payload.entitlement.hasAccess) {
+        setSession(null);
+        setProgress(null);
+        router.push("/paywall");
+      } else if (payload?.session) {
+        setSession(payload.session);
+        setProgress(getPremiumSessionProgress(payload.session.id));
+      } else if (!payload?.session && !payload?.entitlement) {
+        router.push("/paywall");
+      }
 
-      setRecommendedSessions(sortedRecommended);
-      setSavedSessionIds(savedIds);
-      setRecentSessionIds(recentIds);
-      setSavedSessions(savedResult);
-      setRecentSessions(recentResult);
-
-      const initialPrimeSessions = [
-        ...sortedRecommended.slice(0, 3),
-        ...savedResult.slice(0, 2),
-        ...recentResult.slice(0, 2),
-      ];
-
-      for (const session of initialPrimeSessions) {
-        void ensureVideoLoaded(session.source_video_id);
+      if (ciPayload.status === "fulfilled") {
+        setCiSession(ciPayload.value.session);
       }
     } catch (nextError) {
-      const message =
+      setError(
         nextError instanceof Error
           ? nextError.message
-          : "쇼츠 피드를 불러오지 못했어요.";
-      setError(message);
+          : "오늘의 큐레이션을 불러오지 못했어요.",
+      );
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
-  }, [
-    ensureVideoLoaded,
-    preferredSourceTypes,
-    preferredGenres,
-    preferredSpeakers,
-    preferredSituations,
-  ]);
+  }, []);
 
-  const shortsEnteredAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    void loadToday();
+  }, [loadToday]);
 
   useFocusEffect(
     useCallback(() => {
-      shortsEnteredAtRef.current = Date.now();
-      trackEvent("shorts_tab_entered");
-      void loadSessions();
-
-      return () => {
-        if (shortsEnteredAtRef.current !== null) {
-          trackEvent("shorts_tab_exited", {
-            duration_seconds: Math.round(
-              (Date.now() - shortsEnteredAtRef.current) / 1000,
-            ),
-          });
-          shortsEnteredAtRef.current = null;
-        }
-      };
-    }, [loadSessions]),
+      if (session) {
+        setProgress(getPremiumSessionProgress(session.id));
+      }
+    }, [session]),
   );
 
-  const currentFeed = useMemo(() => {
-    switch (feedMode) {
-      case "saved":
-        return savedSessions;
-      default:
-        return recommendedSessions;
-    }
-  }, [feedMode, recommendedSessions, savedSessions]);
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    void loadToday();
+  }, [loadToday]);
 
-  const updateActiveIndex = useCallback((nextIndex: number) => {
-    const clampedIndex = Math.max(
-      0,
-      Math.min(nextIndex, currentFeedLengthRef.current - 1),
-    );
-    if (!Number.isFinite(clampedIndex)) return;
-    if (clampedIndex === activeIndexRef.current) return;
+  const handleOpenSession = useCallback(() => {
+    if (!session) return;
+    router.push(`/premium/${session.id}` as never);
+  }, [session]);
 
-    // Free shorts daily quota (recommended feed only): block the move to a new
-    // short once today's allowance is spent, snap back to the last allowed
-    // short, and present the paywall. Re-watching already-seen shorts is free.
-    if (planRef.current === "FREE" && feedModeRef.current !== "saved") {
-      const nextSession = currentFeedRef.current[clampedIndex];
-      if (nextSession && !canViewShort(nextSession.id)) {
-        if (!shortsPaywallGuardRef.current) {
-          shortsPaywallGuardRef.current = true;
-          flatListRef.current?.scrollToOffset({
-            offset: activeIndexRef.current * viewportHeightRef.current,
-            animated: true,
-          });
-          router.push("/paywall");
-          setTimeout(() => {
-            shortsPaywallGuardRef.current = false;
-          }, 800);
-        }
-        return;
-      }
-    }
-
-    activeIndexRef.current = clampedIndex;
-    setActiveIndex(clampedIndex);
+  const handleOpenReview = useCallback(() => {
+    router.push("/(tabs)/archive" as never);
   }, []);
 
-  const activeSession = currentFeed[activeIndex] ?? null;
-  const activeSessionSentences = useMemo(() => {
-    if (!activeSession) return [];
-
-    return resolveSentencesByIdsOrRange(
-      videoCache[activeSession.source_video_id]?.transcript ?? [],
-      activeSession.sentence_ids,
-      activeSession.start_time,
-      activeSession.end_time,
-    );
-  }, [activeSession, videoCache]);
-  const activeSentenceIndex = useMemo(
-    () => findSentenceIndex(activeSessionSentences, activeSentenceId),
-    [activeSentenceId, activeSessionSentences],
-  );
-  const hasPrevSentence = activeSentenceIndex > 0;
-  const hasNextSentence =
-    activeSentenceIndex >= 0
-      ? activeSentenceIndex < activeSessionSentences.length - 1
-      : activeSessionSentences.length > 0;
-  const isActiveSessionSaved = activeSession
-    ? savedSessionIds.includes(activeSession.id)
-    : false;
-  const activeSessionDescription = activeSession
-    ? activeSession.expected_takeaway ||
-      activeSession.description ||
-      [activeSession.primary_speaker_name, activeSession.channel_name]
-        .filter(Boolean)
-        .join(" · ")
-    : "";
-  const shortsPlayerHeight = Math.round(
-    (windowWidth - spacing.md * 2) * (9 / 16),
-  );
-
-  useEffect(() => {
-    if (
-      Platform.OS === "android" &&
-      UIManager.setLayoutAnimationEnabledExperimental
-    ) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
-
-  useEffect(() => {
-    currentFeedLengthRef.current = currentFeed.length;
-  }, [currentFeed.length]);
-
-  useEffect(() => {
-    currentFeedRef.current = currentFeed;
-  }, [currentFeed]);
-
-  useEffect(() => {
-    planRef.current = plan;
-  }, [plan]);
-
-  useEffect(() => {
-    feedModeRef.current = feedMode;
-  }, [feedMode]);
-
-  useEffect(() => {
-    viewportHeightRef.current = viewportHeight;
-  }, [viewportHeight]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-    activeIndexRef.current = 0;
-    flatListRef.current?.scrollToOffset({ animated: false, offset: 0 });
-  }, [feedMode]);
-
-  useEffect(() => {
-    if (activeIndex >= currentFeed.length) {
-      updateActiveIndex(0);
-      flatListRef.current?.scrollToOffset({ animated: false, offset: 0 });
-    }
-  }, [activeIndex, currentFeed.length, updateActiveIndex]);
-
-  useEffect(() => {
-    setIsDescriptionExpanded(false);
-    setActiveSentenceId(null);
-    setSentenceNavigationRequest(null);
-  }, [activeSession?.id]);
-
-  useEffect(() => {
-    const nearbySessions = [
-      currentFeed[activeIndex - 1],
-      currentFeed[activeIndex],
-      currentFeed[activeIndex + 1],
-    ].filter((session): session is SessionListItem => Boolean(session));
-
-    for (const session of nearbySessions) {
-      void ensureVideoLoaded(session.source_video_id);
-    }
-  }, [activeIndex, currentFeed, ensureVideoLoaded]);
-
-  useEffect(() => {
-    if (!activeSession) return;
-    if (lastRecordedSessionIdRef.current === activeSession.id) return;
-
-    lastRecordedSessionIdRef.current = activeSession.id;
-    recordSessionVisit(activeSession.id, activeSession.source_video_id);
-    // Count this distinct recommended short against the FREE daily quota.
-    if (planRef.current === "FREE" && feedModeRef.current !== "saved") {
-      recordShortView(activeSession.id);
-    }
-    setRecentSessionIds((current) => [
-      activeSession.id,
-      ...current.filter((item) => item !== activeSession.id),
-    ]);
-    setRecentSessions((current) => [
-      activeSession,
-      ...current.filter((item) => item.id !== activeSession.id),
-    ]);
-  }, [activeSession]);
-
-  const handleFeedLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const nextHeight = Math.round(event.nativeEvent.layout.height);
-      if (nextHeight > 0 && nextHeight !== viewportHeight) {
-        setViewportHeight(nextHeight);
-      }
-    },
-    [viewportHeight],
-  );
-
-  const handleMomentumScrollEnd = useCallback(
-    (event: { nativeEvent: { contentOffset: { y: number } } }) => {
-      if (viewportHeight <= 0) return;
-      const nextIndex = Math.round(
-        event.nativeEvent.contentOffset.y / viewportHeight,
-      );
-      // REQ-019-P3-05: Medium impact haptic only when activeIndex actually changes.
-      if (nextIndex !== activeIndexRef.current) {
-        safeImpactAsync(ImpactFeedbackStyle.Medium);
-      }
-      updateActiveIndex(nextIndex);
-    },
-    [updateActiveIndex, viewportHeight],
-  );
-
-  const viewabilityConfigRef = useRef({
-    itemVisiblePercentThreshold: 80,
-    minimumViewTime: 80,
-  });
-
-  const handleViewableItemsChangedRef = useRef(
-    ({
-      viewableItems,
-    }: {
-      viewableItems: Array<ViewToken<SessionListItem>>;
-    }) => {
-      const firstFullyVisibleItem = viewableItems.find(
-        (item) => item.isViewable && typeof item.index === "number",
-      );
-
-      if (typeof firstFullyVisibleItem?.index === "number") {
-        updateActiveIndex(firstFullyVisibleItem.index);
-      }
-    },
-  );
-
-  const handleToggleShortSave = useCallback((session: SessionListItem) => {
-    // REQ-019-P3-04: Light impact haptic on session save toggle (fire-and-forget).
-    safeImpactAsync(ImpactFeedbackStyle.Light);
-    const result = toggleSavedShortSession(session.id, session.source_video_id);
-    const nextIds = result.entries.map((entry) => entry.sessionId);
-
-    setSavedSessionIds(nextIds);
-    setSavedSessions((current) => {
-      if (result.saved) {
-        return [session, ...current.filter((item) => item.id !== session.id)];
-      }
-
-      return current.filter((item) => item.id !== session.id);
-    });
-
-    trackEvent(result.saved ? "short_session_saved" : "short_session_unsaved", {
-      sessionId: session.id,
-      videoId: session.source_video_id,
-      sourceType: session.source_type ?? "unknown",
-    });
-  }, []);
-
-  const handleToggleActiveShortSave = useCallback(() => {
-    if (!activeSession) return;
-    handleToggleShortSave(activeSession);
-  }, [activeSession, handleToggleShortSave]);
-
-  const handleOpenLongSession = useCallback(() => {
-    if (!activeSession) return;
-
-    trackEvent("shorts_to_long_session_opened", {
-      sessionId: activeSession.id,
-      videoId: activeSession.source_video_id,
-      strategy: activeSession.longform_pack_id
-        ? "longform_pack"
-        : "current_session_fallback",
-    });
-    if (!activeSession.longform_pack_id) {
-      trackEvent("shorts_long_session_fallback_used", {
-        sessionId: activeSession.id,
-        videoId: activeSession.source_video_id,
-      });
-    }
-    router.push(getLongformPressDestination(activeSession, plan));
-  }, [activeSession, plan]);
-
-  const handleNavigateActiveSentence = useCallback(
-    (direction: "prev" | "next") => {
-      if (!activeSession) return;
-      if (direction === "prev" && !hasPrevSentence) return;
-      if (direction === "next" && !hasNextSentence) return;
-
-      sentenceNavigationNonceRef.current += 1;
-      setSentenceNavigationRequest({
-        direction,
-        nonce: sentenceNavigationNonceRef.current,
-      });
-    },
-    [activeSession, hasNextSentence, hasPrevSentence],
-  );
-
-  const handleSessionEnd = useCallback(() => {
-    const nextIndex = activeIndexRef.current + 1;
-    if (nextIndex < currentFeedLengthRef.current) {
-      flatListRef.current?.scrollToOffset({
-        offset: viewportHeight * nextIndex,
-        animated: true,
-      });
-      updateActiveIndex(nextIndex);
-    }
-  }, [updateActiveIndex, viewportHeight]);
-
-  const handleToggleFeedMode = useCallback((nextMode: FeedMode) => {
-    setFeedMode(nextMode);
-  }, []);
-
-  const renderFeedItem = useCallback(
-    ({ item, index }: { item: SessionListItem; index: number }) => (
-      <View style={[styles.feedPage, { height: viewportHeight }]}>
-        <ShortSessionCard
-          session={item}
-          isActive={index === activeIndex}
-          shouldLoad={Math.abs(index - activeIndex) <= 1}
-          topOverlayInset={SHORTS_SCRIPT_TOP_INSET}
-          bottomOverlayInset={SHORTS_SCRIPT_BOTTOM_INSET}
-          video={videoCache[item.source_video_id] ?? null}
-          videoState={
-            videoLoadState[item.source_video_id] ?? {
-              status: "idle",
-              error: null,
-            }
-          }
-          onRetryVideoLoad={ensureVideoLoaded}
-          navigationRequest={
-            index === activeIndex ? sentenceNavigationRequest : null
-          }
-          onActiveSentenceChange={
-            index === activeIndex
-              ? (sentenceId) => {
-                  setActiveSentenceId(sentenceId);
-                }
-              : undefined
-          }
-          onSessionEnd={index === activeIndex ? handleSessionEnd : undefined}
-        />
-      </View>
-    ),
-    [
-      activeIndex,
-      ensureVideoLoaded,
-      handleSessionEnd,
-      sentenceNavigationRequest,
-      videoCache,
-      videoLoadState,
-      viewportHeight,
-    ],
-  );
-
-  if (isProfileLoading || isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerState}>
-          <ActivityIndicator color={colors.primary} />
-          <Text style={styles.stateText}>쇼츠 피드를 준비하고 있어요…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!learningProfile?.goal_mode) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.screenContent}>
-          <View style={styles.titleTabs}>
-            <Text style={[styles.titleTabText, styles.titleTabTextActive]}>
-              쇼츠
-            </Text>
-            <Text style={styles.titleTabText}>저장됨</Text>
-          </View>
-          <Text style={styles.screenSubtitle}>
-            학습 모드를 먼저 정하면 더 취향에 맞는 쇼츠를 보여드릴 수 있어요.
-          </Text>
-          <View style={styles.stateCard}>
-            <Text style={styles.stateTitle}>학습 설정이 아직 없어요</Text>
-            <Text style={styles.stateBody}>
-              발음 훔치기인지, 표현 훔치기인지에 따라 먼저 보여드릴 세션이
-              달라져요.
-            </Text>
-            <Pressable
-              style={styles.primaryCta}
-              onPress={() => router.push("/onboarding?edit=1" as never)}
-            >
-              <Text style={styles.primaryCtaText}>학습 설정 열기</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.screenContent}>
-          <View style={styles.titleTabs}>
-            <Text style={[styles.titleTabText, styles.titleTabTextActive]}>
-              쇼츠
-            </Text>
-            <Text style={styles.titleTabText}>저장됨</Text>
-          </View>
-          <Text style={styles.screenSubtitle}>{error}</Text>
-          <View style={styles.stateCard}>
-            <Pressable
-              style={styles.primaryCta}
-              onPress={() => void loadSessions()}
-            >
-              <Text style={styles.primaryCtaText}>다시 시도</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (currentFeed.length === 0) {
-    const copy = getEmptyStateCopy(feedMode);
-
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.screenContent}>
-          <View style={styles.titleTabs}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="쇼츠 보기"
-              onPress={() => handleToggleFeedMode("recommended")}
-            >
-              <Text
-                style={[
-                  styles.titleTabText,
-                  feedMode === "recommended" && styles.titleTabTextActive,
-                ]}
-              >
-                쇼츠
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="저장된 쇼츠 보기"
-              onPress={() => handleToggleFeedMode("saved")}
-            >
-              <Text
-                style={[
-                  styles.titleTabText,
-                  feedMode === "saved" && styles.titleTabTextActive,
-                ]}
-              >
-                저장됨
-              </Text>
-            </Pressable>
-          </View>
-          <View style={styles.stateCard}>
-            <Text style={styles.stateTitle}>{copy.title}</Text>
-            <Text style={styles.stateBody}>{copy.body}</Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const progressDetail = getProgressDetail(progress);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.screenContent}>
-        <View style={styles.topHeader}>
-          <View style={styles.titleTabs}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="쇼츠 보기"
-              onPress={() => handleToggleFeedMode("recommended")}
-            >
-              <Text
-                style={[
-                  styles.titleTabText,
-                  feedMode === "recommended" && styles.titleTabTextActive,
-                ]}
-              >
-                쇼츠
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="저장된 쇼츠 보기"
-              onPress={() => handleToggleFeedMode("saved")}
-            >
-              <Text
-                style={[
-                  styles.titleTabText,
-                  feedMode === "saved" && styles.titleTabTextActive,
-                ]}
-              >
-                저장됨
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={colors.textPremium}
+        />
+      }
+    >
+      <View style={styles.hero}>
+        <Text style={styles.greeting}>Good morning,</Text>
+        <Text style={styles.greetingName}>오늘의 인풋</Text>
+      </View>
+      <Text style={styles.sectionTitle}>오늘 도착한 큐레이션</Text>
 
-        <View style={styles.feedViewport} onLayout={handleFeedLayout}>
-          <ShortsUIProvider value={{ scriptVisible, showTranslation }}>
-            <FlatList
-              ref={flatListRef}
-              data={currentFeed}
-              keyExtractor={(item) => item.id}
-              renderItem={renderFeedItem}
-              extraData={`${activeIndex}:${viewportHeight}:${sentenceNavigationRequest?.nonce ?? 0}`}
-              pagingEnabled
-              disableIntervalMomentum
-              decelerationRate="fast"
-              showsVerticalScrollIndicator={false}
-              onMomentumScrollEnd={handleMomentumScrollEnd}
-              onViewableItemsChanged={handleViewableItemsChangedRef.current}
-              viewabilityConfig={viewabilityConfigRef.current}
-              getItemLayout={(_, index) => ({
-                length: viewportHeight,
-                offset: viewportHeight * index,
-                index,
-              })}
-              windowSize={3}
-              initialNumToRender={2}
-              maxToRenderPerBatch={3}
-              removeClippedSubviews={false}
-            />
-          </ShortsUIProvider>
-          {activeSession ? (
-            <View pointerEvents="box-none" style={styles.activeSessionOverlay}>
-              <View
-                pointerEvents="box-none"
-                style={[
-                  styles.sentenceNavWrapper,
-                  { top: shortsPlayerHeight + spacing.xs },
-                ]}
-              >
-                <SentenceNavigationBar
-                  tone="dark"
-                  hasPrev={hasPrevSentence}
-                  hasNext={hasNextSentence}
-                  onPrev={() => handleNavigateActiveSentence("prev")}
-                  onNext={() => handleNavigateActiveSentence("next")}
-                />
-              </View>
-              <View
-                style={[
-                  styles.videoInfoOverlay,
-                  {
-                    bottom: viewportHeight - shortsPlayerHeight + spacing.sm,
-                    maxHeight:
-                      shortsPlayerHeight - SHORTS_SCRIPT_TOP_INSET - spacing.sm,
-                  },
-                ]}
-              >
-                <Text
-                  style={styles.activeSessionTitle}
-                  numberOfLines={isDescriptionExpanded ? undefined : 2}
-                >
-                  {activeSession.title}
+      {ciSession && (
+        <Pressable
+          testID="ci-session-card"
+          style={({ pressed }) => [
+            styles.ciSessionCard,
+            pressed && styles.sessionCardPressed,
+          ]}
+          onPress={() => router.push("/premium" as never)}
+        >
+          <Text style={styles.ciSessionLabel}>오늘의 세션</Text>
+          {ciSession.readingPiece ? (
+            <Text style={styles.ciSessionTitle} numberOfLines={2}>
+              {ciSession.readingPiece.topic}
+            </Text>
+          ) : null}
+          <Text style={styles.ciSessionMeta}>
+            영상 {ciSession.segments.length}편 포함
+          </Text>
+        </Pressable>
+      )}
+
+      {loading ? (
+        <View style={styles.stateBox}>
+          <ActivityIndicator color={colors.textPremium} />
+        </View>
+      ) : error ? (
+        <View style={styles.stateBox}>
+          <Text style={styles.stateTitle}>잠깐 멈췄어요</Text>
+          <Text style={styles.stateText}>{error}</Text>
+          <Pressable style={styles.secondaryButton} onPress={handleRefresh}>
+            <Text style={styles.secondaryButtonText}>다시 불러오기</Text>
+          </Pressable>
+        </View>
+      ) : session ? (
+        <Pressable
+          testID="premium-session-card"
+          style={({ pressed }) => [
+            styles.sessionCard,
+            pressed && styles.sessionCardPressed,
+          ]}
+          onPress={handleOpenSession}
+        >
+          <View style={styles.cardMedia}>
+            <ImageBackground
+              source={{
+                uri:
+                  session.thumbnail_url ??
+                  `https://img.youtube.com/vi/${session.source_video_id}/hqdefault.jpg`,
+              }}
+              style={styles.sessionImage}
+              imageStyle={styles.sessionImageStyle}
+            >
+              <View style={styles.imageOverlay} />
+              <View style={styles.cardTopRow}>
+                <Text style={styles.durationPill}>
+                  {formatDuration(session.duration_seconds)}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${activeSession.title} 설명 ${
-                    isDescriptionExpanded ? "접기" : "펼치기"
-                  }`}
-                  onPress={() => {
-                    setIsDescriptionExpanded((current) => !current);
-                  }}
+                <Text style={styles.sourcePill}>
+                  {session.channel_name ?? "Premium"}
+                </Text>
+              </View>
+              <View style={styles.mediaFade} />
+            </ImageBackground>
+          </View>
+          <View style={styles.cardTextBlock}>
+            <Text style={styles.sessionTitle}>{session.title}</Text>
+            {session.description ? (
+              <Text style={styles.sessionDescription}>
+                {session.description}
+              </Text>
+            ) : null}
+            <View style={styles.expressionBlock}>
+              <Text style={styles.expressionBlockTitle}>오늘 배워갈 표현</Text>
+              <View style={styles.expressionRow}>
+                {session.expression_cards.slice(0, 3).map((card) => (
+                  <View key={card.id} style={styles.expressionChip}>
+                    <Text style={styles.expressionChipText}>
+                      {card.expression}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+          {progress?.status === "completed" ? (
+            <View
+              pointerEvents="box-none"
+              style={styles.statusOverlay}
+              testID="premium-home-done-overlay"
+            >
+              <Text style={styles.overlayTitle}>
+                이미 학습을 완료한 큐레이션이에요
+              </Text>
+              {progressDetail ? (
+                <Text
+                  style={styles.overlayDetail}
+                  testID="premium-home-progress-detail"
                 >
-                  <Text
-                    style={styles.activeSessionDescription}
-                    numberOfLines={isDescriptionExpanded ? undefined : 2}
-                  >
-                    {activeSessionDescription}
+                  {progressDetail}
+                </Text>
+              ) : null}
+              <View style={styles.overlayActions}>
+                <Pressable
+                  style={styles.overlayPrimaryButton}
+                  onPress={handleOpenSession}
+                >
+                  <Text style={styles.overlayPrimaryButtonText}>
+                    다시 학습하기
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.overlaySecondaryButton}
+                  onPress={handleOpenReview}
+                >
+                  <Text style={styles.overlaySecondaryButtonText}>
+                    복습하러가기
                   </Text>
                 </Pressable>
               </View>
-              <View style={styles.activeSessionOverlayContent}>
-                <View style={styles.activeSessionActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${activeSession.title} 쇼츠 저장`}
-                    style={styles.actionItem}
-                    onPress={handleToggleActiveShortSave}
-                  >
-                    <View
-                      style={[
-                        styles.iconButton,
-                        isActiveSessionSaved && styles.iconButtonActive,
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          isActiveSessionSaved ? "bookmark" : "bookmark-outline"
-                        }
-                        size={18}
-                        color={
-                          isActiveSessionSaved
-                            ? colors.bgDark
-                            : colors.textOnDark
-                        }
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        isActiveSessionSaved && styles.actionLabelActive,
-                      ]}
-                    >
-                      저장
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="자막 토글"
-                    style={styles.actionItem}
-                    onPress={() => setScriptVisible((current) => !current)}
-                  >
-                    <View
-                      style={[
-                        styles.iconButton,
-                        scriptVisible && styles.iconButtonActive,
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          scriptVisible
-                            ? "chatbox-ellipses"
-                            : "chatbox-ellipses-outline"
-                        }
-                        size={18}
-                        color={
-                          scriptVisible ? colors.bgDark : colors.textOnDark
-                        }
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        scriptVisible && styles.actionLabelActive,
-                      ]}
-                    >
-                      자막
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="번역 토글"
-                    style={styles.actionItem}
-                    onPress={() => setShowTranslation((current) => !current)}
-                  >
-                    <View
-                      style={[
-                        styles.iconButton,
-                        showTranslation && styles.iconButtonActive,
-                      ]}
-                    >
-                      <Ionicons
-                        name={showTranslation ? "globe" : "globe-outline"}
-                        size={18}
-                        color={
-                          showTranslation ? colors.bgDark : colors.textOnDark
-                        }
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        showTranslation && styles.actionLabelActive,
-                      ]}
-                    >
-                      번역
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${activeSession.title} 더 공부하기`}
-                    style={styles.actionItem}
-                    onPress={handleOpenLongSession}
-                  >
-                    <View style={styles.iconButton}>
-                      <Ionicons
-                        name="arrow-forward"
-                        size={18}
-                        color={colors.textOnDark}
-                      />
-                    </View>
-                    <Text style={styles.actionLabel}>더 공부하기</Text>
-                  </Pressable>
-                </View>
-              </View>
+            </View>
+          ) : progress?.status === "in-progress" ? (
+            <View
+              pointerEvents="box-none"
+              style={styles.statusOverlay}
+              testID="premium-home-pause-overlay"
+            >
+              <Text style={styles.overlayTitle}>아직 학습 중이에요</Text>
+              {progressDetail ? (
+                <Text
+                  style={styles.overlayDetail}
+                  testID="premium-home-progress-detail"
+                >
+                  {progressDetail}
+                </Text>
+              ) : null}
+              <Pressable
+                style={styles.overlayPrimaryButton}
+                onPress={handleOpenSession}
+              >
+                <Text style={styles.overlayPrimaryButtonText}>
+                  이어서 학습하기
+                </Text>
+              </Pressable>
             </View>
           ) : null}
+        </Pressable>
+      ) : (
+        <View style={styles.stateBox}>
+          <Text style={styles.stateTitle}>오늘 세션을 준비 중이에요</Text>
+          <Text style={styles.stateText}>
+            publish된 premium session이 생기면 이곳에 바로 도착해요.
+          </Text>
         </View>
-      </View>
-    </SafeAreaView>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
     backgroundColor: colors.bgDark,
   },
-  screenContent: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    gap: spacing.md,
-    backgroundColor: colors.bgDark,
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing["2xl"],
+    paddingBottom: spacing["3xl"],
+    gap: spacing.lg,
   },
-  topHeader: {
+  hero: {
     gap: spacing.xs,
   },
-  titleTabs: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    minHeight: 26,
-  },
-  titleTabText: {
-    fontSize: font.size.xl,
-    lineHeight: 26,
-    letterSpacing: 0.5,
-    color: colors.textOnDarkMuted,
+  greeting: {
+    color: colors.textPremiumSecondary,
+    fontSize: font.size["3xl"],
+    lineHeight: leading(font.size["3xl"], font.lineHeight.tight),
     fontWeight: font.weight.semibold,
   },
-  titleTabTextActive: {
-    color: colors.textOnDark,
+  greetingName: {
+    color: colors.textPremium,
+    fontSize: font.size["4xl"],
+    lineHeight: leading(font.size["4xl"], font.lineHeight.tight),
+    fontWeight: font.weight.bold,
+    letterSpacing: font.tracking.normal,
+  },
+  sectionTitle: {
+    color: colors.textPremium,
+    fontSize: font.size.lg,
+    lineHeight: leading(font.size.lg, font.lineHeight.tight),
+    fontWeight: font.weight.semibold,
+    letterSpacing: font.tracking.normal,
+    marginTop: spacing.md,
+  },
+  stateBox: {
+    minHeight: 360,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+    borderRadius: radius["2xl"],
+    borderWidth: 1,
+    borderColor: colors.borderPremium,
+    backgroundColor: colors.bgPremiumCard,
+    padding: spacing.lg,
+  },
+  stateTitle: {
+    color: colors.textPremium,
+    fontSize: font.size.xl,
+    lineHeight: leading(font.size.xl, font.lineHeight.tight),
     fontWeight: font.weight.bold,
   },
-  screenSubtitle: {
-    fontSize: font.size.sm,
-    lineHeight: 20,
-    color: colors.textOnDarkSecondary,
+  stateText: {
+    color: colors.textPremiumSecondary,
+    textAlign: "center",
+    fontSize: font.size.md,
+    lineHeight: leading(font.size.md, font.lineHeight.relaxed),
   },
-  feedViewport: {
+  secondaryButton: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgPremiumControl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  secondaryButtonText: {
+    color: colors.textPremium,
+    fontSize: font.size.base,
+    fontWeight: font.weight.bold,
+  },
+  sessionCard: {
+    height: 456,
+    overflow: "hidden",
+    borderRadius: radius["2xl"],
+    backgroundColor: colors.bgPremiumCard,
+  },
+  sessionCardPressed: {
+    opacity: 0.9,
+  },
+  cardMedia: {
+    height: 192,
+    overflow: "hidden",
+  },
+  sessionImage: {
     flex: 1,
-    minHeight: 0,
-    position: "relative",
+    justifyContent: "flex-start",
+    padding: spacing.md,
   },
-  activeSessionOverlay: {
+  sessionImageStyle: {
+    resizeMode: "cover",
+  },
+  imageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end",
+    backgroundColor: colors.bgDark,
+    opacity: 0.16,
   },
-  sentenceNavWrapper: {
+  mediaFade: {
     position: "absolute",
     left: 0,
     right: 0,
-    zIndex: 4,
-    paddingHorizontal: spacing.xs,
+    bottom: 0,
+    height: 60,
+    backgroundColor: colors.bgDark,
+    opacity: 0.72,
   },
-  videoInfoOverlay: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    gap: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    overflow: "hidden",
-  },
-  activeSessionOverlayContent: {
-    paddingRight: spacing.sm,
-    paddingBottom: spacing.md,
-    alignItems: "flex-end",
-  },
-  activeSessionTitle: {
-    fontSize: font.size.sm,
-    lineHeight: 18,
-    color: colors.textOnDark,
-    fontWeight: font.weight.bold,
-    textShadowColor: "rgba(0,0,0,0.7)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  activeSessionDescription: {
-    fontSize: font.size.sm,
-    lineHeight: 18,
-    color: colors.textOnDarkSecondary,
-    textShadowColor: "rgba(0,0,0,0.7)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  activeSessionActions: {
-    flexDirection: "column",
+  statusOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.lg,
+    backgroundColor: colors.bgPremiumOverlay,
+    padding: spacing.xl,
+  },
+  overlayTitle: {
+    color: colors.textPremium,
+    textAlign: "center",
+    fontSize: font.size.xl,
+    lineHeight: leading(font.size.xl, font.lineHeight.tight),
+    fontWeight: font.weight.bold,
+  },
+  overlayDetail: {
+    color: colors.textPremiumSecondary,
+    textAlign: "center",
+    fontSize: font.size.md,
+    lineHeight: leading(font.size.md, font.lineHeight.relaxed),
+    fontWeight: font.weight.semibold,
+  },
+  overlayActions: {
+    alignSelf: "stretch",
     gap: spacing.md,
   },
-  actionItem: {
+  overlayPrimaryButton: {
+    alignSelf: "stretch",
     alignItems: "center",
-    gap: spacing.xs,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: colors.textPremium,
+    paddingVertical: spacing.md,
+  },
+  overlayPrimaryButtonText: {
+    color: colors.bgDark,
+    fontSize: font.size.base,
+    fontWeight: font.weight.bold,
+  },
+  overlaySecondaryButton: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.borderOnDarkStrong,
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: colors.borderPremium,
+    backgroundColor: colors.bgPremiumControl,
+    paddingVertical: spacing.md,
   },
-  iconButtonActive: {
-    backgroundColor: colors.textOnDark,
-    borderColor: colors.textOnDark,
+  overlaySecondaryButtonText: {
+    color: colors.textPremium,
+    fontSize: font.size.base,
+    fontWeight: font.weight.bold,
   },
-  actionLabel: {
-    fontSize: font.size.xs,
-    lineHeight: 16,
-    color: colors.textOnDarkMuted,
-    fontWeight: font.weight.medium,
-  },
-  actionLabelActive: {
-    color: colors.textOnDark,
-  },
-  actionLabelDisabled: {
-    color: colors.textOnDarkMuted,
-  },
-  feedPage: {
-    width: "100%",
-  },
-  centerState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
   },
-  stateCard: {
+  durationPill: {
+    overflow: "hidden",
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgPremiumControl,
+    color: colors.textPremium,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.bold,
+  },
+  sourcePill: {
+    flexShrink: 1,
+    overflow: "hidden",
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgPremiumControl,
+    color: colors.textPremium,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.bold,
+  },
+  cardTextBlock: {
+    flex: 1,
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  sessionTitle: {
+    color: colors.textPremium,
+    fontSize: font.size.xl,
+    lineHeight: leading(font.size.xl, font.lineHeight.tight),
+    fontWeight: font.weight.bold,
+    letterSpacing: font.tracking.normal,
+  },
+  sessionDescription: {
+    color: colors.textPremiumSecondary,
+    fontSize: font.size.md,
+    lineHeight: leading(font.size.md, font.lineHeight.relaxed),
+    fontWeight: font.weight.semibold,
+  },
+  expressionBlock: {
+    marginTop: "auto",
+    gap: spacing.sm,
+  },
+  expressionBlockTitle: {
+    color: colors.textPremium,
+    fontSize: font.size.sm,
+    lineHeight: leading(font.size.sm, font.lineHeight.tight),
+    fontWeight: font.weight.semibold,
+  },
+  expressionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  expressionChip: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgPremiumControl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  expressionChipText: {
+    color: colors.textPremium,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.bold,
+  },
+  ciSessionCard: {
     borderRadius: radius.xl,
+    backgroundColor: colors.bgPremiumCard,
     borderWidth: 1,
-    borderColor: colors.borderOnDark,
-    backgroundColor: colors.bgDarkSubtle,
+    borderColor: colors.borderPremium,
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  stateTitle: {
-    fontSize: font.size.base,
-    lineHeight: 24,
-    color: colors.textOnDark,
+  ciSessionLabel: {
+    color: colors.textPremiumSecondary,
+    fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
-  stateBody: {
+  ciSessionTitle: {
+    color: colors.textPremium,
+    fontSize: font.size.lg,
+    fontWeight: font.weight.bold,
+    lineHeight: leading(font.size.lg, font.lineHeight.tight),
+  },
+  ciSessionMeta: {
+    color: colors.textPremiumSecondary,
     fontSize: font.size.sm,
-    lineHeight: 20,
-    color: colors.textOnDarkSecondary,
-  },
-  stateText: {
-    fontSize: font.size.sm,
-    lineHeight: 20,
-    color: colors.textOnDarkSecondary,
-    textAlign: "center",
-  },
-  primaryCta: {
-    alignSelf: "flex-start",
-    borderRadius: radius.lg,
-    backgroundColor: colors.textOnDark,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-  },
-  primaryCtaText: {
-    fontSize: font.size.sm,
-    lineHeight: 18,
-    color: colors.bgDark,
     fontWeight: font.weight.semibold,
   },
 });

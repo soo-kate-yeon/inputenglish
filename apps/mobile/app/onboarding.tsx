@@ -39,6 +39,7 @@ import type {
 import { GENRE_LABELS } from "@/lib/professional-labels";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
+import { inferPremiumPreferredSourceTypes } from "@/lib/premium-interest-clusters";
 import { colors, font, radius, spacing } from "@/theme";
 
 type OnboardingStep = "level" | "goal" | "details" | "preparing";
@@ -595,6 +596,13 @@ export default function OnboardingScreen() {
           goalMode === "expression"
             ? (expressionSituations as SpeakingSituation[])
             : [],
+        preferred_source_types:
+          goalMode === "expression"
+            ? inferPremiumPreferredSourceTypes({
+                situations: expressionSituations as SpeakingSituation[],
+                genres: expressionTopics as Genre[],
+              })
+            : [],
         preferred_genres:
           goalMode === "expression" ? (expressionTopics as Genre[]) : [],
         onboarding_completed_at: new Date().toISOString(),
@@ -726,6 +734,10 @@ export default function OnboardingScreen() {
             <View style={styles.focusSection}>
               <Text style={styles.title}>
                 주로 어떤 상황에서 영어를 많이 쓰게 될까요?
+              </Text>
+              <Text style={styles.body}>
+                처음 관심사 클러스터를 잡아두면 매일 도착하는 큐레이션이 더
+                빠르게 맞아져요.
               </Text>
               <View style={styles.chipWrap}>
                 {SPEAKING_SITUATIONS.map((tag) => (

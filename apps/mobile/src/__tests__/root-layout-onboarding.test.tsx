@@ -40,6 +40,11 @@ jest.mock("expo-notifications", () => ({
     remove: jest.fn(),
   })),
 }));
+jest.mock("@/lib/push-notifications", () => ({
+  setupNotificationHandler: jest.fn(),
+  initPushNotifications: jest.fn(),
+  handleNotificationResponse: jest.fn(),
+}));
 jest.mock("../../src/contexts/AuthContext", () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: jest.fn(() => mockAuthState),

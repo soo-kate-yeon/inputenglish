@@ -18,6 +18,10 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/../../packages/shared/src"
+    ],
     "transformIgnorePatterns": [
       "node_modules/\\.pnpm/(?!((jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?|react-navigation|@react-navigation|@unimodules|unimodules|sentry-expo|native-base|react-native-svg))"
     ],
@@ -29,6 +33,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
+    "@inputenglish/design-tokens": "workspace:*",
     "@expo/vector-icons": "^14.0.4",
     "@inputenglish/shared": "workspace:*",
     "@react-native-async-storage/async-storage": "^1.23.1",

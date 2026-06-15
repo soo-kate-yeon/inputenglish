@@ -141,25 +141,15 @@ export default function TermsPage() {
                 Subscriptions
               </H2>
               <p className="mt-4">
-                InputEnglish offers the following auto-renewable subscription
-                plans for Premium access:
+                InputEnglish offers a single auto-renewable subscription plan
+                for Premium access:
               </p>
               <div className="mt-4 space-y-2.5">
                 {[
                   {
-                    plan: "Monthly",
-                    price: "KRW 9,900/month",
-                    desc: "Billed monthly, auto-renews every month.",
-                  },
-                  {
-                    plan: "3-Month",
-                    price: "KRW 24,900/3 months",
-                    desc: "Billed every 3 months, auto-renews every 3 months.",
-                  },
-                  {
-                    plan: "Annual",
-                    price: "KRW 89,000/year",
-                    desc: "Billed annually, auto-renews every year.",
+                    plan: "Premium Monthly",
+                    price: "KRW 25,900/month",
+                    desc: "Includes a 7-day free trial, then bills monthly and auto-renews every month.",
                   },
                 ].map((item) => (
                   <div

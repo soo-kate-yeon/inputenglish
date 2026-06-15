@@ -237,3 +237,4 @@ ssl/
 moai-adk/
 my-project/
 package-lock.json
+.playwright-mcp/

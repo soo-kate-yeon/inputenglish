@@ -9,6 +9,15 @@
  */
 
 import { Platform } from "react-native";
+import { premiumDarkTokens } from "@inputenglish/design-tokens";
+
+export const premiumTheme = {
+  colors: premiumDarkTokens.color,
+  typography: premiumDarkTokens.typography,
+  spacing: premiumDarkTokens.spacing,
+  radius: premiumDarkTokens.radius,
+  elevation: premiumDarkTokens.elevation,
+} as const;
 
 // -- Color Palette --
 
@@ -42,6 +51,10 @@ export const colors = {
   bgDark: palette.black,
   bgDarkSubtle: palette.neutral950,
   bgDarkMuted: palette.neutral900,
+  bgPremiumCard: premiumTheme.colors.card,
+  bgPremiumCardStrong: premiumTheme.colors.cardStrong,
+  bgPremiumControl: premiumTheme.colors.control,
+  bgPremiumOverlay: premiumTheme.colors.overlay,
 
   // Text
   text: palette.neutral900,
@@ -51,6 +64,9 @@ export const colors = {
   textOnDark: palette.white,
   textOnDarkSecondary: "rgba(255,255,255,0.72)",
   textOnDarkMuted: "rgba(255,255,255,0.45)",
+  textPremium: premiumTheme.colors.text,
+  textPremiumSecondary: premiumTheme.colors.textSecondary,
+  textPremiumMuted: premiumTheme.colors.textMuted,
 
   // Borders
   border: palette.neutral200,
@@ -58,6 +74,7 @@ export const colors = {
   borderFocus: palette.neutral700,
   borderOnDark: "rgba(255,255,255,0.12)",
   borderOnDarkStrong: "rgba(255,255,255,0.22)",
+  borderPremium: premiumTheme.colors.border,
 
   // Interactive
   primary: palette.neutral900,
@@ -83,25 +100,25 @@ export const colors = {
 // -- Spacing --
 
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  "2xl": 48,
-  "3xl": 64,
+  xs: premiumTheme.spacing.controlGap / 2,
+  sm: premiumTheme.spacing.controlGap,
+  md: premiumTheme.spacing.controlGap * 2,
+  lg: premiumTheme.spacing.cardPadding,
+  xl: premiumTheme.spacing.sectionGap,
+  "2xl": premiumTheme.spacing.cardPadding * 2,
+  "3xl": premiumTheme.spacing.sectionGap * 2,
 } as const;
 
 // -- Radius --
 
 export const radius = {
   none: 0,
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  "2xl": 24,
-  pill: 9999,
+  sm: premiumTheme.radius.panel / 4,
+  md: premiumTheme.radius.panel / 2,
+  lg: premiumTheme.radius.panel - 4,
+  xl: premiumTheme.radius.panel,
+  "2xl": premiumTheme.radius.card,
+  pill: premiumTheme.radius.control,
 } as const;
 
 // -- Typography --
@@ -123,14 +140,14 @@ export const font = {
   },
   size: {
     xs: 11,
-    sm: 13,
+    sm: premiumTheme.typography.captionSize,
     md: 15,
-    base: 17,
+    base: premiumTheme.typography.bodySize,
     lg: 20,
     xl: 22,
     "2xl": 28,
-    "3xl": 36,
-    "4xl": 44,
+    "3xl": premiumTheme.typography.titleSize,
+    "4xl": premiumTheme.typography.heroSize,
   },
   tracking: {
     tight: -0.3,
@@ -141,9 +158,9 @@ export const font = {
     widest: 2.4,
   },
   lineHeight: {
-    tight: 1.2,
+    tight: premiumTheme.typography.lineHeightTight,
     normal: 1.5,
-    relaxed: 1.6,
+    relaxed: premiumTheme.typography.lineHeightRelaxed,
     loose: 1.75,
   },
 } as const;
@@ -179,13 +196,21 @@ export const shadow = {
   lg: {
     shadowColor: palette.neutral950,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: premiumTheme.elevation.premiumCard.shadowOpacity,
+    shadowRadius: premiumTheme.elevation.premiumCard.shadowRadius,
+    elevation: premiumTheme.elevation.premiumCard.elevation,
   },
 } as const;
 
 // -- Convenience re-export --
 
-const theme = { palette, colors, spacing, radius, font, shadow } as const;
+const theme = {
+  palette,
+  colors,
+  spacing,
+  radius,
+  font,
+  shadow,
+  premiumTheme,
+} as const;
 export default theme;

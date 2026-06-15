@@ -14,13 +14,14 @@ import {
 } from "react-native";
 import type { PurchasesPackage, CustomerInfo } from "react-native-purchases";
 import { purchasePackage } from "@/lib/revenue-cat";
+import { colors, font, spacing } from "@/theme";
 
 // PurchasesErrorCode value for user cancellation
 const PURCHASE_CANCELLED_CODE = "PURCHASE_CANCELLED_ERROR";
 
 interface PurchaseButtonProps {
   pkg: PurchasesPackage | null;
-  onSuccess: (info: CustomerInfo) => void;
+  onSuccess: (info: CustomerInfo) => void | Promise<void>;
   onError?: (e: Error) => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -42,7 +43,7 @@ export default function PurchaseButton({
     setIsLoading(true);
     try {
       const { customerInfo } = await purchasePackage(pkg);
-      onSuccess(customerInfo);
+      await onSuccess(customerInfo);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       // Check for cancellation - RevenueCat wraps codes in the error object
@@ -91,17 +92,17 @@ export default function PurchaseButton({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#111111",
-    paddingVertical: 16,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
     alignItems: "center",
   },
   buttonDisabled: {
-    backgroundColor: "#CCCCCC",
+    backgroundColor: colors.disabled,
   },
   buttonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 1.5,
+    color: colors.textInverse,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.bold,
+    letterSpacing: font.tracking.wider,
   },
 });

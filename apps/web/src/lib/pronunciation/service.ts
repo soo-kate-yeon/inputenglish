@@ -33,9 +33,10 @@ function mapProviderError(error: unknown): { code: string; message: string } {
 export async function requestPronunciationAnalysis(input: {
   userId: string;
   sessionId?: string | null;
+  premiumSessionId?: string | null;
   videoId: string;
   sentenceId: string;
-  source: "daily-input" | "study";
+  source: "daily-input" | "study" | "premium-roleplay";
   recordingUrl: string;
   referenceText: string;
   providerLocale?: string;
@@ -44,6 +45,7 @@ export async function requestPronunciationAnalysis(input: {
   return createPronunciationAnalysis({
     userId: input.userId,
     sessionId: input.sessionId,
+    premiumSessionId: input.premiumSessionId,
     videoId: input.videoId,
     sentenceId: input.sentenceId,
     source: input.source,

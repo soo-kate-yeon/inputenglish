@@ -113,4 +113,48 @@ describe("POST /api/pronunciation/analyses", () => {
     expect(mockAfter).toHaveBeenCalledTimes(1);
     expect(mockProcessPronunciationAnalysis).not.toHaveBeenCalled();
   });
+
+  it("passes premium roleplay pronunciation requests through with the premium session id", async () => {
+    mockRequireApiUser.mockResolvedValue({ id: "user-1" });
+    mockRequestPronunciationAnalysis.mockResolvedValue({
+      analysis_id: "premium-analysis-1",
+      status: "queued",
+      provider: "azure",
+      provider_locale: "en-US",
+      result: null,
+      error: null,
+    });
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      new Request("http://localhost/api/pronunciation/analyses", {
+        method: "POST",
+        body: JSON.stringify({
+          recordingUrl: "https://cdn.example.com/premium-roleplay.m4a",
+          referenceText:
+            "I had the privilege of working with a team that refused to lower the bar.",
+          sentenceId: "11111111-1111-4111-8111-111111111111-roleplay",
+          videoId: "G96-xYqw0rQ",
+          sessionId: null,
+          premiumSessionId: "11111111-1111-4111-8111-111111111111",
+          source: "premium-roleplay",
+        }),
+      }) as never,
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.analysis_id).toBe("premium-analysis-1");
+    expect(mockRequestPronunciationAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        source: "premium-roleplay",
+        sessionId: null,
+        premiumSessionId: "11111111-1111-4111-8111-111111111111",
+        sentenceId: "11111111-1111-4111-8111-111111111111-roleplay",
+        videoId: "G96-xYqw0rQ",
+      }),
+    );
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+  });
 });

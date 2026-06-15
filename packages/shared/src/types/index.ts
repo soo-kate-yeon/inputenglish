@@ -225,6 +225,159 @@ export interface SessionContext {
   updated_at?: string;
 }
 
+// ==================== Premium Session Types ====================
+
+/** @deprecated - Remove after Stage B(4) DB drop (premium_sessions/premium_expression_cards/premium_articles tables) */
+export const PREMIUM_SESSION_STEPS = [
+  "article",
+  "content-catch",
+  "delivery-analysis",
+  "expression-cards",
+  "roleplay",
+  "completion",
+] as const;
+
+/** @deprecated - Remove after Stage B(4) DB drop */
+export type PremiumSessionStep = (typeof PREMIUM_SESSION_STEPS)[number];
+
+export const PREMIUM_SESSION_STATUSES = [
+  "draft",
+  "published",
+  "archived",
+] as const;
+
+export type PremiumSessionStatus = (typeof PREMIUM_SESSION_STATUSES)[number];
+
+export const PREMIUM_EXPRESSION_DEPTHS = ["anchor", "support"] as const;
+
+export type PremiumExpressionDepth = (typeof PREMIUM_EXPRESSION_DEPTHS)[number];
+
+export interface PremiumTranscriptLine {
+  id: string;
+  text: string;
+  translation?: string;
+  startTime: number;
+  endTime: number;
+  speaker?: string | null;
+  delivery_note?: string | null;
+  analysis_note?: string | null;
+}
+
+export interface PremiumArticle {
+  title: string;
+  subtitle?: string | null;
+  body: string;
+  summary_bullets?: string[];
+  reading_minutes?: number | null;
+  reviewed: boolean;
+}
+
+/** @deprecated - Remove after Stage B(4) DB drop */
+export interface PremiumDeliveryAnalysis {
+  id: string;
+  line_id: string;
+  intonation_note: string;
+  style_note: string;
+  coaching_note: string;
+  reviewed: boolean;
+}
+
+export interface PremiumExpressionPronunciation {
+  stress: string;
+  linking: string;
+  trap_ko: string;
+  ipa: string;
+  say_it_ko: string;
+  drill: string;
+}
+
+export interface PremiumExpressionVariation {
+  en: string;
+  when_ko: string;
+}
+
+export interface PremiumExpressionSavedAtoms {
+  headword: string;
+  one_line_nuance_ko: string;
+  register_ko: string;
+  examples: string[];
+}
+
+/** @deprecated - Remove after Stage B(4) DB drop (premium_expression_cards table) */
+export interface PremiumExpressionCard {
+  id: string;
+  session_id?: string;
+  source_sentence_id?: string | null;
+  order_index: number;
+  depth: PremiumExpressionDepth;
+  expression: string;
+  source_line: string;
+  timestamp: string;
+  natural_meaning_ko: string;
+  story: string;
+  pronunciation: PremiumExpressionPronunciation;
+  variations: PremiumExpressionVariation[];
+  saved_atoms: PremiumExpressionSavedAtoms;
+  reviewed: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PremiumRoleplayTurn {
+  id: string;
+  speaker: "coach" | "user";
+  avatar_label?: string | null;
+  line?: string | null;
+  translation?: string | null;
+  hidden?: boolean;
+  reference_text?: string | null;
+  expression_ids?: string[];
+}
+
+/** @deprecated - Remove after Stage B(4) DB drop */
+export interface PremiumRoleplay {
+  title: string;
+  situation: string;
+  user_role: string;
+  partner_role: string;
+  turns: PremiumRoleplayTurn[];
+  target_expression_ids: string[];
+  analysis_reference_text?: string | null;
+  reviewed: boolean;
+}
+
+export interface PremiumSession {
+  id: string;
+  slug?: string | null;
+  source_video_id: string;
+  source_url: string;
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+  thumbnail_url?: string | null;
+  channel_name?: string | null;
+  speaker_name?: string | null;
+  source_type?: SessionSourceType | null;
+  genre?: Genre | null;
+  speaking_situations?: SpeakingSituation[];
+  interest_tags?: string[];
+  difficulty_level?: 1 | 2 | 3 | 4 | 5 | null;
+  duration_seconds: number;
+  segment_start_time: number;
+  segment_end_time: number;
+  transcript: PremiumTranscriptLine[];
+  article: PremiumArticle;
+  delivery_analysis: PremiumDeliveryAnalysis[];
+  expression_cards: PremiumExpressionCard[];
+  roleplay: PremiumRoleplay;
+  status: PremiumSessionStatus;
+  reviewed: boolean;
+  published_on?: string | null;
+  published_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface PracticePrompt {
   id: string;
   session_id: string;
@@ -341,7 +494,6 @@ export interface LearningSession {
   primary_speaker_slug?: string | null;
   primary_speaker_description?: string | null;
   primary_speaker_avatar_url?: string | null;
-  premium_required?: boolean;
   created_at: string;
   created_by?: string;
 
@@ -349,21 +501,6 @@ export interface LearningSession {
   sentences?: Sentence[];
   source_video?: CuratedVideo;
   context?: SessionContext | null;
-}
-
-export interface SceneRecommendation {
-  startIndex: number;
-  endIndex: number;
-  title: string;
-  reason: string;
-  learningPoints: string[];
-  estimatedDuration: number; // seconds
-  difficulty?: "beginner" | "intermediate" | "advanced";
-}
-
-export interface SceneAnalysisResponse {
-  scenes: SceneRecommendation[];
-  totalAnalyzed: number;
 }
 
 export interface LongformContext {
@@ -402,32 +539,6 @@ export interface LongformPack {
   created_by?: string | null;
   updated_at?: string;
   context?: LongformContext | null;
-  shorts?: LearningSession[];
-}
-
-export interface LongformRecommendation {
-  startIndex: number;
-  endIndex: number;
-  title: string;
-  subtitle: string;
-  description: string;
-  reason: string;
-  speakerSummary: string;
-  conversationType: string;
-  topicTags: string[];
-  contentTags: string[];
-  estimatedDuration: number;
-}
-
-export interface ShortRecommendation extends SceneRecommendation {
-  patternFocus: string;
-  difficulty: "beginner" | "intermediate" | "advanced";
-}
-
-export interface ContentStructureAnalysisResponse {
-  longform: LongformRecommendation;
-  shorts: ShortRecommendation[];
-  totalAnalyzed: number;
 }
 
 // ==================== App Store Types ====================
@@ -466,6 +577,8 @@ export interface AppHighlight {
 export interface SavedSentence {
   id: string;
   videoId: string;
+  premiumSessionId?: string;
+  sessionTitle?: string;
   sentenceId: string; // Reference to the sentence ID
   sentenceText: string;
   startTime: number;
@@ -556,4 +669,114 @@ export interface TransformationAttempt {
   recording_duration?: number;
   completed_at: string;
   attempt_metadata?: Record<string, unknown>;
+}
+
+// === SPEC-INPUT-001 v1.3 Types ===
+
+export type VocabBand = "beginner" | "basic" | "conversation" | "professional";
+
+export interface UserVocabProfile {
+  id: string;
+  userId: string;
+  estimatedBand: VocabBand;
+  estimatedLevel: string; // CEFR: A1-C2
+  updateHistory: Array<{
+    timestamp: string;
+    reason: string;
+    previousBand?: VocabBand;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type KnownWordSource = "seed" | "tap" | "inferred";
+
+export interface KnownWord {
+  id: string;
+  userId: string;
+  lemma: string;
+  frequencyBand: VocabBand | "advanced";
+  source: KnownWordSource;
+  lastSeen: string | null;
+  createdAt: string;
+}
+
+export type ReadingFormat =
+  | "noir"
+  | "economic"
+  | "business"
+  | "editorial"
+  | "dialogue"
+  | "nonfiction";
+
+export interface ReadingPiece {
+  id: string;
+  level: string;
+  format: ReadingFormat;
+  topic: string;
+  body: string;
+  coveragePct: number | null;
+  validationStatus: "pending" | "approved" | "rejected";
+  sourceFacts: Record<string, unknown>;
+  userId: string | null;
+  createdAt: string;
+}
+
+export interface Channel {
+  id: string;
+  name: string;
+  youtubeChannelId: string;
+  levelBand: VocabBand;
+  visualAccentTags: string[];
+  topics: string[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface TranscriptLine {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface VideoSegment {
+  id: string;
+  parentVideoId: string;
+  channelId: string;
+  startTime: number;
+  endTime: number;
+  transcript: TranscriptLine[];
+  wpm: number | null;
+  bandCoverage: Record<VocabBand, number>; // 0-1 fraction of words in each band
+  topicTags: string[];
+  selfContained: boolean;
+  difficultyScore: number | null; // 1-5
+  createdAt: string;
+}
+
+export interface AskedItemSourceRef {
+  type: "reading" | "segment";
+  pieceId: string;
+  position?: number;
+}
+
+export interface AskedItem {
+  id: string;
+  userId: string;
+  sourceType: "reading" | "segment";
+  sourceRef: AskedItemSourceRef;
+  highlightText: string;
+  question: string | null;
+  answer: string | null;
+  createdAt: string;
+}
+
+export interface CiSession {
+  id: string;
+  userId: string;
+  sessionDate: string;
+  readingPieceId: string | null;
+  segmentIds: string[];
+  assemblyMeta: Record<string, unknown>;
+  createdAt: string;
 }

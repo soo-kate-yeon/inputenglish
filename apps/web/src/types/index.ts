@@ -94,17 +94,3 @@ export interface LearningSession {
   sentences?: Sentence[];
   source_video?: CuratedVideo;
 }
-
-export interface SceneRecommendation {
-  startIndex: number;
-  endIndex: number;
-  title: string;
-  reason: string;
-  learningPoints: string[];
-  estimatedDuration: number; // seconds
-}
-
-export interface SceneAnalysisResponse {
-  scenes: SceneRecommendation[];
-  totalAnalyzed: number;
-}

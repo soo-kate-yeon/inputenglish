@@ -1,5 +1,5 @@
 // @MX:NOTE: [AUTO] 페이월 시트. podcast-ambient dark modal 테마. 프리미엄 혜택 단독 강조,
-// 구독 플랜 선택기 (절약 뱃지 포함), 하단 고정 CTA.
+// 단일 프리미엄 월 구독, 7일 무료 체험, 하단 고정 CTA.
 // @MX:SPEC: SPEC-MOBILE-006
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -21,6 +21,7 @@ import {
   getOfferings,
   restorePurchases,
   getPlanFromCustomerInfo,
+  findPremiumMonthlyPackage,
   syncPlanToSupabase,
 } from "../src/lib/revenue-cat";
 import { useSubscription } from "../src/hooks/useSubscription";
@@ -50,9 +51,9 @@ const C = {
 const PH = 20;
 
 const PREMIUM_FEATURES = [
-  "모든 영상 무제한 청취",
-  "문장 저장 및 복습 무제한",
-  "광고 없는 집중 학습 환경",
+  "매일 하나의 프리미엄 큐레이션",
+  "기사, 영상, 표현, 롤플레잉을 한 흐름으로 학습",
+  "7일 동안 전체 플로우 무료 체험",
 ];
 
 interface SubOption {
@@ -69,30 +70,15 @@ export default function PaywallScreen() {
   const { plan: currentPlan, refresh } = useSubscription();
   const [options, setOptions] = useState<SubOption[]>([
     {
-      label: "월간",
-      description: "매월 자동 갱신",
-      fallbackPrice: "₩9,900 / 월",
-      perMonth: "₩9,900 / 월",
-      pkg: null,
-    },
-    {
-      label: "3개월",
-      description: "3개월마다 갱신",
-      fallbackPrice: "₩24,900 / 3개월",
-      perMonth: "₩8,300 / 월",
-      badge: "16% 절약",
-      pkg: null,
-    },
-    {
-      label: "연간",
-      description: "매년 자동 갱신",
-      fallbackPrice: "₩89,000 / 년",
-      perMonth: "₩7,417 / 월",
-      badge: "25% 절약",
+      label: "Premium",
+      description: "7일 무료 체험 후 매월 자동 갱신",
+      fallbackPrice: "₩25,900 / 월",
+      perMonth: "₩25,900 / 월",
+      badge: "7일 무료",
       pkg: null,
     },
   ]);
-  const [selectedIndex, setSelectedIndex] = useState(2);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [isRestoring, setIsRestoring] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -111,30 +97,18 @@ export default function PaywallScreen() {
         setOfferingsError(true);
         return;
       }
-      const packages = offerings.current.availablePackages;
+      const monthlyPackage = findPremiumMonthlyPackage(
+        offerings.current.availablePackages,
+      );
+      if (!monthlyPackage) {
+        setOfferingsError(true);
+        return;
+      }
+
       setOptions((prev) =>
         prev.map((opt, i) => {
-          let matched: PurchasesPackage | null = null;
-          for (const pkg of packages) {
-            const id = pkg.product.identifier.toLowerCase();
-            if (i === 0 && (id.includes("monthly") || id.includes("month_1")))
-              matched = pkg;
-            if (
-              i === 1 &&
-              (id.includes("quarterly") ||
-                id.includes("month_3") ||
-                id.includes("three_month"))
-            )
-              matched = pkg;
-            if (
-              i === 2 &&
-              (id.includes("annual") ||
-                id.includes("yearly") ||
-                id.includes("year_1"))
-            )
-              matched = pkg;
-          }
-          return matched ? { ...opt, pkg: matched } : opt;
+          if (i !== 0) return opt;
+          return { ...opt, pkg: monthlyPackage };
         }),
       );
     } catch {
@@ -210,7 +184,7 @@ export default function PaywallScreen() {
         {/* Hero */}
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>
-            {"가장 좋은 영어 인풋을\n무제한으로, 매일 받아보세요"}
+            {"하루 하나,\n프리미엄 영어 큐레이션"}
           </Text>
           {isPremium && (
             <View style={styles.activeBadge}>
@@ -232,97 +206,104 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        {/* Plan selector */}
+        {/* Single plan */}
         {!isPremium && (
           <View style={styles.planSection}>
-            <Text style={styles.planSectionLabel}>구독 플랜 선택</Text>
+            <Text style={styles.planSectionLabel}>7일 무료 체험</Text>
 
             {loading ? (
               <ActivityIndicator
                 style={{ marginVertical: spacing.lg }}
                 color={C.accent}
               />
-            ) : offeringsError ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>
-                  상품 정보를 불러올 수 없습니다. 네트워크 연결을 확인하고 다시
-                  시도해 주세요.
-                </Text>
-                <TouchableOpacity
-                  style={styles.retryButton}
-                  onPress={fetchOfferings}
-                  accessibilityRole="button"
-                  accessibilityLabel="다시 시도"
-                >
-                  <Text style={styles.retryButtonText}>다시 시도</Text>
-                </TouchableOpacity>
-              </View>
             ) : (
-              options.map((opt, i) => {
-                const selected = selectedIndex === i;
-                return (
-                  <TouchableOpacity
-                    key={i}
-                    style={[
-                      styles.optionCard,
-                      selected && styles.optionCardSelected,
-                    ]}
-                    onPress={() => setSelectedIndex(i)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: selected }}
-                  >
-                    <View style={styles.optionInner}>
-                      {/* Radio */}
-                      <View
-                        style={[styles.radio, selected && styles.radioSelected]}
-                      >
-                        {selected && <View style={styles.radioDot} />}
-                      </View>
+              <>
+                {offeringsError ? (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>
+                      상품 정보를 불러올 수 없습니다. 네트워크 연결을 확인하고
+                      다시 시도해 주세요.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.retryButton}
+                      onPress={fetchOfferings}
+                      accessibilityRole="button"
+                      accessibilityLabel="다시 시도"
+                    >
+                      <Text style={styles.retryButtonText}>다시 시도</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
 
-                      {/* Label + badge + description */}
-                      <View style={styles.optionMeta}>
-                        <View style={styles.optionLabelRow}>
-                          <Text
-                            style={[
-                              styles.optionLabel,
-                              selected && styles.optionLabelSelected,
-                            ]}
-                          >
-                            {opt.label}
-                          </Text>
-                          {opt.badge && (
-                            <View style={styles.savingsBadge}>
-                              <Text style={styles.savingsBadgeText}>
-                                {opt.badge}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={styles.optionDesc}>{opt.description}</Text>
-                      </View>
-
-                      {/* Price */}
-                      <View style={styles.optionPriceBlock}>
-                        <Text
+                {options.map((opt, i) => {
+                  const selected = selectedIndex === i;
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={[
+                        styles.optionCard,
+                        selected && styles.optionCardSelected,
+                      ]}
+                      onPress={() => setSelectedIndex(i)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                    >
+                      <View style={styles.optionInner}>
+                        {/* Radio */}
+                        <View
                           style={[
-                            styles.optionPrice,
-                            selected && styles.optionPriceSelected,
+                            styles.radio,
+                            selected && styles.radioSelected,
                           ]}
                         >
-                          {opt.pkg
-                            ? opt.pkg.product.priceString
-                            : opt.fallbackPrice}
-                        </Text>
-                        {i > 0 && (
+                          {selected && <View style={styles.radioDot} />}
+                        </View>
+
+                        {/* Label + badge + description */}
+                        <View style={styles.optionMeta}>
+                          <View style={styles.optionLabelRow}>
+                            <Text
+                              style={[
+                                styles.optionLabel,
+                                selected && styles.optionLabelSelected,
+                              ]}
+                            >
+                              {opt.label}
+                            </Text>
+                            {opt.badge && (
+                              <View style={styles.savingsBadge}>
+                                <Text style={styles.savingsBadgeText}>
+                                  {opt.badge}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.optionDesc}>
+                            {opt.description}
+                          </Text>
+                        </View>
+
+                        {/* Price */}
+                        <View style={styles.optionPriceBlock}>
+                          <Text
+                            style={[
+                              styles.optionPrice,
+                              selected && styles.optionPriceSelected,
+                            ]}
+                          >
+                            {opt.pkg
+                              ? opt.pkg.product.priceString
+                              : opt.fallbackPrice}
+                          </Text>
                           <Text style={styles.optionPerMonth}>
                             {opt.perMonth}
                           </Text>
-                        )}
+                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
             )}
           </View>
         )}
@@ -384,7 +365,9 @@ export default function PaywallScreen() {
             style={styles.ctaButton}
             textStyle={styles.ctaButtonText}
           />
-          <Text style={styles.ctaHint}>언제든지 해지 가능</Text>
+          <Text style={styles.ctaHint}>
+            7일 무료 체험 후 월 ₩25,900, 언제든지 해지 가능
+          </Text>
         </View>
       )}
     </ImageBackground>

@@ -4,7 +4,18 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
 import { router } from "expo-router";
+import type { PremiumSession } from "@inputenglish/shared";
 import { supabase } from "@/lib/supabase";
+
+type NotificationTrigger = Parameters<
+  typeof Notifications.scheduleNotificationAsync
+>[0]["trigger"];
+
+export const PREMIUM_DAILY_NOTIFICATION_TRIGGER: NotificationTrigger = {
+  type: Notifications.SchedulableTriggerInputTypes.DAILY,
+  hour: 9,
+  minute: 0,
+};
 
 export function setupNotificationHandler(): void {
   Notifications.setNotificationHandler({
@@ -81,6 +92,32 @@ export async function initPushNotifications(): Promise<void> {
   } catch (e) {
     console.warn("[PushNotifications] initPushNotifications failed:", e);
   }
+}
+
+export function buildPremiumDailyNotificationContent(
+  session: Pick<PremiumSession, "id" | "title" | "description">,
+): Notifications.NotificationContentInput {
+  return {
+    title: "오늘의 큐레이션이 도착했어요",
+    body: session.description
+      ? `${session.title} - ${session.description}`
+      : session.title,
+    data: {
+      type: "premium-daily-curation",
+      premiumSessionId: session.id,
+      screen: `/premium/${session.id}`,
+    },
+  };
+}
+
+export async function schedulePremiumDailyCurationNotification(
+  session: Pick<PremiumSession, "id" | "title" | "description">,
+  trigger: NotificationTrigger = PREMIUM_DAILY_NOTIFICATION_TRIGGER,
+): Promise<string> {
+  return Notifications.scheduleNotificationAsync({
+    content: buildPremiumDailyNotificationContent(session),
+    trigger,
+  });
 }
 
 // Handle notification tap -> deep link to target screen (AC-PUSH-005)
