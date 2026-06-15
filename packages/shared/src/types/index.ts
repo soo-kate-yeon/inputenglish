@@ -665,3 +665,113 @@ export interface TransformationAttempt {
   completed_at: string;
   attempt_metadata?: Record<string, unknown>;
 }
+
+// === SPEC-INPUT-001 v1.3 Types ===
+
+export type VocabBand = "beginner" | "basic" | "conversation" | "professional";
+
+export interface UserVocabProfile {
+  id: string;
+  userId: string;
+  estimatedBand: VocabBand;
+  estimatedLevel: string; // CEFR: A1-C2
+  updateHistory: Array<{
+    timestamp: string;
+    reason: string;
+    previousBand?: VocabBand;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type KnownWordSource = "seed" | "tap" | "inferred";
+
+export interface KnownWord {
+  id: string;
+  userId: string;
+  lemma: string;
+  frequencyBand: VocabBand | "advanced";
+  source: KnownWordSource;
+  lastSeen: string | null;
+  createdAt: string;
+}
+
+export type ReadingFormat =
+  | "noir"
+  | "economic"
+  | "business"
+  | "editorial"
+  | "dialogue"
+  | "nonfiction";
+
+export interface ReadingPiece {
+  id: string;
+  level: string;
+  format: ReadingFormat;
+  topic: string;
+  body: string;
+  coveragePct: number | null;
+  validationStatus: "pending" | "approved" | "rejected";
+  sourceFacts: Record<string, unknown>;
+  userId: string | null;
+  createdAt: string;
+}
+
+export interface Channel {
+  id: string;
+  name: string;
+  youtubeChannelId: string;
+  levelBand: VocabBand;
+  visualAccentTags: string[];
+  topics: string[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface TranscriptLine {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface VideoSegment {
+  id: string;
+  parentVideoId: string;
+  channelId: string;
+  startTime: number;
+  endTime: number;
+  transcript: TranscriptLine[];
+  wpm: number | null;
+  bandCoverage: Record<VocabBand, number>; // 0-1 fraction of words in each band
+  topicTags: string[];
+  selfContained: boolean;
+  difficultyScore: number | null; // 1-5
+  createdAt: string;
+}
+
+export interface AskedItemSourceRef {
+  type: "reading" | "segment";
+  pieceId: string;
+  position?: number;
+}
+
+export interface AskedItem {
+  id: string;
+  userId: string;
+  sourceType: "reading" | "segment";
+  sourceRef: AskedItemSourceRef;
+  highlightText: string;
+  question: string | null;
+  answer: string | null;
+  createdAt: string;
+}
+
+export interface CiSession {
+  id: string;
+  userId: string;
+  sessionDate: string;
+  readingPieceId: string | null;
+  segmentIds: string[];
+  assemblyMeta: Record<string, unknown>;
+  createdAt: string;
+}

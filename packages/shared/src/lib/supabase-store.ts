@@ -1,12 +1,20 @@
 // @MX:ANCHOR: createSupabaseStore - platform-agnostic Supabase operations factory
 // @MX:REASON: [AUTO] fan_in >= 3: used by app-store, study-store, and future mobile store; eliminates singleton client dependency
 // @MX:SPEC: SPEC-MOBILE-001 - factory pattern for cross-platform shared code
+// @MX:ANCHOR: createSupabaseStore — fan_in>=3 (vocab profile, known words, asked items)
+// @MX:REASON: All v1.3 persistence flows through this factory. Adding mappers here.
 import { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Session,
   AppHighlight,
   SavedSentence,
   AINote,
+  UserVocabProfile,
+  KnownWord,
+  KnownWordSource,
+  AskedItem,
+  AskedItemSourceRef,
+  VocabBand,
 } from "../types/index";
 
 const UUID_PATTERN =
@@ -112,6 +120,46 @@ function mapAINoteRow(item: {
     userFeedback: item.user_feedback,
     aiResponse: item.ai_response,
     createdAt: new Date(item.created_at).getTime(),
+  };
+}
+
+export function mapVocabProfileRow(
+  row: Record<string, unknown>,
+): UserVocabProfile {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    estimatedBand: row.estimated_band as VocabBand,
+    estimatedLevel: row.estimated_level as string,
+    updateHistory:
+      (row.update_history as UserVocabProfile["updateHistory"]) ?? [],
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export function mapKnownWordRow(row: Record<string, unknown>): KnownWord {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    lemma: row.lemma as string,
+    frequencyBand: row.frequency_band as KnownWord["frequencyBand"],
+    source: row.source as KnownWordSource,
+    lastSeen: row.last_seen as string | null,
+    createdAt: row.created_at as string,
+  };
+}
+
+export function mapAskedItemRow(row: Record<string, unknown>): AskedItem {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    sourceType: row.source_type as AskedItem["sourceType"],
+    sourceRef: row.source_ref as AskedItemSourceRef,
+    highlightText: row.highlight_text as string,
+    question: row.question as string | null,
+    answer: row.answer as string | null,
+    createdAt: row.created_at as string,
   };
 }
 
