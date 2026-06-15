@@ -1,8 +1,4 @@
-import {
-  GoogleGenerativeAI,
-  SchemaType,
-  type ResponseSchema,
-} from "@google/generative-ai";
+import { SchemaType, type ResponseSchema } from "@google/generative-ai";
 import { z } from "zod";
 import {
   buildExpressionCardPrompt,
@@ -16,6 +12,11 @@ import {
   premiumExpressionCardSchema,
   type PremiumSessionDraftInput,
 } from "@/lib/premium/session-schema";
+import {
+  callGeminiWithSchema,
+  callAzureOpenAI,
+  getAzureOpenAIConfig,
+} from "@/lib/premium/llm-utils";
 
 export const premiumExpressionCardRequestSchema = z.object({
   expression: z.string().min(1),
@@ -177,17 +178,8 @@ const azureExpressionCardJsonSchema = {
   ],
 } as const;
 
-function getAzureExpressionConfig() {
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.replace(/\/$/, "");
-  const apiKey = process.env.AZURE_OPENAI_API_KEY;
-  const deployment =
-    process.env.PREMIUM_EXPRESSION_AZURE_DEPLOYMENT ||
-    process.env.AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-10-21";
-
-  if (!endpoint || !apiKey || !deployment) return null;
-  return { endpoint, apiKey, deployment, apiVersion };
-}
+// @MX:NOTE: [AUTO] LLM provider wrappers for expression card generation.
+// Thin wrappers around shared llm-utils; model guard enforces promoted-model policy.
 
 function getPremiumExpressionGeminiModel() {
   return process.env.PREMIUM_EXPRESSION_MODEL || "gemini-2.5-pro";
@@ -209,86 +201,38 @@ function isPromotedModelConfigurationError(error: unknown): boolean {
 }
 
 async function generateWithAzureOpenAI(prompt: string) {
-  const config = getAzureExpressionConfig();
+  const config = getAzureOpenAIConfig("PREMIUM_EXPRESSION_AZURE_DEPLOYMENT");
   if (!config) return null;
 
-  const response = await fetch(
-    `${config.endpoint}/openai/deployments/${config.deployment}/chat/completions?api-version=${config.apiVersion}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": config.apiKey,
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are the premium InputEnglish expression-card editor. Return only valid JSON that matches the requested schema.",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.4,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "premium_expression_card",
-            strict: true,
-            schema: azureExpressionCardJsonSchema,
-          },
-        },
-      }),
-    },
+  const result = await callAzureOpenAI(
+    prompt,
+    config,
+    "You are the premium InputEnglish expression-card editor. Return only valid JSON that matches the requested schema.",
+    "premium_expression_card",
+    azureExpressionCardJsonSchema as unknown as Record<string, unknown>,
+    0.4,
   );
-
-  if (!response.ok) {
-    throw new Error(
-      `Azure OpenAI expression generation failed: ${response.status}`,
-    );
-  }
-
-  const payload = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string | null } }>;
-  };
-  const content = payload.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error("Azure OpenAI expression generation returned no content");
-  }
-
-  return {
-    text: content,
-    provider: "azure-openai" as const,
-    model: config.deployment,
-  };
+  return { ...result, provider: "azure-openai" as const };
 }
 
 async function generateWithGemini(prompt: string) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-
   const modelName = getPremiumExpressionGeminiModel();
   assertPromotedExpressionModel(modelName);
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: geminiExpressionCardResponseSchema,
-    },
-  });
-
-  const result = await model.generateContent(prompt);
-  return {
-    text: result.response.text(),
-    provider: "gemini" as const,
-    model: modelName,
-  };
+  const result = await callGeminiWithSchema(
+    prompt,
+    modelName,
+    geminiExpressionCardResponseSchema,
+  );
+  if (!result) return null;
+  return { ...result, provider: "gemini" as const };
 }
 
 export function hasPremiumExpressionModelConfig() {
-  return Boolean(getAzureExpressionConfig() || process.env.GEMINI_API_KEY);
+  return Boolean(
+    getAzureOpenAIConfig("PREMIUM_EXPRESSION_AZURE_DEPLOYMENT") ||
+    process.env.GEMINI_API_KEY,
+  );
 }
 
 export async function generatePremiumExpressionCard(
