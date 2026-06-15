@@ -122,13 +122,13 @@ Stage A ─┐
 
 > research §6.1/§7.8 확인: 본 저장소는 **Anthropic 미사용**. LLM은 Gemini + Azure OpenAI 2종.
 
-- **LLM 생성·검증·질문 에이전트:** Google Generative AI(`@google/generative-ai`, `gemini-2.5-pro` — Flash 거부 `expression-card-ai.ts:196-202`) + Azure OpenAI REST(`json_schema strict`). 환경변수 `GEMINI_API_KEY`/`AZURE_OPENAI_*`.
+- **LLM 생성·검증·질문 에이전트:** Google Generative AI(`@google/generative-ai`) + Azure OpenAI REST 폴백. 티어링(D1): 리딩·리스닝 생성 = `gemini-2.5-pro`(`expression-card-ai.ts:196-202` Flash 거부 계승), 질문 에이전트 짧은 답 전용 Flash-gate = `gemini-2.5-flash`. 환경변수 `GEMINI_API_KEY`/`AZURE_OPENAI_*`.
 - **DB·인증·RLS:** Supabase (PostgreSQL + RLS). 사용자 소유 RLS + 콘텐츠 서버 전용 RLS(public SELECT lockdown 패턴 `20260614000300`).
 - **세그먼트 플레이어:** `react-native-youtube-iframe`(`YouTubePlayer.tsx`). 임베드로 호스팅·저작권 회피.
 - **트랜스크립트 인제스트:** `yt-dlp` + `youtube-transcript-api` 폴백(`youtube-transcript.ts`, json3/VTT 파싱).
 - **모바일:** Expo / React Native + MMKV(세션 진행 `premium-session-progress.ts` ADAPT) + Bearer auth(`premium-api.ts`).
 - **테스트:** Jest fixture-mode 패턴(`premium-api.ts:69-99`, `premium-api-fixture-mode.test.ts`).
-- **오픈 결정(사용자 입력 필요):** v1.3 모델 티어링(경량↔상위)을 Gemini/Azure 중 어느 제공자로 둘지(research §7.8).
+- **티어링 확정(D1):** Gemini 단일 제공자(Flash↔Pro) + Azure 폴백. 질문 에이전트 짧은 답에 한해 Flash-gate 신설, 나머지 생성은 Pro 유지.
 
 > 버전 핀: 정확한 stable 버전은 `/moai:2-run` 단계에서 code-builder가 확정(research/PRD에 핀 미지정).
 
@@ -141,11 +141,11 @@ Stage A ─┐
 | R1 | YouTube 세그먼트 임베드 + 저작권 (PRD §6.3/§12) | 임베드로 호스팅 회피. 임의 start/end만 재생 시 ToS·플레이어 제약 확인. 영화·애니는 임베드 불가(별도 칸, Out) |
 | R2 | ASR/자막 품질 상속 (PRD §12) | 사람 자막 우선(`youtube-transcript.ts`). ASR 폴백 시 글로스 품질 경고/강등(REQ-INPUT-003-U3) |
 | R3 | LLM 슬롭/grounding (PRD §6.2/§12) | 픽션: `findPremiumCopySlop` 재사용. 논픽션: 사실 grounding 필수(REQ-INPUT-002-W2) |
-| R4 | 에이전트 비용 (PRD §6.6) | 월 캡 + 모델 티어링(REQ-INPUT-004-W1/U2). 캡 수치는 오픈 디시전 |
+| R4 | 에이전트 비용 (PRD §6.6) | 월 100회 소프트 캡(D3) + Gemini Flash-gate(D1). 소진 시 경량 모델 강등·안내(하드 차단 아님) |
 | R5 | client-only vs server entitlement 갭 (PRD §12) | 서버 게이트(`entitlement.ts`) + RLS 강제. 모바일 fixture-mode dev-only 격리 재확인(`premium-api.ts:88-93`) |
 | R6 | RLS 누락 | 신규 콘텐츠 테이블 서버 전용, 사용자 소유 본인-전용 RLS(REQ-INPUT-005-U4) |
 | R7 | 모노레포 shared-type 커플링 | premium 타입 제거 단계적(deprecate→교체→삭제), Stage B(3)에서만 (research §7.7) |
-| R8 | LLM 제공자 정렬 | 티어링 제공자 결정 후 진행(오픈 디시전) |
+| R8 | LLM 제공자 정렬 | **확정(D1):** Gemini 단일 제공자 Flash↔Pro + Azure 폴백. Flash-gate는 질문 에이전트 짧은 답 전용 |
 | R9 | auth 일관성 | user-facing 질문 라우트는 `requireApiUser()` Bearer 패턴 통일(research §7.9) |
 
 ---

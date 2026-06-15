@@ -1,6 +1,6 @@
 ---
 id: SPEC-INPUT-001
-version: 0.1.0
+version: 0.2.0
 status: Planned
 created: 2026-06-15
 updated: 2026-06-15
@@ -19,7 +19,22 @@ platform: ios-primary, web-backend
 
 ## HISTORY
 
+- **v0.2.0 — 2026-06-15** — 5개 오픈 결정 확정 반영: Gemini 단일 티어링(Flash↔Pro)+Flash-gate, `user_vocab_profiles`+`known_words` 별도 2테이블, 월 100회 소프트 캡, 빈도 밴드 기반 커버리지, `video_segments` 신규 테이블. 관련 EARS 요구·리스크 업데이트.
 - **v0.1.0 — 2026-06-15** — PRD v1.3 + research.md 기반 초안 작성. SPEC-PREMIUM-001(월 ₩25,900 단일 큐레이션·6-스텝·롤플레잉 모델)을 supersede. 수직 슬라이스 5개 요구 모듈 정의(수준 모델·리딩·리스닝·질문 에이전트·세션 조립+레거시 정리). author: soo-kate-yeon.
+
+---
+
+## 결정된 기본값 (Resolved Decisions)
+
+5개 오픈 결정이 v0.2.0에서 확정되었다. 이하 EARS 요구사항은 이 값을 기준으로 기술된다.
+
+| # | 결정 항목 | 확정값 | 관련 REQ |
+|---|-----------|--------|---------|
+| D1 | LLM 티어링 제공자 | Gemini 단일 제공자(Flash↔Pro). Azure OpenAI는 폴백. **질문 에이전트의 짧은 답 응답에 한해서만** `gemini-2.5-flash` 허용(Flash-gate). 리딩·리스닝 생성은 `gemini-2.5-pro` 유지(`expression-card-ai.ts:196-202` Flash 거부 정책 계승). | REQ-INPUT-002, REQ-INPUT-003, REQ-INPUT-004 |
+| D2 | Vocab 테이블 구조 | `user_vocab_profiles`(band 추정·추정 레벨·갱신 이력 메타) + `known_words`(user_id, lemma, frequency_band, source, last_seen) 별도 2테이블. `users` 컬럼 확장 아님. 행 폭발 대비 분리(research 오픈질문 권고). | REQ-INPUT-001 |
+| D3 | 질문 월 캡 | 100회/월 소프트 캡. 긍정형 표시("이번 달 질문 N개 남음"), 소진 시 하드 차단 아님 — 경량 모델 강등 + 완곡 안내. 수치는 config로 운영 튜닝 가능(PRD §14.6). | REQ-INPUT-004 |
+| D4 | 커버리지 known-word 판정 | v1 = 빈도 밴드 기반(온보딩 `level_band`에서 해당 밴드까지 known 가정). 개인 set 런타임 정밀화는 Out(후속). | REQ-INPUT-001, REQ-INPUT-002, REQ-INPUT-003 |
+| D5 | VideoSegment 저장 | 신규 `video_segments` 테이블(영상당 N행). `premium_sessions` 재사용 아님. PRD §10 필드 전체 수용. | REQ-INPUT-003 |
 
 ---
 
@@ -139,9 +154,9 @@ PRD §6.6: 인풋 소비 중 하이라이트 → 즉시 질문(뜻·뉘앙스·�
 - **U1 (Ubiquitous):** 시스템은 항상 질문 항목을 `AskedItem`(user_id, source[reading/segment + 위치], 하이라이트 텍스트, 질문, 응답, timestamp)으로 영속해야 한다.
   - Reference: `packages/shared/src/lib/supabase-store.ts` (`mapHighlightRow` 매퍼 패턴 → `AskedItem` 매퍼 추가)
 - **E2 (Event-driven, WHEN):** WHEN 사용자가 질문 히스토리 탭을 열면, THEN 시스템은 저장된 `AskedItem`(하이라이트 + 질문 + 답변)을 재열람용으로 표시해야 한다.
-- **W1 (State-driven, WHILE):** WHILE 사용자의 이번 달 질문 횟수가 월 캡 한도 내인 동안, THEN 시스템은 잔여 횟수를 긍정형("이번 달 질문 N개 남음")으로 표시하고 질문을 처리해야 한다.
-- **U2 (Ubiquitous):** 시스템은 항상 질문 응답에 모델 티어링을 적용해야 한다(평소 경량 모델, 필요 시 상위 모델).
-- **U3 (Unwanted, IF/THEN):** IF 사용자가 월 캡을 소진했다면, THEN 시스템은 추가 질문을 graceful하게 거절하고(흐름 차단·에러 없이) 다음 달 리셋 안내를 표시해야 한다.
+- **W1 (State-driven, WHILE):** WHILE 사용자의 이번 달 질문 횟수가 월 100회(소프트 캡, D3) 한도 내인 동안, THEN 시스템은 잔여 횟수를 긍정형("이번 달 질문 N개 남음")으로 표시하고 질문을 처리해야 한다.
+- **U2 (Ubiquitous):** 시스템은 항상 질문 응답에 Gemini 티어링을 적용해야 한다: 짧은 답 응답에는 `gemini-2.5-flash`(Flash-gate, D1), 복잡 질문은 `gemini-2.5-pro`. Azure OpenAI는 폴백.
+- **U3 (Unwanted, IF/THEN):** IF 사용자가 월 100회 소프트 캡을 소진했다면, THEN 시스템은 추가 질문을 graceful하게 거절하고(흐름 차단·에러 없이) 경량 모델 강등 또는 다음 달 리셋 안내를 표시해야 한다(D3).
 
 ### REQ-INPUT-005 — 세션 조립 v1 + 서버 entitlement + 레거시 정리 제약
 
