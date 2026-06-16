@@ -14,6 +14,8 @@ export type AnalyticsEventName =
   | "onboarding_step_viewed"
   | "onboarding_level_selected"
   | "onboarding_goal_selected"
+  | "onboarding_vocab_assessed"
+  | "onboarding_vocab_skipped"
   | "onboarding_complete"
   | "tab_changed"
   | "daily_input_impression"
