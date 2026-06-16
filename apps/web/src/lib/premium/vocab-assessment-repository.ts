@@ -113,6 +113,41 @@ export async function upsertVocabProfile(
   }
 }
 
+// ── fetchKnownLemmas ──────────────────────────────────────────────────────────
+
+/**
+ * Fetches all known lemmas for a user from known_words into a Set<string>.
+ *
+ * @MX:NOTE: [AUTO] Per-user i+1 gate now live (REQ-VOCAB-I I-E1).
+ *   This is the supply side for generateReadingPiece's knownLemmas gate.
+ *   An empty Set is a valid result (cold-start before seeding) — the gate
+ *   inside generateReadingPiece self-skips when knownLemmas.size === 0.
+ *   See reading-generation.ts:252-275 for the gate implementation.
+ */
+export async function fetchKnownLemmas(
+  client: SupabaseClient,
+  userId: string,
+): Promise<Set<string>> {
+  const { data, error } = await client
+    .from("known_words")
+    .select("lemma")
+    .eq("user_id", userId);
+
+  if (error) {
+    // Non-fatal: if we cannot fetch known words, degrade gracefully to empty set.
+    // The gate inside generateReadingPiece will self-skip, preserving cold-start safety.
+    console.warn(
+      `[SPEC-INPUT-003 I-E1] fetchKnownLemmas failed for user ${userId}: ${
+        (error as { message?: string }).message ?? String(error)
+      }. Falling back to empty set.`,
+    );
+    return new Set<string>();
+  }
+
+  const lemmas = (data as Array<{ lemma: string }> | null) ?? [];
+  return new Set(lemmas.map((row) => row.lemma));
+}
+
 // ── insertSeedKnownWords ───────────────────────────────────────────────────────
 
 /**

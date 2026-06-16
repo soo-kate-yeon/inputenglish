@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 const requireApiUser = vi.fn();
 const resolvePremiumEntitlement = vi.fn();
 const generateReadingPiece = vi.fn();
+const fetchKnownLemmas = vi.fn();
+const mockFrom = vi.fn();
 
 vi.mock("@/utils/supabase/api-auth", () => ({
   requireApiUser: (...args: unknown[]) => requireApiUser(...args),
@@ -16,6 +18,18 @@ vi.mock("@/lib/premium/entitlement", () => ({
 
 vi.mock("@/lib/premium/reading-generation", () => ({
   generateReadingPiece: (...args: unknown[]) => generateReadingPiece(...args),
+}));
+
+// Phase 4: mock vocab-assessment-repository (fetchKnownLemmas) and supabase server
+vi.mock("@/lib/premium/vocab-assessment-repository", () => ({
+  fetchKnownLemmas: (...args: unknown[]) => fetchKnownLemmas(...args),
+  upsertVocabProfile: vi.fn(),
+  insertSeedKnownWords: vi.fn(),
+}));
+
+vi.mock("@/utils/supabase/server", () => ({
+  createAdminClient: () => ({ from: mockFrom }),
+  createClient: vi.fn(),
 }));
 
 const user = { id: "user-1" };
@@ -58,6 +72,11 @@ describe("POST /api/premium/reading", () => {
     requireApiUser.mockReset();
     resolvePremiumEntitlement.mockReset();
     generateReadingPiece.mockReset();
+    fetchKnownLemmas.mockReset();
+    mockFrom.mockReset();
+
+    // Phase 4 default: fetchKnownLemmas returns empty set (cold-start safe)
+    fetchKnownLemmas.mockResolvedValue(new Set<string>());
   });
 
   it("returns 401 when request is unauthenticated", async () => {
