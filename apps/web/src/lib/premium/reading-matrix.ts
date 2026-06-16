@@ -10,13 +10,13 @@ import type { VocabBand, ReadingFormat } from "@inputenglish/shared";
 
 // ── Band and format constants ────────────────────────────────────────────────
 
-/** All 4 vocab bands (order matches BAND_WORD_COUNTS in vocab-band.ts). */
-export const BANDS: VocabBand[] = [
-  "beginner",
-  "basic",
-  "conversation",
-  "professional",
-];
+/**
+ * Targeted vocab bands for pool generation (order matches BAND_WORD_COUNTS).
+ * beginner (top 500) and basic (top 1500) are intentionally NOT targeted: natural
+ * prose cannot reach a comprehensible-input coverage for vocabularies that small,
+ * so the pool focuses on conversation (3000) and professional (6000).
+ */
+export const BANDS: VocabBand[] = ["conversation", "professional"];
 
 /** All 6 reading formats (matches ReadingFormat in shared types). */
 export const FORMATS: ReadingFormat[] = [

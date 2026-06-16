@@ -97,14 +97,14 @@ describe("reading-matrix: enumerateMatrixCells()", () => {
     }
   });
 
-  it("contains exactly 4 distinct bands", () => {
+  it("targets conversation and professional bands only (beginner/basic dropped)", () => {
     const cells = enumerateMatrixCells();
     const bands = new Set(cells.map((c) => c.band));
-    expect(bands.size).toBe(4);
-    expect(bands.has("beginner")).toBe(true);
-    expect(bands.has("basic")).toBe(true);
+    expect(bands.size).toBe(2);
     expect(bands.has("conversation")).toBe(true);
     expect(bands.has("professional")).toBe(true);
+    expect(bands.has("beginner")).toBe(false);
+    expect(bands.has("basic")).toBe(false);
   });
 
   it("contains exactly 6 distinct formats", () => {
@@ -274,9 +274,9 @@ describe("reading-batch: runDailyReadingBatch()", () => {
     vi.mocked(generateReadingPiece).mockResolvedValue(
       makeApprovedPiece({ validationStatus: "pending" }),
     );
-    // computeBandCoverage returns too-hard coverage (>5% unknown)
+    // computeBandCoverage returns coverage well above the pool ceiling (90% unknown)
     vi.mocked(computeBandCoverage).mockReturnValue({
-      beginner: 0.1, // 90% unknown = too-hard
+      beginner: 0.1, // 90% unknown → above POOL_MAX_UNKNOWN_RATIO → rejected
       basic: 0.1,
       conversation: 0.1,
       professional: 0.1,
@@ -330,6 +330,45 @@ describe("reading-batch: runDailyReadingBatch()", () => {
       (r) => r.validationStatus !== "approved",
     );
     expect(nonApproved.length).toBe(0);
+  });
+
+  // ── Pool ceiling: approve within POOL_MAX_UNKNOWN_RATIO (0.15) ───────────
+  it("approves readings within the pool ceiling (unknownRatio <= 0.15)", async () => {
+    vi.mocked(generateReadingPiece).mockResolvedValue(makeApprovedPiece());
+    // 0.88 coverage = 0.12 unknown ≤ 0.15 → approved (would be too-hard under the old 0.05 gate)
+    vi.mocked(computeBandCoverage).mockReturnValue({
+      beginner: 0.88,
+      basic: 0.88,
+      conversation: 0.88,
+      professional: 0.88,
+    });
+
+    const summary = await runDailyReadingBatch({
+      insertPoolReadingPiece: makeInsertMock(),
+      getRecentTopicsForCell: makeRecentTopicsMock(),
+    });
+
+    expect(summary.approved).toBe(summary.cellsProcessed);
+    expect(summary.rejected).toBe(0);
+  });
+
+  it("rejects readings above the pool ceiling (unknownRatio > 0.15)", async () => {
+    vi.mocked(generateReadingPiece).mockResolvedValue(makeApprovedPiece());
+    // 0.80 coverage = 0.20 unknown > 0.15 → rejected
+    vi.mocked(computeBandCoverage).mockReturnValue({
+      beginner: 0.8,
+      basic: 0.8,
+      conversation: 0.8,
+      professional: 0.8,
+    });
+
+    const summary = await runDailyReadingBatch({
+      insertPoolReadingPiece: makeInsertMock(),
+      getRecentTopicsForCell: makeRecentTopicsMock(),
+    });
+
+    expect(summary.rejected).toBe(summary.cellsProcessed);
+    expect(summary.approved).toBe(0);
   });
 
   // ── EC-002-C: cost = bands × formats × topics (user-independent) ─────────
