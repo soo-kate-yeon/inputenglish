@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
@@ -36,6 +36,20 @@ jest.mock("../../src/lib/premium-api", () => ({
   submitVocabAssessment: (...args: unknown[]) => mockSubmitVocab(...args),
 }));
 
+// Page through the (mandatory) vocab test and submit, landing on the details
+// step. The button is always "다음"; the final press submits and advances, so we
+// stop once the details title appears (and flush the async submit between taps).
+async function passVocabTest(utils: ReturnType<typeof render>) {
+  for (let i = 0; i < 10; i += 1) {
+    if (utils.queryByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?")) break;
+    const next = utils.queryByText("다음");
+    if (!next) break;
+    fireEvent.press(next);
+    await act(async () => {});
+  }
+  await utils.findByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?");
+}
+
 describe("OnboardingScreen", () => {
   const OnboardingScreen = require("../../app/onboarding").default;
 
@@ -56,23 +70,11 @@ describe("OnboardingScreen", () => {
   });
 
   it("measures the band via the vocab test then advances to details", async () => {
-    const { getByText, queryByText } = render(<OnboardingScreen />);
+    const utils = render(<OnboardingScreen />);
 
-    // Vocab test is the first step. Page through to the end and submit.
-    for (let i = 0; i < 12; i += 1) {
-      const next = queryByText("다음");
-      if (!next) break;
-      fireEvent.press(next);
-    }
-    fireEvent.press(getByText("결과 확인"));
+    await passVocabTest(utils);
 
-    await waitFor(() => {
-      expect(mockSubmitVocab).toHaveBeenCalled();
-      // Advanced to the details step after the server returns the band.
-      expect(
-        getByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?"),
-      ).toBeTruthy();
-    });
+    expect(mockSubmitVocab).toHaveBeenCalled();
   });
 
   it("vocab back goes one page within the test, and exits from the first page", () => {
@@ -93,13 +95,12 @@ describe("OnboardingScreen", () => {
   it("completes onboarding and saves the learning profile with expression as the forced goal", async () => {
     // Speaking/pronunciation is feature-gated on main (see
     // feature/speaking-stability), so the goal step is skipped and
-    // goal_mode is always "expression" at submit time.
-    const { getByText, getByLabelText } = render(<OnboardingScreen />);
+    // goal_mode is always "expression" at submit time. The band comes from the
+    // vocab test (mocked → "conversation").
+    const utils = render(<OnboardingScreen />);
+    const { getByText, getByLabelText } = utils;
 
-    // Skip the vocab test to reach the manual level picker (fallback path).
-    fireEvent.press(getByText("건너뛰고 직접 선택할게요"));
-    fireEvent.press(getByText("일상 회화는 가능해요"));
-    fireEvent.press(getByLabelText("학습 수준 다음 단계"));
+    await passVocabTest(utils);
     fireEvent.press(getByText("학교/업무"));
     fireEvent.press(getByText("업무"));
     fireEvent.press(getByLabelText("온보딩 완료하기"));
@@ -171,13 +172,10 @@ describe("OnboardingScreen", () => {
   it("returns to the details step when saving the profile fails", async () => {
     mockUpdateLearningProfile.mockRejectedValueOnce(new Error("save failed"));
 
-    const { getByText, getByLabelText, findByText } = render(
-      <OnboardingScreen />,
-    );
+    const utils = render(<OnboardingScreen />);
+    const { getByText, getByLabelText, findByText } = utils;
 
-    fireEvent.press(getByText("건너뛰고 직접 선택할게요"));
-    fireEvent.press(getByText("일상 회화는 가능해요"));
-    fireEvent.press(getByLabelText("학습 수준 다음 단계"));
+    await passVocabTest(utils);
     fireEvent.press(getByText("학교/업무"));
     fireEvent.press(getByText("업무"));
     fireEvent.press(getByLabelText("온보딩 완료하기"));

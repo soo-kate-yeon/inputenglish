@@ -45,6 +45,7 @@ import { mediaOverlay } from "@inputenglish/design-tokens";
 import { VocabAssessment } from "@/components/onboarding/VocabAssessment";
 import { submitVocabAssessment } from "@/lib/premium-api";
 import type { VocabAnswer } from "@/lib/premium-api";
+import { safeSelectionAsync, safeImpactLight } from "@/lib/safeHaptic";
 
 type OnboardingStep = "vocab" | "level" | "goal" | "details" | "preparing";
 // @MX:NOTE: "vocab" is the primary first step — a Yes/No vocab-size test
@@ -184,7 +185,10 @@ function OptionButton({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        safeSelectionAsync();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.optionPressable,
         pressed && styles.optionButtonPressed,
@@ -282,7 +286,10 @@ function ChoiceChip({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        safeSelectionAsync();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.chipPressable,
         pressed && styles.chipPressed,
@@ -412,7 +419,10 @@ function PronunciationPersonCard({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        safeSelectionAsync();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.personCardPressable,
         pressed && styles.personCardPressed,
@@ -849,14 +859,9 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleVocabSkip = () => {
-    if (vocabSubmitting) return;
-    trackEvent("onboarding_vocab_skipped", {});
-    transitionToStep("level");
-  };
-
   const handleBack = () => {
     if (isSaving || step === "preparing" || vocabSubmitting) return;
+    safeImpactLight();
 
     if (step === "details") {
       transitionToStep(isEditMode ? "level" : "vocab");
@@ -886,6 +891,7 @@ export default function OnboardingScreen() {
 
   const handleComplete = async () => {
     if (!user || !goalMode || !level || focusTags.length === 0) return;
+    safeImpactLight();
 
     cancelPendingStepTransition();
     setStep("preparing");
@@ -1116,7 +1122,6 @@ export default function OnboardingScreen() {
           <View style={styles.vocabContainer}>
             <VocabAssessment
               onComplete={handleVocabComplete}
-              onSkip={handleVocabSkip}
               onBack={handleBack}
               submitting={vocabSubmitting}
             />
@@ -1170,6 +1175,7 @@ export default function OnboardingScreen() {
                     ]}
                     onPress={() => {
                       if (!level) return;
+                      safeImpactLight();
                       // Skip the goal step (gated off with speaking).
                       transitionToStep("details");
                     }}
@@ -1188,6 +1194,7 @@ export default function OnboardingScreen() {
                     ]}
                     onPress={() => {
                       if (!goalMode) return;
+                      safeImpactLight();
                       transitionToStep("details");
                     }}
                     disabled={!goalMode}
