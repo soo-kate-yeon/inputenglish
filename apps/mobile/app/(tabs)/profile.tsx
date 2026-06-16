@@ -1,4 +1,4 @@
-// @MX:NOTE: [AUTO] Profile screen with membership banner, study stats, notification settings, and account actions.
+// @MX:NOTE: [AUTO] Profile screen — editorial-tech design system, v1.3 comprehensible-input model.
 // @MX:SPEC: SPEC-MOBILE-005, SPEC-MOBILE-006, SPEC-MOBILE-007
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -7,19 +7,56 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
-  StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Text } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { appStore, studyStore } from "@/lib/stores";
+import { appStore } from "@/lib/stores";
 import { useSubscription } from "@/hooks/useSubscription";
 import { getCustomerInfo } from "@/lib/revenue-cat";
-import { colors, font, radius, shadow, spacing } from "@/theme";
+import { createThemedStyles, useTheme } from "@/components/ui";
+
+// -- Helper: level_band -> Korean label --
+
+function levelBandLabel(band: string | undefined | null): string | null {
+  switch (band) {
+    case "beginner":
+      return "초급 — 거의 한 마디도 못해요";
+    case "basic":
+      return "기초 — 간단한 의사표현 정도만 가능해요";
+    case "conversation":
+      return "생활회화 — 일상 회화는 가능해요";
+    case "professional":
+      return "비즈니스 — 영어로 업무 소통이나 논의까지 가능해요";
+    default:
+      return null;
+  }
+}
 
 // -- Sub-components --
+
+const getRowStyles = createThemedStyles((theme) => ({
+  row: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 14,
+  },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.subtle,
+  },
+  label: {
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
+  },
+  right: {
+    alignItems: "flex-end" as const,
+  },
+}));
 
 function SettingRow({
   label,
@@ -30,6 +67,8 @@ function SettingRow({
   right: React.ReactNode;
   last?: boolean;
 }) {
+  const theme = useTheme();
+  const rowStyles = getRowStyles(theme);
   return (
     <View style={[rowStyles.row, !last && rowStyles.rowBorder]}>
       <Text style={rowStyles.label}>{label}</Text>
@@ -37,28 +76,6 @@ function SettingRow({
     </View>
   );
 }
-
-const rowStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-  },
-  rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  label: {
-    fontSize: 16,
-    color: colors.text,
-    letterSpacing: 0.1,
-  },
-  right: {
-    alignItems: "flex-end",
-  },
-});
 
 // -- Membership banner --
 
@@ -68,11 +85,90 @@ interface MembershipBannerProps {
   onUpgrade: () => void;
 }
 
+const getBannerStyles = createThemedStyles((theme) => ({
+  // Premium state
+  premiumCard: {
+    backgroundColor: theme.colors.text.primary,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 18,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    ...theme.shadows.card,
+  },
+  premiumLeft: {
+    flex: 1,
+    gap: theme.spacing[1],
+  },
+  premiumTitle: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.inverse,
+  },
+  premiumSub: {
+    ...theme.typography.caption,
+    color: theme.colors.text.tertiary,
+  },
+  premiumBadge: {
+    borderWidth: 1,
+    borderColor: theme.colors.border.subtle,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: theme.radius.full,
+    marginLeft: theme.spacing[2],
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: "700" as const,
+    color: theme.colors.text.inverse,
+  },
+
+  // Free state
+  freeCard: {
+    backgroundColor: theme.colors.surface.muted,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 18,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+  },
+  freeLeft: {
+    flex: 1,
+    gap: theme.spacing[1],
+  },
+  freeTitle: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
+  },
+  freeSub: {
+    ...theme.typography.caption,
+    color: theme.colors.text.secondary,
+  },
+  freeCta: {
+    backgroundColor: theme.colors.action.primary,
+    paddingHorizontal: 14,
+    paddingVertical: theme.spacing[2],
+    borderRadius: theme.radius.full,
+    marginLeft: theme.spacing[2],
+  },
+  freeCtaText: {
+    ...theme.typography.label,
+    color: theme.colors.text.inverse,
+  },
+}));
+
 function MembershipBanner({
   isPremium,
   renewalDate,
   onUpgrade,
 }: MembershipBannerProps) {
+  const theme = useTheme();
+  const bannerStyles = getBannerStyles(theme);
+
   if (isPremium) {
     return (
       <View style={bannerStyles.premiumCard}>
@@ -112,94 +208,180 @@ function MembershipBanner({
   );
 }
 
-const bannerStyles = StyleSheet.create({
-  // Premium state
-  premiumCard: {
-    backgroundColor: colors.bgBrand,
-    borderRadius: radius.xl,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    ...shadow.md,
-  },
-  premiumLeft: {
-    flex: 1,
-    gap: 4,
-  },
-  premiumTitle: {
-    fontSize: font.size.base,
-    fontWeight: font.weight.semibold,
-    color: colors.textInverse,
-    letterSpacing: 0.1,
-  },
-  premiumSub: {
-    fontSize: font.size.sm,
-    color: "rgba(255,255,255,0.6)",
-    letterSpacing: 0.1,
-  },
-  premiumBadge: {
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    marginLeft: spacing.sm,
-  },
-  premiumBadgeText: {
-    fontSize: 10,
-    letterSpacing: 1.5,
-    fontWeight: font.weight.bold,
-    color: "rgba(255,255,255,0.9)",
-  },
-
-  // Free state
-  freeCard: {
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.xl,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadow.sm,
-  },
-  freeLeft: {
-    flex: 1,
-    gap: 4,
-  },
-  freeTitle: {
-    fontSize: font.size.base,
-    fontWeight: font.weight.semibold,
-    color: colors.text,
-    letterSpacing: 0.1,
-  },
-  freeSub: {
-    fontSize: font.size.sm,
-    color: colors.textSecondary,
-    letterSpacing: 0.1,
-  },
-  freeCta: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
-    marginLeft: spacing.sm,
-  },
-  freeCtaText: {
-    fontSize: 13,
-    fontWeight: font.weight.semibold,
-    color: colors.textInverse,
-    letterSpacing: 0.2,
-  },
-});
-
 // -- Main screen --
 
+const getStyles = createThemedStyles((theme) => ({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background.canvas,
+  },
+
+  // Header
+  header: {
+    paddingHorizontal: theme.spacing[5],
+    paddingTop: theme.spacing[5],
+    paddingBottom: theme.spacing[4],
+  },
+  headerTitle: {
+    ...theme.typography.title,
+    color: theme.colors.text.primary,
+    letterSpacing: 0.5,
+  },
+
+  scrollContent: {
+    paddingHorizontal: theme.spacing[5],
+    paddingTop: theme.spacing[5],
+    paddingBottom: 120,
+    gap: theme.spacing[6],
+  },
+
+  // Identity row
+  identityRow: {
+    flexDirection: "row" as const,
+    alignItems: "flex-start" as const,
+    gap: theme.spacing[3],
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.action.primary,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    flexShrink: 0,
+  },
+  avatarLetter: {
+    ...theme.typography.sectionTitle,
+    color: theme.colors.text.inverse,
+  },
+  identityInfo: {
+    flex: 1,
+    gap: theme.spacing[1],
+    paddingTop: 2,
+  },
+  identityEmail: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
+  },
+  identityMetaBlock: {
+    gap: 2,
+  },
+  identityMetaLine: {
+    ...theme.typography.caption,
+    color: theme.colors.text.secondary,
+    flexShrink: 1,
+  },
+
+  // Level band chip
+  levelBandRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 14,
+  },
+  levelBandLabel: {
+    ...theme.typography.label,
+    color: theme.colors.text.secondary,
+    flex: 1,
+  },
+  levelBandValue: {
+    ...theme.typography.caption,
+    color: theme.colors.text.secondary,
+    maxWidth: 200,
+    textAlign: "right" as const,
+  },
+
+  // Group (label + surface)
+  group: {
+    gap: theme.spacing[2],
+  },
+  groupLabel: {
+    ...theme.typography.caption,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    fontWeight: "600" as const,
+    color: theme.colors.text.tertiary,
+    textTransform: "uppercase" as const,
+    paddingHorizontal: 4,
+  },
+  groupSurface: {
+    backgroundColor: theme.colors.surface.muted,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border.subtle,
+    overflow: "hidden" as const,
+  },
+  settingValue: {
+    ...theme.typography.caption,
+    maxWidth: 180,
+    color: theme.colors.text.secondary,
+    textAlign: "right" as const,
+  },
+
+  // Nav buttons (학습 설정 다시 하기, 질문 히스토리)
+  navButton: {
+    backgroundColor: theme.colors.surface.muted,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border.subtle,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 14,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+  },
+  navButtonText: {
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
+  },
+  navChevron: {
+    ...theme.typography.sectionTitle,
+    color: theme.colors.text.tertiary,
+    fontWeight: "300" as const,
+  },
+
+  // Legal / action rows
+  legalRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 14,
+  },
+  legalRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.subtle,
+  },
+  legalLabel: {
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
+  },
+  legalChevron: {
+    ...theme.typography.sectionTitle,
+    color: theme.colors.text.tertiary,
+    fontWeight: "300" as const,
+  },
+
+  actionRow: {
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 16,
+    alignItems: "center" as const,
+  },
+  signOutText: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
+  },
+  deleteText: {
+    ...theme.typography.body,
+    color: theme.colors.text.danger,
+  },
+}));
+
 export default function ProfileScreen() {
+  const theme = useTheme();
+  const styles = getStyles(theme);
+
   const { user, learningProfile, signOut, deleteAccount, isAuthenticated } =
     useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -233,12 +415,7 @@ export default function ProfileScreen() {
   };
 
   const { plan } = useSubscription();
-  const savedSentences = appStore((state) => state.savedSentences);
-  const highlights = appStore((state) => state.highlights);
   const loadUserData = appStore((state) => state.loadUserData);
-
-  const sessions = studyStore((s) => s.sessions);
-  const completedSessions = sessions.filter((s) => s.isCompleted).length;
 
   const isPremium = plan === "PREMIUM";
 
@@ -295,13 +472,19 @@ export default function ProfileScreen() {
     lastSignInDate ? `마지막 로그인 ${lastSignInDate}` : null,
   ].filter(Boolean) as string[];
 
+  // level_band -> friendly Korean label (graceful omit if not set)
+  const levelLabel = levelBandLabel(learningProfile?.level_band);
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={theme.colors.background.canvas}
+      />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerWordmark}>프로필</Text>
+        <Text style={styles.headerTitle}>프로필</Text>
       </View>
 
       <ScrollView
@@ -329,13 +512,26 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Membership banner — above stats */}
+        {/* Membership banner */}
         <MembershipBanner
           isPremium={isPremium}
           renewalDate={renewalDate}
           onUpgrade={() => router.push("/paywall")}
         />
 
+        {/* 내 학습 수준 — gracefully omitted if learningProfile.level_band is not set */}
+        {levelLabel ? (
+          <View style={styles.group}>
+            <Text style={styles.groupLabel}>내 학습 수준</Text>
+            <View style={styles.groupSurface}>
+              <View style={styles.levelBandRow}>
+                <Text style={styles.levelBandValue}>{levelLabel}</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 학습 설정 */}
         <View style={styles.group}>
           <Text style={styles.groupLabel}>학습 설정</Text>
           <View style={styles.groupSurface}>
@@ -348,22 +544,6 @@ export default function ProfileScreen() {
                     : learningProfile?.goal_mode === "expression"
                       ? "표현 훔치기"
                       : "아직 설정 안됨"}
-                </Text>
-              }
-            />
-            <SettingRow
-              label="현재 수준"
-              right={
-                <Text style={styles.settingValue}>
-                  {learningProfile?.level_band === "beginner"
-                    ? "거의 한 마디도 못해요"
-                    : learningProfile?.level_band === "basic"
-                      ? "간단한 의사표현 정도만 가능해요"
-                      : learningProfile?.level_band === "conversation"
-                        ? "일상 회화는 가능해요"
-                        : learningProfile?.level_band === "professional"
-                          ? "영어로 업무 소통이나 논의까지 가능해요"
-                          : "아직 설정 안됨"}
                 </Text>
               }
             />
@@ -389,41 +569,30 @@ export default function ProfileScreen() {
               }
             />
           </View>
+
+          {/* 학습 설정 다시 하기 */}
           <TouchableOpacity
-            style={styles.learningSettingsButton}
+            style={styles.navButton}
             onPress={() => router.push("/onboarding?edit=1" as never)}
             activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="학습 설정 다시 하기"
           >
-            <Text style={styles.learningSettingsButtonText}>
-              학습 설정 다시 하기
-            </Text>
+            <Text style={styles.navButtonText}>학습 설정 다시 하기</Text>
+            <Text style={styles.navChevron}>›</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Stats block */}
-        <View style={styles.group}>
-          <Text style={styles.groupLabel}>활동</Text>
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{savedSentences.length}</Text>
-              <Text style={styles.statLabel}>저장 문장</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{highlights.length}</Text>
-              <Text style={styles.statLabel}>하이라이트</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{sessions.length}</Text>
-              <Text style={styles.statLabel}>학습 세션</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{completedSessions}</Text>
-              <Text style={styles.statLabel}>완료 세션</Text>
-            </View>
-          </View>
+          {/* 질문 히스토리 */}
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => router.push("/question-history" as never)}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="질문 히스토리"
+          >
+            <Text style={styles.navButtonText}>질문 히스토리</Text>
+            <Text style={styles.navChevron}>›</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Legal links */}
@@ -431,26 +600,26 @@ export default function ProfileScreen() {
           <Text style={styles.groupLabel}>약관 및 정책</Text>
           <View style={styles.groupSurface}>
             <TouchableOpacity
-              style={[rowStyles.row, rowStyles.rowBorder]}
+              style={[styles.legalRow, styles.legalRowBorder]}
               onPress={() =>
                 Linking.openURL("https://inputenglish.vercel.app/terms")
               }
               accessibilityRole="link"
               accessibilityLabel="이용약관"
             >
-              <Text style={rowStyles.label}>이용약관</Text>
-              <Text style={styles.chevron}>›</Text>
+              <Text style={styles.legalLabel}>이용약관</Text>
+              <Text style={styles.legalChevron}>›</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={rowStyles.row}
+              style={styles.legalRow}
               onPress={() =>
                 Linking.openURL("https://inputenglish.vercel.app/privacy")
               }
               accessibilityRole="link"
               accessibilityLabel="개인정보처리방침"
             >
-              <Text style={rowStyles.label}>개인정보처리방침</Text>
-              <Text style={styles.chevron}>›</Text>
+              <Text style={styles.legalLabel}>개인정보처리방침</Text>
+              <Text style={styles.legalChevron}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -489,167 +658,3 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-
-  // Header
-  header: {
-    paddingHorizontal: spacing.md,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  headerWordmark: {
-    fontSize: font.size["2xl"],
-    fontWeight: font.weight.bold,
-    letterSpacing: 1,
-    color: colors.text,
-  },
-
-  scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: 120,
-    gap: 24,
-  },
-
-  // Identity row (no plan badge — banner handles it now)
-  identityRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  avatarLetter: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.textInverse,
-  },
-  identityInfo: {
-    flex: 1,
-    gap: 6,
-    paddingTop: 2,
-  },
-  identityEmail: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.text,
-    letterSpacing: 0.1,
-  },
-  identityMetaBlock: {
-    gap: 2,
-  },
-  identityMetaLine: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    letterSpacing: 0.2,
-    flexShrink: 1,
-  },
-
-  // Group (label + surface)
-  group: {
-    gap: 8,
-  },
-  groupLabel: {
-    fontSize: 12,
-    letterSpacing: 1.5,
-    fontWeight: "600",
-    color: colors.textMuted,
-    paddingHorizontal: 4,
-  },
-  groupSurface: {
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-  },
-  settingValue: {
-    maxWidth: 180,
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: "right",
-  },
-  learningSettingsButton: {
-    marginTop: spacing.sm,
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  learningSettingsButtonText: {
-    fontSize: 15,
-    fontWeight: font.weight.semibold,
-    color: colors.text,
-  },
-
-  // Stats
-  statsContainer: {
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.lg,
-    flexDirection: "row",
-    alignItems: "stretch",
-    overflow: "hidden",
-  },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 20,
-    gap: 5,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginVertical: 14,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  statLabel: {
-    fontSize: 11,
-    letterSpacing: 0.5,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-
-  // Action rows
-  actionRow: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  actionRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  signOutText: {
-    fontSize: 15,
-    fontWeight: font.weight.semibold,
-    color: colors.text,
-  },
-  deleteText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: colors.error,
-  },
-  chevron: {
-    fontSize: 18,
-    color: colors.textMuted,
-    fontWeight: "300",
-  },
-});

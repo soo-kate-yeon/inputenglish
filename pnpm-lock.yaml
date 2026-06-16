@@ -48,6 +48,9 @@ importers:
       '@expo/vector-icons':
         specifier: ^14.0.4
         version: 14.0.4
+      '@framingui/react-native':
+        specifier: 0.1.0
+        version: 0.1.0(react-native@0.76.9(@babel/core@7.29.0)(@babel/preset-env@7.29.0(@babel/core@7.29.0))(@types/react@18.3.28)(react@18.3.1))(react@18.3.1)
       '@inputenglish/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
@@ -1522,6 +1525,13 @@ packages:
   '@framingui/core@0.4.10':
     resolution: {integrity: sha512-pZCDl8ytBbRx/uxcVsszhIb+8ApQPBQmhvMnmlOoMu4ijtNoojXRXQcKOcp6EqQy524H/5MjhoxPwLmSB9C26A==}
     engines: {node: '>=20.0.0'}
+
+  '@framingui/react-native@0.1.0':
+    resolution: {integrity: sha512-Q478L0+B7P8hUy7N029Em5J39Poo2CR0tO6Pt6g20mV1XRWlQ4zW1CB3cU6i8AOXCOlTtGsuZsRhHJrCqxYtwg==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-native: '>=0.76.0'
 
   '@framingui/tokens@0.3.5':
     resolution: {integrity: sha512-ORcwkKvdGxH87ig77PzhZizPPmmHKeBr55y5NVoOAfDS3i6j6F08hTVSN9mkXV3zEKvKyO8iulvMkhO16xJ5dA==}
@@ -9576,6 +9586,12 @@ snapshots:
   '@framingui/core@0.4.10':
     dependencies:
       zod: 3.25.76
+
+  '@framingui/react-native@0.1.0(react-native@0.76.9(@babel/core@7.29.0)(@babel/preset-env@7.29.0(@babel/core@7.29.0))(@types/react@18.3.28)(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@framingui/tokens': 0.3.5
+      react: 18.3.1
+      react-native: 0.76.9(@babel/core@7.29.0)(@babel/preset-env@7.29.0(@babel/core@7.29.0))(@types/react@18.3.28)(react@18.3.1)
 
   '@framingui/tokens@0.3.5': {}
 

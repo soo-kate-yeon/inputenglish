@@ -31,14 +31,18 @@ function collectSourceFiles(root: string): string[] {
 }
 
 describe("premium surface migration guards", () => {
-  it("keeps the home tab on the premium curation surface, not the shorts feed", () => {
+  it("keeps the home tab on the CI session surface, not the shorts feed", () => {
     const homeSource = readFileSync(
       path.join(appRoot, "(tabs)", "index.tsx"),
       "utf8",
     );
 
-    expect(homeSource).toContain("fetchTodayPremiumSession");
-    expect(homeSource).toContain("premium-session-card");
+    // v1.3: the CI session card is the primary home surface (supersedes the
+    // PREMIUM-001 curation card). fetchTodayPremiumSession may remain for the
+    // server-side entitlement gate, but the rendered surface is the CI card.
+    expect(homeSource).toContain("fetchTodayCiSession");
+    expect(homeSource).toContain("ci-session-card");
+    expect(homeSource).not.toContain("premium-session-card");
     expect(homeSource).not.toContain("FlatList");
     expect(homeSource).not.toContain("pagingEnabled");
     expect(existsSync(path.join(appRoot, "(tabs)", "explore.tsx"))).toBe(false);
@@ -48,12 +52,14 @@ describe("premium surface migration guards", () => {
     ).toBe(false);
   });
 
-  it("does not reintroduce shorts quota or FramingUI runtime imports into mobile code", () => {
+  it("does not reintroduce shorts quota or free-usage gating into mobile code", () => {
+    // NOTE: FramingUI runtime (@framingui/react-native) is now the intended
+    // design-system layer for the mobile app (SPEC-INPUT-001 UI rebuild), so it
+    // is deliberately no longer banned here. The shorts/free-usage guards stay.
     const bannedTokens = [
       "SHORTS_FREE_DAILY_LIMIT",
       "canViewShort",
       "@/lib/free-usage",
-      "@framingui/",
     ];
     const violations = collectSourceFiles(appRoot)
       .concat(collectSourceFiles(srcRoot))
@@ -117,7 +123,7 @@ describe("premium surface migration guards", () => {
     expect(revenueCatSource).toContain("process.env.EXPO_PUBLIC_WEB_API_URL");
   });
 
-  it("connects the mobile premium theme to shared design tokens without FramingUI runtime", () => {
+  it("connects the mobile premium theme to shared design tokens", () => {
     expect(premiumTheme.colors).toBe(premiumDarkTokens.color);
     expect(premiumTheme.typography).toBe(premiumDarkTokens.typography);
     expect(premiumTheme.spacing).toBe(premiumDarkTokens.spacing);

@@ -1,19 +1,14 @@
 // @MX:NOTE: [AUTO] Read-only history list of user's asked items (highlight questions + answers).
 // @MX:SPEC: SPEC-INPUT-001 - REQ-INPUT-004-E2
 import React, { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import type { AskedItem } from "@inputenglish/shared";
+import { createThemedStyles, useTheme } from "@framingui/react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { colors, font, radius, spacing } from "@/theme";
 
 function AskedItemCard({ item }: { item: AskedItem }): React.JSX.Element {
+  const styles = getStyles(useTheme());
   return (
     <View style={styles.card}>
       <Text style={styles.highlight}>{item.highlightText}</Text>
@@ -26,6 +21,7 @@ function AskedItemCard({ item }: { item: AskedItem }): React.JSX.Element {
 }
 
 export default function QuestionHistoryTab(): React.JSX.Element {
+  const styles = getStyles(useTheme());
   const { user } = useAuth();
   const [items, setItems] = useState<AskedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,46 +117,43 @@ export default function QuestionHistoryTab(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.lg,
+    padding: theme.spacing[6],
+    gap: theme.spacing[2],
   },
   emptyText: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: font.weight.semibold,
-    marginBottom: 8,
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: colors.textMuted,
+    ...theme.typography.caption,
+    color: theme.colors.text.tertiary,
     textAlign: "center",
   },
   list: {
-    padding: spacing.md,
-    gap: 12,
+    padding: theme.spacing[4],
+    gap: theme.spacing[3],
   },
   card: {
-    backgroundColor: colors.bgMuted,
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 8,
+    backgroundColor: theme.colors.surface.muted,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing[4],
+    gap: theme.spacing[2],
   },
   highlight: {
-    fontSize: 15,
-    color: colors.text,
-    fontWeight: font.weight.semibold,
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
   },
   question: {
-    fontSize: 13,
-    color: colors.textMuted,
+    ...theme.typography.caption,
+    color: theme.colors.text.tertiary,
   },
   answer: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
+    ...theme.typography.body,
+    color: theme.colors.text.secondary,
   },
-});
+}));

@@ -81,6 +81,18 @@ jest.mock("../../src/lib/stores", () => ({
   ),
 }));
 
+// QuestionHistoryTab self-fetches via supabase; stub it out so tests
+// don't need real Supabase env vars. The tab is not exercised by this suite.
+jest.mock("../../src/components/premium/QuestionHistoryTab", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: () =>
+      React.createElement(View, { testID: "question-history-tab" }),
+  };
+});
+
 describe("Archive comments flow", () => {
   const ArchiveScreen = require("../../app/(tabs)/archive").default;
 
@@ -105,19 +117,29 @@ describe("Archive comments flow", () => {
     mockDeleteCardComment.mockResolvedValue(undefined);
   });
 
+  // Helper: navigate to the "저장 문장" segment which holds saved sentences and their comments
+  async function goToSavedSentences(
+    findByText: ReturnType<typeof render>["findByText"],
+  ) {
+    fireEvent.press(await findByText("저장 문장"));
+  }
+
   it("loads and displays comments below their respective cards", async () => {
     const { findByText } = render(<ArchiveScreen />);
+    await goToSavedSentences(findByText);
     expect(await findByText("My first note")).toBeTruthy();
   });
 
   it("shows add trigger on each card", async () => {
-    const { findAllByText } = render(<ArchiveScreen />);
+    const { findByText, findAllByText } = render(<ArchiveScreen />);
+    await goToSavedSentences(findByText);
     const triggers = await findAllByText("메모 추가...");
     expect(triggers.length).toBeGreaterThanOrEqual(1);
   });
 
   it("creates a comment optimistically", async () => {
     const { findByText, findByTestId } = render(<ArchiveScreen />);
+    await goToSavedSentences(findByText);
 
     fireEvent.press(await findByText("메모 추가..."));
     fireEvent.changeText(await findByTestId("comment-input"), "New note");
@@ -139,6 +161,7 @@ describe("Archive comments flow", () => {
     mockCreateCardComment.mockRejectedValueOnce(new Error("Network error"));
 
     const { findByText, findByTestId, queryByText } = render(<ArchiveScreen />);
+    await goToSavedSentences(findByText);
 
     fireEvent.press(await findByText("메모 추가..."));
     fireEvent.changeText(await findByTestId("comment-input"), "Failing note");
@@ -153,6 +176,7 @@ describe("Archive comments flow", () => {
 
   it("edits a comment optimistically", async () => {
     const { findByText, findByTestId } = render(<ArchiveScreen />);
+    await goToSavedSentences(findByText);
 
     // Wait for comment to load
     await findByText("My first note");
@@ -174,6 +198,7 @@ describe("Archive comments flow", () => {
 
   it("deletes a comment optimistically", async () => {
     const { findByText, findByTestId, queryByText } = render(<ArchiveScreen />);
+    await goToSavedSentences(findByText);
 
     await findByText("My first note");
     fireEvent.press(await findByTestId("comment-delete-c1"));
@@ -189,6 +214,7 @@ describe("Archive comments flow", () => {
     mockDeleteCardComment.mockRejectedValueOnce(new Error("Delete failed"));
 
     const { findByText, findByTestId } = render(<ArchiveScreen />);
+    await goToSavedSentences(findByText);
 
     await findByText("My first note");
     fireEvent.press(await findByTestId("comment-delete-c1"));

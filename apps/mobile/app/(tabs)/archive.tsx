@@ -1,6 +1,6 @@
-// @MX:ANCHOR: ArchiveScreen - saved sentences + highlights + playbook with swipe-to-delete
+// @MX:ANCHOR: ArchiveScreen - comprehensible input review hub (질문 기록 + 저장 문장)
 // @MX:REASON: [AUTO] fan_in >= 3: tab navigator, deep links, and study flow navigation
-// @MX:SPEC: SPEC-MOBILE-005 - REQ-E-004, REQ-E-005, REQ-N-001, REQ-C-002
+// @MX:SPEC: SPEC-INPUT-001 - REQ-INPUT-004-E2, SPEC-MOBILE-005 - REQ-E-004, REQ-E-005, REQ-N-001, REQ-C-002
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -9,12 +9,11 @@ import {
   Platform,
   SafeAreaView,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   createCardComment,
@@ -39,13 +38,22 @@ import ErrorToast from "@/components/common/ErrorToast";
 import CommentThread from "@/components/common/CommentThread";
 import SwipeableRow from "@/components/common/SwipeableRow";
 import PlaybookCard from "@/components/study/PlaybookCard";
-import { colors, font, palette, radius, spacing } from "@/theme";
+import QuestionHistoryTab from "@/components/premium/QuestionHistoryTab";
+import {
+  SegmentedControl,
+  createThemedStyles,
+  useTheme,
+} from "@/components/ui";
 
-type Tab = "sentences" | "highlights" | "playbook";
+// Top-level segment: "질문 기록" | "저장 문장"
+type MainSegment = "questions" | "saved";
+
+// Sub-tab within "저장 문장"
+type SavedSubTab = "sentences" | "highlights" | "playbook";
 
 interface PendingDelete {
   id: string;
-  type: Tab;
+  type: SavedSubTab;
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -58,8 +66,11 @@ export default function ArchiveScreen() {
   const removeSavedSentence = appStore((state) => state.removeSavedSentence);
   const removeHighlight = appStore((state) => state.removeHighlight);
 
+  const styles = getStyles(useTheme());
   const flatListRef = useRef<FlatList>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("sentences");
+
+  const [mainSegment, setMainSegment] = useState<MainSegment>("questions");
+  const [savedSubTab, setSavedSubTab] = useState<SavedSubTab>("sentences");
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
     null,
   );
@@ -116,7 +127,7 @@ export default function ArchiveScreen() {
 
   // REQ-E-004, REQ-C-002: undo delete with 3-second timer
   const handleDelete = useCallback(
-    (id: string, type: Tab) => {
+    (id: string, type: SavedSubTab) => {
       if (pendingDelete) {
         clearTimeout(pendingDelete.timer);
         const prevType = pendingDelete.type;
@@ -300,23 +311,11 @@ export default function ArchiveScreen() {
     [getVideo],
   );
 
-  const resolvePremiumSessionPath = useCallback(
-    (sentence: SavedSentence): `/premium/${string}` => {
-      return `/premium/${sentence.premiumSessionId ?? sentence.videoId}`;
-    },
-    [],
-  );
-
   const resolveFallbackVideoTitle = useCallback(
     (videoId: string): string => {
       return getVideo(videoId)?.title ?? "프리미엄 세션";
     },
     [getVideo],
-  );
-
-  const resolveFallbackPremiumSessionPath = useCallback(
-    (videoId: string): `/premium/${string}` => `/premium/${videoId}`,
-    [],
   );
 
   const visibleSentences = savedSentences.filter(
@@ -346,19 +345,11 @@ export default function ArchiveScreen() {
         <View style={styles.cardShadow}>
           <SwipeableRow onDelete={() => handleDelete(item.id, "sentences")}>
             <View style={styles.card}>
-              <TouchableOpacity
-                style={styles.videoTitleRow}
-                onPress={() => {
-                  router.push(resolvePremiumSessionPath(item));
-                }}
-                accessibilityRole="link"
-                accessibilityLabel={`${videoTitle} 열기`}
-              >
+              <View style={styles.videoTitleRow}>
                 <Text style={styles.videoTitleText} numberOfLines={1}>
                   {videoTitle}
                 </Text>
-                <Text style={styles.videoTitleChevron}>›</Text>
-              </TouchableOpacity>
+              </View>
               <Text style={styles.sentenceText}>{item.sentenceText}</Text>
               <Text style={styles.timestamp}>
                 {new Date(item.createdAt).toLocaleString("ko-KR")}
@@ -379,8 +370,8 @@ export default function ArchiveScreen() {
       );
     },
     [
+      styles,
       resolveVideoTitle,
-      resolvePremiumSessionPath,
       handleDelete,
       commentsByTarget,
       handleAddComment,
@@ -398,19 +389,11 @@ export default function ArchiveScreen() {
         <View style={styles.cardShadow}>
           <SwipeableRow onDelete={() => handleDelete(item.id, "highlights")}>
             <View style={styles.card}>
-              <TouchableOpacity
-                style={styles.videoTitleRow}
-                onPress={() => {
-                  router.push(resolveFallbackPremiumSessionPath(item.videoId));
-                }}
-                accessibilityRole="link"
-                accessibilityLabel={`${videoTitle} 열기`}
-              >
+              <View style={styles.videoTitleRow}>
                 <Text style={styles.videoTitleText} numberOfLines={1}>
                   {videoTitle}
                 </Text>
-                <Text style={styles.videoTitleChevron}>›</Text>
-              </TouchableOpacity>
+              </View>
               <Text style={styles.sentenceText}>{item.originalText}</Text>
               {item.userNote ? (
                 <Text style={styles.userNote}>{item.userNote}</Text>
@@ -432,8 +415,8 @@ export default function ArchiveScreen() {
       );
     },
     [
+      styles,
       resolveFallbackVideoTitle,
-      resolveFallbackPremiumSessionPath,
       handleDelete,
       commentsByTarget,
       handleAddComment,
@@ -467,8 +450,8 @@ export default function ArchiveScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.stateContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-        <ActivityIndicator size="small" color={colors.textSecondary} />
+        <StatusBar barStyle="dark-content" />
+        <ActivityIndicator size="small" color={styles.activityColor.color} />
       </SafeAreaView>
     );
   }
@@ -476,7 +459,7 @@ export default function ArchiveScreen() {
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.stateContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+        <StatusBar barStyle="dark-content" />
         <Text style={styles.stateLabel}>보관함</Text>
         <Text style={styles.stateSubtext}>
           로그인 후 저장한 문장을 볼 수 있어요.
@@ -485,8 +468,11 @@ export default function ArchiveScreen() {
     );
   }
 
-  const isSentencesTab = activeTab === "sentences";
-  const isPlaybookTab = activeTab === "playbook";
+  // Saved view sub-tab configuration
+  const isSentencesTab = savedSubTab === "sentences";
+  const isHighlightsTab = savedSubTab === "highlights";
+  const isPlaybookTab = savedSubTab === "playbook";
+
   const emptyText = isSentencesTab
     ? "저장한 문장이 없습니다."
     : isPlaybookTab
@@ -506,101 +492,139 @@ export default function ArchiveScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
+      {/* Screen header */}
       <View style={styles.header}>
         <Text style={styles.headerWordmark}>보관함</Text>
       </View>
 
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        {(
-          [
-            { key: "sentences", label: "문장", count: savedSentences.length },
-            {
-              key: "highlights",
-              label: "하이라이트",
-              count: highlights.length,
-            },
-            {
-              key: "playbook",
-              label: "플레이북",
-              count: playbookEntries.length,
-            },
-          ] as { key: Tab; label: string; count: number }[]
-        ).map(({ key, label, count }) => {
-          const active = activeTab === key;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[styles.tab, active && styles.tabActive]}
-              onPress={() => setActiveTab(key)}
-            >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                {label}
-              </Text>
-              <View
-                style={[
-                  styles.tabCountBadge,
-                  active && styles.tabCountBadgeActive,
-                ]}
-              >
-                <Text
-                  style={[styles.tabCount, active && styles.tabCountActive]}
-                >
-                  {count}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+      {/* Top-level SegmentedControl: 질문 기록 | 저장 문장 */}
+      <View style={styles.segmentWrapper}>
+        <SegmentedControl
+          options={[
+            { value: "questions", label: "질문 기록" },
+            { value: "saved", label: "저장 문장" },
+          ]}
+          value={mainSegment}
+          onValueChange={(v) => setMainSegment(v as MainSegment)}
+        />
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {playbookLoading && isPlaybookTab ? (
-          <View style={styles.emptyContainer}>
-            <ActivityIndicator size="small" color={colors.textSecondary} />
+      {/* Question History Tab — self-fetches via supabase + useAuth */}
+      {mainSegment === "questions" ? (
+        <QuestionHistoryTab />
+      ) : (
+        <>
+          {/* Sub-tab bar for saved sentences / highlights / playbook */}
+          <View style={styles.subTabBar}>
+            {(
+              [
+                {
+                  key: "sentences",
+                  label: "문장",
+                  count: savedSentences.length,
+                },
+                {
+                  key: "highlights",
+                  label: "하이라이트",
+                  count: highlights.length,
+                },
+                {
+                  key: "playbook",
+                  label: "플레이북",
+                  count: playbookEntries.length,
+                },
+              ] as { key: SavedSubTab; label: string; count: number }[]
+            ).map(({ key, label, count }) => {
+              const active = savedSubTab === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.subTab, active && styles.subTabActive]}
+                  onPress={() => setSavedSubTab(key)}
+                >
+                  <Text
+                    style={[
+                      styles.subTabText,
+                      active && styles.subTabTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                  <View
+                    style={[
+                      styles.subTabCountBadge,
+                      active && styles.subTabCountBadgeActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.subTabCount,
+                        active && styles.subTabCountActive,
+                      ]}
+                    >
+                      {count}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        ) : currentData.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>{emptyText}</Text>
-            <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={
-              currentData as (SavedSentence | AppHighlight | PlaybookEntry)[]
-            }
-            keyExtractor={(item) => item.id}
-            renderItem={
-              isSentencesTab
-                ? (renderSentenceItem as never)
-                : isPlaybookTab
-                  ? (renderPlaybookItem as never)
-                  : (renderHighlightItem as never)
-            }
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.cardGap} />}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            onScrollToIndexFailed={(info) => {
-              setTimeout(() => {
-                flatListRef.current?.scrollToIndex({
-                  index: info.index,
-                  animated: true,
-                  viewPosition: 0.3,
-                });
-              }, 100);
-            }}
-          />
-        )}
-      </KeyboardAvoidingView>
+
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            {playbookLoading && isPlaybookTab ? (
+              <View style={styles.emptyContainer}>
+                <ActivityIndicator
+                  size="small"
+                  color={styles.activityColor.color}
+                />
+              </View>
+            ) : currentData.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyTitle}>{emptyText}</Text>
+                <Text style={styles.emptySubtitle}>{emptySubtext}</Text>
+              </View>
+            ) : (
+              <FlatList
+                ref={flatListRef}
+                data={
+                  currentData as (
+                    | SavedSentence
+                    | AppHighlight
+                    | PlaybookEntry
+                  )[]
+                }
+                keyExtractor={(item) => item.id}
+                renderItem={
+                  isSentencesTab
+                    ? (renderSentenceItem as never)
+                    : isPlaybookTab
+                      ? (renderPlaybookItem as never)
+                      : (renderHighlightItem as never)
+                }
+                contentContainerStyle={styles.listContent}
+                ItemSeparatorComponent={() => <View style={styles.cardGap} />}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                onScrollToIndexFailed={(info) => {
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToIndex({
+                      index: info.index,
+                      animated: true,
+                      viewPosition: 0.3,
+                    });
+                  }, 100);
+                }}
+              />
+            )}
+          </KeyboardAvoidingView>
+        </>
+      )}
 
       <UndoToast
         visible={pendingDelete !== null}
@@ -617,154 +641,160 @@ export default function ArchiveScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
+  flex: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: theme.colors.background.canvas,
   },
   stateContainer: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: theme.colors.background.canvas,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm + spacing.xs, // 12
+    gap: theme.spacing[3],
   },
   stateLabel: {
-    fontSize: font.size.base,
-    color: colors.text,
-    fontWeight: font.weight.bold,
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
   },
   stateSubtext: {
-    fontSize: font.size.md - 1, // 14
-    color: colors.textSecondary,
+    ...theme.typography.body,
+    color: theme.colors.text.secondary,
     letterSpacing: 0.3,
+  },
+  // Indicator color helper — used via .color property in StatusBar / ActivityIndicator
+  activityColor: {
+    color: theme.colors.text.tertiary,
   },
 
   // ── Header ──────────────────────────────────────────
   header: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingHorizontal: theme.spacing[4],
+    paddingTop: theme.spacing[6],
+    paddingBottom: theme.spacing[3],
   },
   headerWordmark: {
-    fontSize: font.size["2xl"],
-    fontWeight: font.weight.bold,
+    ...theme.typography.title,
+    color: theme.colors.text.primary,
     letterSpacing: 0.5,
-    color: colors.text,
   },
 
-  // ── Tab bar ─────────────────────────────────────────
-  tabBar: {
+  // ── SegmentedControl wrapper ─────────────────────────
+  segmentWrapper: {
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[3],
+  },
+
+  // ── Sub-tab bar (sentences / highlights / playbook) ──
+  subTabBar: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.bg,
+    borderBottomColor: theme.colors.border.subtle,
+    backgroundColor: theme.colors.background.canvas,
   },
-  tab: {
+  subTab: {
     flex: 1,
-    paddingVertical: spacing.sm + spacing.xs, // 12
+    paddingVertical: theme.spacing[3],
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
-    gap: spacing.xs + 2, // 6
+    gap: theme.spacing[1] + 2,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  tabActive: {
-    borderBottomColor: colors.text,
+  subTabActive: {
+    borderBottomColor: theme.colors.text.primary,
   },
-  tabText: {
-    fontSize: font.size.md - 1, // 14
-    fontWeight: font.weight.semibold,
-    color: colors.textMuted,
+  subTabText: {
+    ...theme.typography.label,
+    color: theme.colors.text.tertiary,
   },
-  tabTextActive: {
-    color: colors.text,
+  subTabTextActive: {
+    color: theme.colors.text.primary,
   },
-  tabCountBadge: {
-    backgroundColor: colors.bgMuted,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.xs,
+  subTabCountBadge: {
+    backgroundColor: theme.colors.background.muted,
+    borderRadius: theme.radius.full,
+    paddingHorizontal: theme.spacing[1],
     paddingVertical: 1,
     minWidth: 20,
     alignItems: "center",
   },
-  tabCountBadgeActive: {
-    backgroundColor: palette.neutral800,
+  subTabCountBadgeActive: {
+    backgroundColor: theme.colors.text.primary,
   },
-  tabCount: {
+  subTabCount: {
     fontSize: 11,
-    fontWeight: font.weight.medium,
-    color: colors.textMuted,
+    fontWeight: "500",
+    color: theme.colors.text.tertiary,
     letterSpacing: 0.2,
   },
-  tabCountActive: {
-    color: palette.white,
+  subTabCountActive: {
+    color: theme.colors.text.inverse,
   },
 
   // ── List ────────────────────────────────────────────
   listContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingHorizontal: theme.spacing[4],
+    paddingTop: theme.spacing[4],
     paddingBottom: 120,
   },
   cardGap: {
-    height: spacing.sm, // 8 — gap between cards
+    height: theme.spacing[2],
   },
 
-  // ── Card (podcast-ambient list recipe) ──────────────
+  // ── Card ────────────────────────────────────────────
   cardShadow: {
-    borderRadius: radius.xl,
+    borderRadius: theme.radius.lg,
     overflow: "hidden",
   },
   card: {
-    backgroundColor: palette.white,
-    borderRadius: radius.xl, // 16
+    backgroundColor: theme.colors.surface.base,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.sm,
+    borderColor: theme.colors.border.default,
+    padding: theme.spacing[4],
+    gap: theme.spacing[2],
   },
 
   // Video title row — tappable
   videoTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: theme.spacing[1],
   },
   videoTitleText: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    color: colors.textSecondary,
+    ...theme.typography.caption,
+    fontWeight: "600",
+    color: theme.colors.text.secondary,
     flex: 1,
     letterSpacing: 0.2,
   },
   videoTitleChevron: {
-    fontSize: font.size.md,
-    color: colors.textMuted,
-    lineHeight: font.size.md * 1.2,
+    ...theme.typography.body,
+    color: theme.colors.text.tertiary,
   },
 
   // Sentence / highlight content
   sentenceText: {
-    fontSize: font.size.base,
-    lineHeight: font.size.base * 1.55, // ~26
-    color: colors.text,
-    fontWeight: font.weight.regular,
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
   },
   userNote: {
-    fontSize: font.size.md,
-    color: colors.text,
-    backgroundColor: colors.bgSubtle,
-    padding: spacing.sm + spacing.xs, // 12
-    lineHeight: font.size.md * 1.4, // 21
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
+    backgroundColor: theme.colors.background.subtle,
+    padding: theme.spacing[3],
     borderLeftWidth: 2,
-    borderLeftColor: colors.borderStrong,
-    borderRadius: radius.sm,
+    borderLeftColor: theme.colors.border.default,
+    borderRadius: theme.radius.sm,
   },
   timestamp: {
-    fontSize: font.size.xs,
-    color: colors.textMuted,
+    ...theme.typography.caption,
+    color: theme.colors.text.tertiary,
     letterSpacing: 0.2,
   },
 
@@ -773,20 +803,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.xl,
-    gap: spacing.sm + spacing.xs, // 12
+    padding: theme.spacing[8],
+    gap: theme.spacing[3],
   },
   emptyTitle: {
-    fontSize: font.size.md,
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
     letterSpacing: 0.3,
-    color: colors.text,
-    fontWeight: font.weight.semibold,
   },
   emptySubtitle: {
-    fontSize: font.size.md - 1, // 14
-    color: colors.textSecondary,
+    ...theme.typography.body,
+    color: theme.colors.text.secondary,
     textAlign: "center",
-    lineHeight: font.size.md * 1.4, // ~21
     letterSpacing: 0.2,
   },
-});
+}));

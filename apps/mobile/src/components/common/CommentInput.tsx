@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
-import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import { TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
 
 interface CommentInputProps {
   initialValue?: string;
@@ -11,6 +11,25 @@ interface CommentInputProps {
   onCancel: () => void;
 }
 
+const getStyles = createThemedStyles((theme) => ({
+  container: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing[2],
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing[2] + theme.spacing[1],
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
+    minHeight: 40,
+    textAlignVertical: "top",
+  },
+}));
+
 export default function CommentInput({
   initialValue = "",
   placeholder = "메모 추가...",
@@ -18,6 +37,8 @@ export default function CommentInput({
   onSave,
   onCancel,
 }: CommentInputProps) {
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const [text, setText] = useState(initialValue);
   const isSavingRef = useRef(false);
   const canSave = text.trim().length > 0 && !saving;
@@ -45,7 +66,7 @@ export default function CommentInput({
         value={text}
         onChangeText={setText}
         placeholder={placeholder}
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.colors.text.tertiary}
         multiline
         maxLength={500}
         autoFocus
@@ -62,28 +83,13 @@ export default function CommentInput({
         <Ionicons
           name="checkmark-circle"
           size={28}
-          color={canSave ? colors.primary : colors.disabled}
+          color={
+            canSave
+              ? theme.colors.action.primary
+              : theme.colors.action.primaryDisabled
+          }
         />
       </TouchableOpacity>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.sm + spacing.xs,
-    fontSize: 15,
-    color: colors.text,
-    minHeight: 40,
-    textAlignVertical: "top",
-  },
-});

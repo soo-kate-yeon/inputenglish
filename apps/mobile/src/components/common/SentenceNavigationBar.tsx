@@ -2,13 +2,12 @@ import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Pressable,
-  StyleSheet,
   Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { colors, font, radius, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
 
 interface SentenceNavigationBarProps {
   onPrev: () => void;
@@ -19,6 +18,47 @@ interface SentenceNavigationBarProps {
   style?: StyleProp<ViewStyle>;
 }
 
+const getStyles = createThemedStyles((theme) => ({
+  row: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    justifyContent: "space-between",
+    gap: theme.spacing[1],
+    width: "100%",
+  },
+  button: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing[1],
+    borderRadius: theme.radius.lg,
+  },
+  buttonDark: {
+    backgroundColor: theme.colors.text.primary,
+  },
+  buttonLight: {
+    backgroundColor: theme.colors.background.muted,
+  },
+  buttonDisabled: {
+    opacity: 0.42,
+  },
+  label: {
+    ...theme.typography.label,
+    lineHeight: 20,
+  },
+  labelDark: {
+    color: theme.colors.text.inverse,
+  },
+  labelLight: {
+    color: theme.colors.text.primary,
+  },
+  labelDisabled: {
+    color: theme.colors.text.tertiary,
+  },
+}));
+
 export default function SentenceNavigationBar({
   onPrev,
   onNext,
@@ -27,6 +67,8 @@ export default function SentenceNavigationBar({
   tone = "dark",
   style,
 }: SentenceNavigationBarProps) {
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const isDark = tone === "dark";
 
   return (
@@ -48,11 +90,9 @@ export default function SentenceNavigationBar({
           color={
             hasPrev
               ? isDark
-                ? colors.textOnDark
-                : colors.text
-              : isDark
-                ? colors.textOnDarkMuted
-                : colors.textMuted
+                ? theme.colors.text.inverse
+                : theme.colors.text.primary
+              : theme.colors.text.tertiary
           }
         />
         <Text
@@ -83,11 +123,9 @@ export default function SentenceNavigationBar({
           color={
             hasNext
               ? isDark
-                ? colors.textOnDark
-                : colors.text
-              : isDark
-                ? colors.textOnDarkMuted
-                : colors.textMuted
+                ? theme.colors.text.inverse
+                : theme.colors.text.primary
+              : theme.colors.text.tertiary
           }
         />
         <Text
@@ -103,45 +141,3 @@ export default function SentenceNavigationBar({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    justifyContent: "space-between",
-    gap: spacing.xs,
-    width: "100%",
-  },
-  button: {
-    flex: 1,
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    borderRadius: radius.lg,
-  },
-  buttonDark: {
-    backgroundColor: colors.bgDarkSubtle,
-  },
-  buttonLight: {
-    backgroundColor: colors.bgMuted,
-  },
-  buttonDisabled: {
-    opacity: 0.42,
-  },
-  label: {
-    fontSize: font.size.sm,
-    lineHeight: 20,
-    fontWeight: font.weight.medium,
-  },
-  labelDark: {
-    color: colors.textOnDark,
-  },
-  labelLight: {
-    color: colors.text,
-  },
-  labelDisabled: {
-    color: colors.textMuted,
-  },
-});

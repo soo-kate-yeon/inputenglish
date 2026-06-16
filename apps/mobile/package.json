@@ -22,19 +22,28 @@
       "<rootDir>/src",
       "<rootDir>/../../packages/shared/src"
     ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "packages/shared/src/__tests__/frequency-list",
+      "packages/shared/src/__tests__/vocab-band-hysteresis",
+      "packages/shared/src/__tests__/vocab-assessment-sampler",
+      "packages/shared/src/__tests__/vocab-assessment-scorer"
+    ],
     "transformIgnorePatterns": [
-      "node_modules/\\.pnpm/(?!((jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?|react-navigation|@react-navigation|@unimodules|unimodules|sentry-expo|native-base|react-native-svg))"
+      "node_modules/\\.pnpm/(?!((jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?|react-navigation|@react-navigation|@unimodules|unimodules|sentry-expo|native-base|react-native-svg|@framingui))"
     ],
     "moduleNameMapper": {
       "^react-native-mmkv$": "<rootDir>/src/__mocks__/react-native-mmkv.ts",
       "^@expo/vector-icons(.*)$": "<rootDir>/src/__mocks__/@expo/vector-icons.ts",
-      "^react-native-fbsdk-next$": "<rootDir>/src/__mocks__/react-native-fbsdk-next.ts"
+      "^react-native-fbsdk-next$": "<rootDir>/src/__mocks__/react-native-fbsdk-next.ts",
+      "^@framingui/react-native$": "<rootDir>/../../node_modules/@framingui/react-native/dist/index.js"
     }
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
     "@inputenglish/design-tokens": "workspace:*",
     "@expo/vector-icons": "^14.0.4",
+    "@framingui/react-native": "0.1.0",
     "@inputenglish/shared": "workspace:*",
     "@react-native-async-storage/async-storage": "^1.23.1",
     "@react-native-community/netinfo": "^11.4.1",

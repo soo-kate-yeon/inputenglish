@@ -1,22 +1,33 @@
 import React from "react";
-import {
-  ActivityIndicator,
-  SafeAreaView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { ActivityIndicator, SafeAreaView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { colors } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
+
+const getStyles = createThemedStyles((theme) => ({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background.canvas,
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  indicator: {
+    color: theme.colors.action.primary,
+  },
+}));
 
 export default function AppEntryScreen() {
   const { user, learningProfile, isInitialized, isProfileLoading } = useAuth();
+  const styles = getStyles(useTheme());
 
   if (!isInitialized || (user && isProfileLoading)) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={styles.indicator.color} />
         </View>
       </SafeAreaView>
     );
@@ -32,15 +43,3 @@ export default function AppEntryScreen() {
 
   return <Redirect href="/(tabs)" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

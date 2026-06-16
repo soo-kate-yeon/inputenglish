@@ -6,6 +6,7 @@ import type {
   VideoSegment,
 } from "@inputenglish/shared";
 import { premiumSessionFixture } from "@/fixtures/premium-session";
+import { ciSessionFixture } from "@/fixtures/ci-session";
 import { supabase } from "@/lib/supabase";
 
 // babel-preset-expo inlines EXPO_PUBLIC_* only with dot notation.
@@ -191,7 +192,7 @@ export interface CiSessionResponse {
 export async function fetchTodayCiSession(): Promise<TodayCiSessionResponse> {
   const webApiUrl = getWebApiUrl();
   if (shouldForceFixtureMode(webApiUrl)) {
-    return { session: null, remainingQuestionCap: 100 };
+    return { session: ciSessionFixture, remainingQuestionCap: 100 };
   }
   if (!webApiUrl) {
     throw new PremiumApiConfigurationError();
@@ -242,6 +243,13 @@ export async function askHighlightQuestion(
   params: QuestionRequest,
 ): Promise<QuestionResponse> {
   const webApiUrl = getWebApiUrl();
+  if (shouldForceFixtureMode(webApiUrl)) {
+    return {
+      answer: `"${params.highlightText}" — 이 표현은 문맥상 핵심 의미를 전달해요. (dev fixture 응답)`,
+      model: "fixture",
+      remainingCap: 99,
+    };
+  }
   if (!webApiUrl) {
     throw new PremiumApiConfigurationError();
   }

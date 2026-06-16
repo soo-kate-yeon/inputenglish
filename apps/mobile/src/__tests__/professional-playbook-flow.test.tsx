@@ -87,6 +87,18 @@ jest.mock("../../src/lib/stores", () => ({
   ),
 }));
 
+// QuestionHistoryTab self-fetches via supabase; stub it out so tests
+// don't need real Supabase env vars. The tab is not exercised by this suite.
+jest.mock("../../src/components/premium/QuestionHistoryTab", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: () =>
+      React.createElement(View, { testID: "question-history-tab" }),
+  };
+});
+
 describe("ArchiveScreen playbook flow", () => {
   const ArchiveScreen = require("../../app/(tabs)/archive").default;
 
@@ -98,6 +110,8 @@ describe("ArchiveScreen playbook flow", () => {
   it("filters playbook entries by speaking function and updates mastery status", async () => {
     const { findAllByText, findByText } = render(<ArchiveScreen />);
 
+    // Navigate to "저장 문장" segment first, then open "플레이북" sub-tab
+    fireEvent.press(await findByText("저장 문장"));
     fireEvent.press(await findByText("플레이북"));
 
     expect(

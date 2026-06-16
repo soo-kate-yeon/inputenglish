@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { createThemedStyles, useTheme } from "@framingui/react-native";
 import YouTubePlayer, { YouTubePlayerHandle } from "../player/YouTubePlayer";
 import {
   findPremiumActiveTranscriptLine,
@@ -40,6 +41,7 @@ const SegmentPlayer: React.FC<SegmentPlayerProps> = ({
   onWordTap,
   onEnd,
 }) => {
+  const styles = getStyles(useTheme());
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const [playing, setPlaying] = useState(false);
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
@@ -128,6 +130,7 @@ const TranscriptLineView: React.FC<TranscriptLineViewProps> = ({
   isActive,
   onWordTap,
 }) => {
+  const styles = getStyles(useTheme());
   const words = text.split(/\s+/).filter(Boolean);
   return (
     <View style={[styles.line, isActive && styles.activeLine]}>
@@ -148,34 +151,34 @@ const TranscriptLineView: React.FC<TranscriptLineViewProps> = ({
 
 export default SegmentPlayer;
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
   container: {
     flex: 1,
   },
   transcript: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: theme.spacing[4],
   },
   transcriptContent: {
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: theme.spacing[3],
+    gap: theme.spacing[2],
   },
   line: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: theme.spacing[1],
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: theme.radius.md,
   },
   activeLine: {
-    backgroundColor: "rgba(255, 200, 0, 0.15)",
+    backgroundColor: theme.colors.surface.muted,
   },
   word: {
-    fontSize: 16,
-    color: "#1a1a1a",
-    lineHeight: 24,
+    ...theme.typography.body,
+    color: theme.colors.text.secondary,
   },
   activeWord: {
-    color: "#000000",
+    color: theme.colors.text.primary,
     fontWeight: "600",
   },
-});
+}));
