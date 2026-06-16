@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { buildAssessmentItems } from "@inputenglish/shared";
 import type { AssessmentItem } from "@inputenglish/shared";
 import { useTheme, createThemedStyles } from "@/components/ui";
@@ -31,6 +32,8 @@ function chunk<T>(arr: T[], size: number): T[][] {
 interface VocabAssessmentProps {
   onComplete: (answers: VocabAnswer[]) => void;
   onSkip: () => void;
+  /** Called when back is pressed on the first page (exit the test). */
+  onBack: () => void;
   submitting?: boolean;
   /** Fixed seed for deterministic item sampling (tests). */
   seed?: number;
@@ -39,6 +42,7 @@ interface VocabAssessmentProps {
 export function VocabAssessment({
   onComplete,
   onSkip,
+  onBack,
   submitting = false,
   seed,
 }: VocabAssessmentProps) {
@@ -83,10 +87,37 @@ export function VocabAssessment({
     onComplete(answers);
   };
 
+  // Back goes one page within the test; from the first page it exits via onBack.
+  const handleBackPress = () => {
+    if (submitting) return;
+    if (pageIndex > 0) {
+      setPageIndex((p) => p - 1);
+      return;
+    }
+    onBack();
+  };
+
   const currentPage = pages[pageIndex] ?? [];
 
   return (
     <View style={styles.root}>
+      <View style={styles.headerRow}>
+        <Pressable
+          accessibilityLabel="이전"
+          onPress={handleBackPress}
+          disabled={submitting}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.backButtonPressed,
+          ]}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={22}
+            color={theme.colors.text.primary}
+          />
+        </Pressable>
+      </View>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
       </View>
@@ -152,6 +183,21 @@ export function VocabAssessment({
 const getStyles = createThemedStyles((theme) => ({
   root: {
     flex: 1,
+  },
+  headerRow: {
+    alignItems: "flex-start" as const,
+    marginBottom: theme.spacing[4],
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.full,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    marginLeft: -theme.spacing[1],
+  },
+  backButtonPressed: {
+    opacity: 0.7,
   },
   progressTrack: {
     height: 4,

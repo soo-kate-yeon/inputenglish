@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockReplace = jest.fn();
+const mockBack = jest.fn();
 const mockUpdateLearningProfile = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockSubmitVocab = jest.fn();
@@ -11,6 +12,7 @@ let mockLearningProfile: any = null;
 jest.mock("expo-router", () => ({
   router: {
     replace: (...args: unknown[]) => mockReplace(...args),
+    back: (...args: unknown[]) => mockBack(...args),
   },
   useLocalSearchParams: jest.fn(() => mockParams),
 }));
@@ -42,6 +44,7 @@ describe("OnboardingScreen", () => {
     mockUpdateLearningProfile.mockReset();
     mockUpdateLearningProfile.mockResolvedValue({});
     mockTrackEvent.mockClear();
+    mockBack.mockClear();
     mockSubmitVocab.mockReset();
     mockSubmitVocab.mockResolvedValue({
       estimatedBand: "conversation",
@@ -70,6 +73,21 @@ describe("OnboardingScreen", () => {
         getByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?"),
       ).toBeTruthy();
     });
+  });
+
+  it("vocab back goes one page within the test, and exits from the first page", () => {
+    const { getByText, getByLabelText } = render(<OnboardingScreen />);
+
+    // First page: back exits the test (router.back).
+    fireEvent.press(getByLabelText("이전"));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+
+    mockBack.mockClear();
+
+    // Advance a page, then back stays inside the test (no router.back).
+    fireEvent.press(getByText("다음"));
+    fireEvent.press(getByLabelText("이전"));
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it("completes onboarding and saves the learning profile with expression as the forced goal", async () => {

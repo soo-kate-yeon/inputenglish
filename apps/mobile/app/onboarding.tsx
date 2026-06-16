@@ -1114,25 +1114,10 @@ export default function OnboardingScreen() {
       <View style={styles.screen}>
         {step === "vocab" ? (
           <View style={styles.vocabContainer}>
-            <View style={styles.headerRow}>
-              <Pressable
-                accessibilityLabel="이전"
-                onPress={handleBack}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  pressed && styles.backButtonPressed,
-                ]}
-              >
-                <Ionicons
-                  name="arrow-back"
-                  size={22}
-                  color={theme.colors.text.primary}
-                />
-              </Pressable>
-            </View>
             <VocabAssessment
               onComplete={handleVocabComplete}
               onSkip={handleVocabSkip}
+              onBack={handleBack}
               submitting={vocabSubmitting}
             />
           </View>
