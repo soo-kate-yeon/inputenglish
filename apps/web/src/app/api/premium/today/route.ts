@@ -145,6 +145,39 @@ async function resolveUserBand(
   return "conversation";
 }
 
+// @MX:ANCHOR: [AUTO] fetchUserInterests — single source of truth for user's topic/format interests.
+// @MX:REASON: [AUTO] Fan-in from GET handler into all interest-aware assembly helpers. Reads
+//   users.focus_tags (same table as resolveUserBand Priority 2), parses topic:/format: prefixes.
+//   Returns empty arrays when no interests set — callers degrade gracefully to freshness ordering.
+async function fetchUserInterests(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<{ topics: string[]; formats: string[] }> {
+  const { data } = await supabase
+    .from("users")
+    .select("focus_tags")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const focusTags: string[] = Array.isArray(data?.focus_tags)
+    ? data.focus_tags
+    : [];
+  const topics: string[] = [];
+  const formats: string[] = [];
+
+  for (const tag of focusTags) {
+    if (typeof tag !== "string") continue;
+    if (tag.startsWith("topic:")) {
+      topics.push(tag.slice("topic:".length));
+    } else if (tag.startsWith("format:")) {
+      formats.push(tag.slice("format:".length));
+    }
+    // Unknown prefixes are silently ignored
+  }
+
+  return { topics, formats };
+}
+
 // @MX:ANCHOR: [AUTO] fetchPoolReadingForBand — primary reading pool source for session assembly.
 // @MX:REASON: [AUTO] Pool reading (user_id IS NULL) is the single authoritative reading source
 //   (REQ-AUTO-003-U2). Replaces fetchLatestReadingPieceForUser as 1st choice. Filters:
@@ -152,11 +185,21 @@ async function resolveUserBand(
 //   last-resort fallback in a future phase but pool always wins here.
 // @MX:NOTE: [AUTO] Per-user fallback reading is intentionally omitted in Phase 3; pool is the
 //   canonical source. If pool is empty, assembly returns no reading (hasReading: false).
+// @MX:NOTE: [AUTO] Interest ranking (secondary signal — band stays primary filter):
+//   Fetches up to 20 candidates ordered by created_at DESC (freshness). Applies interest scores:
+//   +2 if reading.topic ∈ interests.topics, +1 if reading.format ∈ interests.formats.
+//   Picks highest-scoring candidate; ties keep DB order (stable sort → freshest wins).
+//   With no interests, all scores are 0 → freshest reading wins (no behaviour change).
 async function fetchPoolReadingForBand(
   supabase: ReturnType<typeof createAdminClient>,
   band: VocabBand,
+  interests: { topics: string[]; formats: string[] } = {
+    topics: [],
+    formats: [],
+  },
 ): Promise<ReadingPiece | null> {
   const now = new Date().toISOString();
+  const CANDIDATE_LIMIT = 20;
 
   // Pass 1: approved pool rows with an active (non-expired) expires_at
   const { data: withExpiry, error: expErr } = await supabase
@@ -167,26 +210,60 @@ async function fetchPoolReadingForBand(
     .eq("validation_status", "approved")
     .gt("expires_at", now)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!expErr && withExpiry) {
-    return mapReadingPieceRow(withExpiry as Record<string, unknown>);
-  }
+    .limit(CANDIDATE_LIMIT);
 
   // Pass 2: approved pool rows where expires_at IS NULL (no expiry policy set)
-  const { data, error } = await supabase
+  const { data: withoutExpiry, error: noExpErr } = await supabase
     .from("reading_pieces")
     .select("*")
     .is("user_id", null)
     .eq("band", band)
     .eq("validation_status", "approved")
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(CANDIDATE_LIMIT);
 
-  if (error) return null;
-  return data ? mapReadingPieceRow(data as Record<string, unknown>) : null;
+  // Merge candidates: prefer non-expired rows, add null-expiry rows not already present
+  const candidateRows: Record<string, unknown>[] = [];
+  if (!expErr && withExpiry) {
+    for (const row of withExpiry as Record<string, unknown>[]) {
+      candidateRows.push(row);
+    }
+  }
+  if (!noExpErr && withoutExpiry) {
+    const seenIds = new Set(candidateRows.map((r) => String(r.id)));
+    for (const row of withoutExpiry as Record<string, unknown>[]) {
+      if (!seenIds.has(String(row.id))) {
+        candidateRows.push(row);
+      }
+    }
+  }
+
+  if (candidateRows.length === 0) return null;
+
+  // Interest scoring: +2 topic match, +1 format match (secondary signal only)
+  const hasInterests =
+    interests.topics.length > 0 || interests.formats.length > 0;
+  if (!hasInterests) {
+    // No interests: return the freshest (first in DB order)
+    return mapReadingPieceRow(candidateRows[0]);
+  }
+
+  const topicSet = new Set(interests.topics);
+  const formatSet = new Set(interests.formats);
+
+  let bestScore = -1;
+  let bestRow = candidateRows[0];
+  for (const row of candidateRows) {
+    let score = 0;
+    if (topicSet.has(String(row.topic ?? ""))) score += 2;
+    if (formatSet.has(String(row.format ?? ""))) score += 1;
+    if (score > bestScore) {
+      bestScore = score;
+      bestRow = row;
+    }
+  }
+
+  return mapReadingPieceRow(bestRow);
 }
 
 // @MX:ANCHOR: [AUTO] fetchSegmentsForBand — band-filtered segment selection replacing fetchRandomSegments.
@@ -203,6 +280,7 @@ async function fetchSegmentsForBand(
   supabase: ReturnType<typeof createAdminClient>,
   band: VocabBand,
   count: number,
+  topics: string[] = [],
 ): Promise<VideoSegment[]> {
   // Fetch candidate pool: prefer self-contained segments, limit to reasonable candidate set
   const candidateLimit = Math.max(count * 5, 20);
@@ -227,6 +305,7 @@ async function fetchSegmentsForBand(
       fallbackData.map((r) => mapVideoSegmentRow(r as Record<string, unknown>)),
       band,
       count,
+      topics,
     );
   }
 
@@ -234,18 +313,26 @@ async function fetchSegmentsForBand(
     data.map((r) => mapVideoSegmentRow(r as Record<string, unknown>)),
     band,
     count,
+    topics,
   );
 }
 
 // @MX:NOTE: [AUTO] Band-fit scoring: target coverage ~0.95-0.98 for the given band.
 //   Score = 1 - |coverage[band] - 0.965|  (higher = closer to i+1 sweet spot).
 //   Difficulty bonus: segments at difficulty_score <= 3 get a 0.05 boost for non-professional bands.
+// @MX:NOTE: [AUTO] Interest bonus (secondary signal — band-fit is primary):
+//   +0.1 if seg.topicTags overlaps the user's topic interests. This tips ties and near-matches
+//   without overriding band-fit: a 0.1 bonus cannot compensate a coverage gap > 0.1 (e.g. 0.965
+//   vs 0.765 → gap of 0.2, bonus insufficient). Default topics=[] → no bonus → pure band-fit.
 function rankAndSliceSegments(
   segments: VideoSegment[],
   band: VocabBand,
   count: number,
+  topics: string[] = [],
 ): VideoSegment[] {
   const TARGET_COVERAGE = 0.965; // midpoint of 0.95-0.98 optimal range
+  const topicSet = new Set(topics);
+
   const scored = segments.map((seg) => {
     const coverage = seg.bandCoverage[band] ?? 0;
     let score = 1 - Math.abs(coverage - TARGET_COVERAGE);
@@ -257,6 +344,11 @@ function rankAndSliceSegments(
       seg.difficultyScore <= 3
     ) {
       score += 0.05;
+    }
+
+    // Interest bonus: +0.1 if any topicTag overlaps user's topic interests (secondary signal)
+    if (topicSet.size > 0 && seg.topicTags.some((t) => topicSet.has(t))) {
+      score += 0.1;
     }
 
     return { seg, score };
@@ -416,14 +508,22 @@ export async function GET(request: NextRequest) {
       // Resolve user's vocab band (REQ-AUTO-003-U1)
       const userBand = await resolveUserBand(supabase, user.id);
 
-      // Fetch pool reading (primary) — REQ-AUTO-003-U2
-      const poolReading = await fetchPoolReadingForBand(supabase, userBand);
+      // Fetch user's topic/format interests (secondary ranking signal only)
+      const interests = await fetchUserInterests(supabase, user.id);
 
-      // Fetch band-filtered segments — REQ-AUTO-003-U1
+      // Fetch pool reading (primary) — REQ-AUTO-003-U2; interests used for secondary ranking
+      const poolReading = await fetchPoolReadingForBand(
+        supabase,
+        userBand,
+        interests,
+      );
+
+      // Fetch band-filtered segments — REQ-AUTO-003-U1; interests used for secondary ranking
       let segments = await fetchSegmentsForBand(
         supabase,
         userBand,
         SEGMENT_COUNT,
+        interests.topics,
       );
       let fallbackBand: VocabBand | null = null;
       let poolThin = false;
@@ -438,6 +538,7 @@ export async function GET(request: NextRequest) {
             supabase,
             adjBand,
             needed,
+            interests.topics,
           );
           if (adjSegments.length > 0) {
             segments = [...segments, ...adjSegments];
@@ -462,6 +563,11 @@ export async function GET(request: NextRequest) {
           assembledAt: new Date().toISOString(),
           segmentCount: segmentIds.length,
           hasReading: poolReading !== null,
+          // Observability: how many interests were applied (counts of user's selections)
+          interests_applied: {
+            topics: interests.topics.length,
+            formats: interests.formats.length,
+          },
         };
 
         ciSession = await insertCiSession(
