@@ -28,10 +28,12 @@ import type { VocabBand, ReadingFormat } from "@inputenglish/shared";
  * Pool acceptance ceiling: a generated reading is approved when at most this
  * fraction of its unique tokens fall outside the band's known-word set.
  * The pedagogical optimal window (judgeCoverage: 2–5% unknown) is unreachable for
- * natural prose measured against a finite 6000-word frequency list (real content
- * lands ~5–13% unknown), so the pool uses a looser, realistic upper bound.
+ * natural prose measured against a finite 6000-word frequency list — real
+ * conversation/professional content lands ~10–25% unknown — so the pool uses a
+ * looser, realistic upper bound. Korean gloss support makes a higher unknown ratio
+ * acceptable for the targeted (intermediate+) bands.
  */
-export const POOL_MAX_UNKNOWN_RATIO = 0.15;
+export const POOL_MAX_UNKNOWN_RATIO = 0.2;
 
 // ── Pool sentinel ─────────────────────────────────────────────────────────────
 

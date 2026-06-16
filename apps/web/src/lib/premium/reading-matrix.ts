@@ -18,6 +18,16 @@ import type { VocabBand, ReadingFormat } from "@inputenglish/shared";
  */
 export const BANDS: VocabBand[] = ["conversation", "professional"];
 
+/**
+ * Clamps a user's band up to the minimum servable band. Since beginner/basic are
+ * not targeted (see BANDS), users resolved to those bands are served conversation
+ * content — keeping reading and listening consistent rather than stranding them
+ * with an empty reading pool.
+ */
+export function clampToServableBand(band: VocabBand): VocabBand {
+  return band === "beginner" || band === "basic" ? "conversation" : band;
+}
+
 /** All 6 reading formats (matches ReadingFormat in shared types). */
 export const FORMATS: ReadingFormat[] = [
   "noir",

@@ -45,6 +45,7 @@ import {
   BANDS,
   FORMATS,
   TOPICS,
+  clampToServableBand,
 } from "@/lib/premium/reading-matrix";
 
 import {
@@ -105,6 +106,13 @@ describe("reading-matrix: enumerateMatrixCells()", () => {
     expect(bands.has("professional")).toBe(true);
     expect(bands.has("beginner")).toBe(false);
     expect(bands.has("basic")).toBe(false);
+  });
+
+  it("clampToServableBand raises beginner/basic to conversation, leaves others", () => {
+    expect(clampToServableBand("beginner")).toBe("conversation");
+    expect(clampToServableBand("basic")).toBe("conversation");
+    expect(clampToServableBand("conversation")).toBe("conversation");
+    expect(clampToServableBand("professional")).toBe("professional");
   });
 
   it("contains exactly 6 distinct formats", () => {
@@ -332,15 +340,15 @@ describe("reading-batch: runDailyReadingBatch()", () => {
     expect(nonApproved.length).toBe(0);
   });
 
-  // ── Pool ceiling: approve within POOL_MAX_UNKNOWN_RATIO (0.15) ───────────
-  it("approves readings within the pool ceiling (unknownRatio <= 0.15)", async () => {
+  // ── Pool ceiling: approve within POOL_MAX_UNKNOWN_RATIO (0.20) ───────────
+  it("approves readings within the pool ceiling (unknownRatio <= 0.20)", async () => {
     vi.mocked(generateReadingPiece).mockResolvedValue(makeApprovedPiece());
-    // 0.88 coverage = 0.12 unknown ≤ 0.15 → approved (would be too-hard under the old 0.05 gate)
+    // 0.82 coverage = 0.18 unknown ≤ 0.20 → approved (would be too-hard under the old 0.05 gate)
     vi.mocked(computeBandCoverage).mockReturnValue({
-      beginner: 0.88,
-      basic: 0.88,
-      conversation: 0.88,
-      professional: 0.88,
+      beginner: 0.82,
+      basic: 0.82,
+      conversation: 0.82,
+      professional: 0.82,
     });
 
     const summary = await runDailyReadingBatch({
@@ -352,14 +360,14 @@ describe("reading-batch: runDailyReadingBatch()", () => {
     expect(summary.rejected).toBe(0);
   });
 
-  it("rejects readings above the pool ceiling (unknownRatio > 0.15)", async () => {
+  it("rejects readings above the pool ceiling (unknownRatio > 0.20)", async () => {
     vi.mocked(generateReadingPiece).mockResolvedValue(makeApprovedPiece());
-    // 0.80 coverage = 0.20 unknown > 0.15 → rejected
+    // 0.75 coverage = 0.25 unknown > 0.20 → rejected
     vi.mocked(computeBandCoverage).mockReturnValue({
-      beginner: 0.8,
-      basic: 0.8,
-      conversation: 0.8,
-      professional: 0.8,
+      beginner: 0.75,
+      basic: 0.75,
+      conversation: 0.75,
+      professional: 0.75,
     });
 
     const summary = await runDailyReadingBatch({

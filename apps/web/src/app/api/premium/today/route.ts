@@ -12,6 +12,7 @@ import {
   getMonthlyQuestionCount,
   MONTHLY_QUESTION_CAP,
 } from "@/lib/premium/question-cap";
+import { clampToServableBand } from "@/lib/premium/reading-matrix";
 import type {
   ReadingPiece,
   VideoSegment,
@@ -123,7 +124,7 @@ async function resolveUserBand(
   if (vocabProfile && vocabProfile.estimated_band) {
     const band = vocabProfile.estimated_band as string;
     if (band in LEVEL_BAND_TO_VOCAB_BAND) {
-      return LEVEL_BAND_TO_VOCAB_BAND[band];
+      return clampToServableBand(LEVEL_BAND_TO_VOCAB_BAND[band]);
     }
   }
 
@@ -137,7 +138,7 @@ async function resolveUserBand(
   if (learningProfile && learningProfile.level_band) {
     const levelBand = learningProfile.level_band as string;
     if (levelBand in LEVEL_BAND_TO_VOCAB_BAND) {
-      return LEVEL_BAND_TO_VOCAB_BAND[levelBand];
+      return clampToServableBand(LEVEL_BAND_TO_VOCAB_BAND[levelBand]);
     }
   }
 
