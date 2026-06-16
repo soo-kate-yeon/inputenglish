@@ -80,7 +80,7 @@ describe("SegmentPlayer", () => {
     expect(getAllByText("today").length).toBeGreaterThan(0);
   });
 
-  it("calls onWordTap with the lowercased word when a word is pressed", () => {
+  it("calls onWordTap with the lowercased word and the surrounding line context", () => {
     const onWordTap = jest.fn();
     const onEnd = jest.fn();
     const { getAllByText } = render(
@@ -90,9 +90,12 @@ describe("SegmentPlayer", () => {
         onEnd={onEnd}
       />,
     );
-    // Press "Hello" from the first transcript line
+    // Press "Hello" from the first transcript line → tapped line + next line.
     fireEvent.press(getAllByText("Hello")[0]);
-    expect(onWordTap).toHaveBeenCalledWith("hello");
+    expect(onWordTap).toHaveBeenCalledWith(
+      "hello",
+      "Hello everyone today we explore",
+    );
   });
 
   it("renders a transcript container with testID segment-transcript", () => {

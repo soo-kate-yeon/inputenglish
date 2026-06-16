@@ -49,6 +49,7 @@ function buildSteps(session: TodayCiSessionShape): Step[] {
 
 interface PendingQuestion {
   highlightText: string;
+  context?: string;
   sourceType: "reading" | "segment";
   sourceRef: AskedItemSourceRef;
 }
@@ -84,9 +85,10 @@ export default function CiSessionScreen({
   const closeSheet = useCallback(() => setPending(null), []);
 
   const handleReadingWordTap = useCallback(
-    (lemma: string, piece: ReadingPiece) => {
+    (lemma: string, context: string | undefined, piece: ReadingPiece) => {
       openQuestion({
         highlightText: lemma,
+        context,
         sourceType: "reading",
         sourceRef: { type: "reading", pieceId: piece.id },
       });
@@ -95,9 +97,10 @@ export default function CiSessionScreen({
   );
 
   const handleSegmentWordTap = useCallback(
-    (lemma: string, segment: VideoSegment) => {
+    (lemma: string, context: string | undefined, segment: VideoSegment) => {
       openQuestion({
         highlightText: lemma,
+        context,
         sourceType: "segment",
         sourceRef: { type: "segment", pieceId: segment.id },
       });
@@ -113,6 +116,7 @@ export default function CiSessionScreen({
       const res = await askHighlightQuestion({
         highlightText: pending.highlightText,
         question: question.trim() || "이게 무슨 뜻이야?",
+        context: pending.context,
         sourceType: pending.sourceType,
         sourceRef: pending.sourceRef,
       });
@@ -186,12 +190,16 @@ export default function CiSessionScreen({
         {step?.kind === "reading" ? (
           <ArticleReader
             piece={step.piece}
-            onWordTap={(lemma) => handleReadingWordTap(lemma, step.piece)}
+            onWordTap={(lemma, context) =>
+              handleReadingWordTap(lemma, context, step.piece)
+            }
           />
         ) : step?.kind === "segment" ? (
           <SegmentPlayer
             segment={step.segment}
-            onWordTap={(lemma) => handleSegmentWordTap(lemma, step.segment)}
+            onWordTap={(lemma, context) =>
+              handleSegmentWordTap(lemma, context, step.segment)
+            }
             onEnd={goNext}
           />
         ) : (

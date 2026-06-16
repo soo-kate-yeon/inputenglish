@@ -144,12 +144,13 @@ describe("lemmasInBand — non-cumulative single-band slices", () => {
     expect(lemmasInBand("conversation").length).toBe(1500);
   });
 
-  it("professional band has 807 lemmas (rank 3001-3807; list ends at 3807)", () => {
-    // NGSL list has 3807 total: professional slice is 3001..3807 = 807 words
-    expect(lemmasInBand("professional").length).toBe(807);
+  it("professional band has 3000 lemmas (rank 3001-6000)", () => {
+    // List extended to 6000 (NGSL/NAWL ranks 1-3807 + google-10000-english 3808-6000):
+    // professional slice is 3001..6000 = 3000 words
+    expect(lemmasInBand("professional").length).toBe(3000);
   });
 
-  it("advanced band is empty (list does not extend past 3807)", () => {
+  it("advanced band is empty (list does not extend past 6000)", () => {
     expect(lemmasInBand("advanced").length).toBe(0);
   });
 
@@ -177,9 +178,8 @@ describe("cumulativeKnownSet — cumulative containment (AC-F / EC-F-A)", () => 
     expect(cumulativeKnownSet("conversation").size).toBe(3000);
   });
 
-  it("professional set contains 3807 words (all available lemmas)", () => {
-    // professional ceiling is 6000 but list only has 3807
-    expect(cumulativeKnownSet("professional").size).toBe(3807);
+  it("professional set contains 6000 words (full professional band)", () => {
+    expect(cumulativeKnownSet("professional").size).toBe(6000);
   });
 
   it("professional ⊇ conversation (cumulative monotonicity)", () => {
@@ -215,7 +215,7 @@ describe("cumulativeKnownSet — cumulative containment (AC-F / EC-F-A)", () => 
 
 describe("assertFrequencyListLoaded — F-W1 load-failure fatal guard", () => {
   it("does not throw when the frequency list is loaded (non-empty)", () => {
-    // The real list has 3807 entries; this should not throw.
+    // The real list has 6000 entries; this should not throw.
     expect(() => assertFrequencyListLoaded()).not.toThrow();
   });
 });

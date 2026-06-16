@@ -229,6 +229,8 @@ export function fetchPremiumSessionById(
 export interface QuestionRequest {
   highlightText: string;
   question: string;
+  /** Surrounding source text (sentence ±1) where the highlight appears. */
+  context?: string;
   sourceType: "reading" | "segment";
   sourceRef: AskedItemSourceRef;
 }

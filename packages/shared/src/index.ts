@@ -5,6 +5,8 @@ export * from "./types/index";
 export * from "./lib/utils";
 export * from "./lib/transcript-parser";
 export * from "./lib/premium-expression-prompt";
+// SPEC-INPUT-001: Highlight question agent prompt (REQ-INPUT-004)
+export * from "./lib/premium-question-prompt";
 export * from "./lib/premium-voice-rules";
 export * from "./lib/premium-curation";
 // Supabase
@@ -13,6 +15,8 @@ export * from "./lib/supabase-store";
 export * from "./lib/vocab-band";
 // SPEC-INPUT-003: Frequency-list loader (REQ-VOCAB-F)
 export * from "./lib/frequency-list";
+// Lightweight lemmatizer for coverage matching (fixes coverage-gate over-rejection)
+export * from "./lib/lemmatize";
 // SPEC-INPUT-003: Yes/No assessment sampler + scorer (REQ-VOCAB-A)
 export * from "./lib/vocab-assessment-sampler";
 export * from "./lib/vocab-assessment-scorer";

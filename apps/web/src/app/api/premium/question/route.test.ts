@@ -208,6 +208,43 @@ describe("POST /api/premium/question", () => {
     expect(data.capNotice).toBeUndefined();
   });
 
+  it("passes the highlight context into the LLM prompt when provided", async () => {
+    requireApiUser.mockResolvedValue(user);
+    resolvePremiumEntitlement.mockResolvedValue(premiumEntitlement);
+    getMonthlyQuestionCount.mockResolvedValue(5);
+    getCapStatus.mockReturnValue({
+      remaining: 95,
+      isExceeded: false,
+      notice: undefined,
+    });
+    selectQuestionModel.mockReturnValue("gemini-2.5-flash");
+    callGeminiWithSchema.mockResolvedValue({
+      text: JSON.stringify({
+        answer: "여기서는 다양한 범위를 아우른다는 뜻이에요.",
+      }),
+      provider: "gemini",
+      model: "gemini-2.5-flash",
+    });
+
+    const context = "Their tastes run the gamut from jazz to techno.";
+    const { POST } = await import("./route");
+    const response = await POST(
+      new Request("http://localhost/api/premium/question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...validBody, context }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(callGeminiWithSchema).toHaveBeenCalledTimes(1);
+    const promptArg = callGeminiWithSchema.mock.calls[0][0] as string;
+    expect(promptArg).toContain(context);
+    expect(promptArg).toContain("run the gamut");
+    // The refined prompt forbids English answers.
+    expect(promptArg).toContain("절대 영어로 답하지 마");
+  });
+
   it("returns 400 for missing required fields", async () => {
     requireApiUser.mockResolvedValue(user);
     resolvePremiumEntitlement.mockResolvedValue(premiumEntitlement);

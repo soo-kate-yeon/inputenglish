@@ -13,6 +13,7 @@ import {
 import { callGeminiWithSchema } from "@/lib/premium/llm-utils";
 import { createAdminClient } from "@/utils/supabase/server";
 import { SchemaType, type ResponseSchema } from "@google/generative-ai";
+import { buildQuestionPrompt } from "@inputenglish/shared";
 
 const PREMIUM_API_HEADERS = {
   "Cache-Control": "no-store",
@@ -21,6 +22,7 @@ const PREMIUM_API_HEADERS = {
 const questionRequestSchema = z.object({
   highlightText: z.string().min(1),
   question: z.string().min(1),
+  context: z.string().optional(),
   sourceType: z.enum(["reading", "segment"]),
   sourceRef: z.object({
     type: z.enum(["reading", "segment"]),
@@ -71,7 +73,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { highlightText, question, sourceType, sourceRef } = parseResult.data;
+    const { highlightText, question, context, sourceType, sourceRef } =
+      parseResult.data;
 
     // Monthly cap check (soft cap - D3: demotion + notice, NOT hard block)
     const supabase = createAdminClient();
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
     // Flash-gate (D1): model selection based on question complexity and cap status
     const model = selectQuestionModel(question, capStatus.isExceeded);
 
-    const prompt = `Answer briefly (2-3 sentences max): what does '${highlightText}' mean/how is it used in context? The user's question is: "${question}". Focus on nuance and usage, not dictionary definition.`;
+    const prompt = buildQuestionPrompt({ highlightText, question, context });
 
     const llmResult = await callGeminiWithSchema(prompt, model, answerSchema);
     if (!llmResult) {

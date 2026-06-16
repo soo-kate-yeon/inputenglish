@@ -1,4 +1,4 @@
-import { judgeCoverage } from "@inputenglish/shared";
+import { judgeCoverage, hasKnownWord } from "@inputenglish/shared";
 import type { CoverageStatus } from "@inputenglish/shared";
 
 // @MX:NOTE: [AUTO] Tokenizes English text into lemma tokens for coverage calculation.
@@ -16,7 +16,8 @@ export function calculateUnknownRatio(
   if (tokens.length === 0) {
     return { unknownRatio: 0, unknownWords: [], totalWords: 0 };
   }
-  const unknown = tokens.filter((t) => !knownLemmas.has(t));
+  // Lemmatize surface tokens so regular inflections match the lemma-based known set.
+  const unknown = tokens.filter((t) => !hasKnownWord(knownLemmas, t));
   return {
     unknownRatio: unknown.length / tokens.length,
     unknownWords: [...new Set(unknown)],

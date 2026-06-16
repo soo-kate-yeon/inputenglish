@@ -1,11 +1,14 @@
 import React, { useCallback } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import type { ReadingPiece } from "@inputenglish/shared";
+import {
+  extractSentenceContext,
+  type ReadingPiece,
+} from "@inputenglish/shared";
 import { createThemedStyles, useTheme } from "@framingui/react-native";
 
 interface ArticleReaderProps {
   piece: ReadingPiece;
-  onWordTap?: (lemma: string) => void;
+  onWordTap?: (lemma: string, context?: string) => void;
 }
 
 // @MX:NOTE: [AUTO] Tokenizes body text into segments for tap-gloss rendering.
@@ -27,17 +30,21 @@ export default function ArticleReader({
 }: ArticleReaderProps) {
   const styles = getStyles(useTheme());
 
-  const handleWordTap = useCallback(
-    (word: string) => {
-      const lemma = toLemma(word);
-      if (lemma && onWordTap) {
-        onWordTap(lemma);
-      }
-    },
-    [onWordTap],
-  );
-
   const tokens = tokenizeBody(piece.body);
+
+  const handleWordTap = useCallback(
+    (word: string, tokenIndex: number) => {
+      const lemma = toLemma(word);
+      if (!lemma || !onWordTap) return;
+      // Char offset of the tapped token in the body — locates the exact sentence
+      // even when the same word appears multiple times.
+      const charOffset = tokens
+        .slice(0, tokenIndex)
+        .reduce((sum, token) => sum + token.length, 0);
+      onWordTap(lemma, extractSentenceContext(piece.body, charOffset));
+    },
+    [onWordTap, tokens, piece.body],
+  );
 
   return (
     <ScrollView
@@ -57,7 +64,7 @@ export default function ArticleReader({
                     <Text
                       key={index}
                       testID={`word-token-${lemma}`}
-                      onPress={() => handleWordTap(token)}
+                      onPress={() => handleWordTap(token, index)}
                       style={styles.tappableWord}
                     >
                       {token}

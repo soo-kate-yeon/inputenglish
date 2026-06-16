@@ -11,7 +11,11 @@
  * INVIOLABLE KEEP — only the backing data source changed (hand-seeds → canonical frequency list).
  */
 import { tokenizeText } from "./reading-coverage";
-import { BAND_WORD_COUNTS, cumulativeKnownSet } from "@inputenglish/shared";
+import {
+  BAND_WORD_COUNTS,
+  cumulativeKnownSet,
+  hasKnownWord,
+} from "@inputenglish/shared";
 import type { VocabBand } from "@inputenglish/shared";
 
 // ── Frequency-list backed cumulative band sets (replaces hand-seeded BAND_SETS) ──
@@ -68,7 +72,10 @@ export function computeBandCoverage(
   const result = { ...empty };
   for (const band of BANDS) {
     const bandSet = BAND_SETS[band];
-    const knownCount = uniqueTokens.filter((t) => bandSet.has(t)).length;
+    // Lemmatize surface tokens so regular inflections match the lemma-based set.
+    const knownCount = uniqueTokens.filter((t) =>
+      hasKnownWord(bandSet, t),
+    ).length;
     result[band] = knownCount / totalUnique;
   }
 

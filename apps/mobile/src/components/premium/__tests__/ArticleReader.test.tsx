@@ -37,7 +37,7 @@ describe("ArticleReader", () => {
     expect(queryByText(/Coverage:/)).toBeNull();
   });
 
-  it("calls onWordTap with lemma when a word is tapped", () => {
+  it("calls onWordTap with lemma and the surrounding sentence context", () => {
     const onWordTap = jest.fn();
     const piece: ReadingPiece = {
       ...fixtureReadingPiece,
@@ -48,7 +48,29 @@ describe("ArticleReader", () => {
     );
 
     fireEvent.press(getByTestId("word-token-scientists"));
-    expect(onWordTap).toHaveBeenCalledWith("scientists");
+    expect(onWordTap).toHaveBeenCalledWith(
+      "scientists",
+      "Scientists study climate data carefully",
+    );
+  });
+
+  it("resolves context to the exact tapped sentence for repeated words", () => {
+    const onWordTap = jest.fn();
+    const piece: ReadingPiece = {
+      ...fixtureReadingPiece,
+      body: "We study data. Researchers study harder. Students study too.",
+    };
+    const { getAllByTestId } = render(
+      <ArticleReader piece={piece} onWordTap={onWordTap} />,
+    );
+
+    // Tap the third occurrence of "study" (last sentence). Position-based extraction
+    // centers the ±1 window there, excluding the first sentence — a first-occurrence
+    // search would have wrongly returned the opening sentence instead.
+    fireEvent.press(getAllByTestId("word-token-study")[2]);
+    const [, context] = onWordTap.mock.calls[0] as [string, string];
+    expect(context).toContain("Students study too.");
+    expect(context).not.toContain("We study data.");
   });
 
   it("does not render tappable words without onWordTap prop", () => {

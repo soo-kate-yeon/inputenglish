@@ -14,7 +14,7 @@ import {
   findPremiumActiveTranscriptLine,
   PREMIUM_TRANSCRIPT_SYNC_INTERVAL_MS,
 } from "../../lib/premium-transcript-sync";
-import type { VideoSegment } from "@inputenglish/shared";
+import { extractLineContext, type VideoSegment } from "@inputenglish/shared";
 
 // Adapt VideoSegment.transcript (TranscriptLine[]) to the PremiumTranscriptLine shape
 // expected by findPremiumActiveTranscriptLine.
@@ -31,8 +31,8 @@ function toPremiumLines(
 
 interface SegmentPlayerProps {
   segment: VideoSegment;
-  /** Called when user taps a word; receives the lowercased lemma */
-  onWordTap: (lemma: string) => void;
+  /** Called when user taps a word; receives the lowercased lemma + surrounding transcript context */
+  onWordTap: (lemma: string, context?: string) => void;
   onEnd: () => void;
 }
 
@@ -79,10 +79,11 @@ const SegmentPlayer: React.FC<SegmentPlayerProps> = ({
   }, [playing, segment.endTime, premiumLines, onEnd]);
 
   const handleWordTap = useCallback(
-    (word: string) => {
-      onWordTap(word.toLowerCase());
+    (word: string, lineIndex: number) => {
+      const lines = segment.transcript.map((line) => line.text);
+      onWordTap(word.toLowerCase(), extractLineContext(lines, lineIndex));
     },
-    [onWordTap],
+    [onWordTap, segment.transcript],
   );
 
   return (
@@ -106,12 +107,12 @@ const SegmentPlayer: React.FC<SegmentPlayerProps> = ({
         style={styles.transcript}
         contentContainerStyle={styles.transcriptContent}
       >
-        {premiumLines.map((line) => (
+        {premiumLines.map((line, index) => (
           <TranscriptLineView
             key={line.id}
             text={line.text}
             isActive={line.id === activeLineId}
-            onWordTap={handleWordTap}
+            onWordTap={(word) => handleWordTap(word, index)}
           />
         ))}
       </ScrollView>
