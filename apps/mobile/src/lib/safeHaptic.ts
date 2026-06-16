@@ -35,3 +35,13 @@ export function safeImpactAsync(style: Haptics.ImpactFeedbackStyle): void {
     // Silently ignore — haptics are an enhancement, not a requirement.
   }
 }
+
+/** Fire-and-forget Light impact — use for button/nav taps. */
+export function safeImpactLight(): void {
+  safeImpactAsync(Haptics.ImpactFeedbackStyle.Light);
+}
+
+/** Fire-and-forget Medium impact — use for page/step transitions. */
+export function safeImpactMedium(): void {
+  safeImpactAsync(Haptics.ImpactFeedbackStyle.Medium);
+}
