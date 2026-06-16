@@ -4,12 +4,76 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { mapAuthError } from "@/lib/auth-errors";
-import { colors, font, radius, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
+
+const getStyles = createThemedStyles((theme) => ({
+  container: {
+    width: "100%",
+    gap: theme.spacing[3],
+  },
+  errorBox: {
+    backgroundColor: theme.colors.surface.danger,
+    borderWidth: 1,
+    borderColor: theme.colors.border.danger,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing[3],
+  },
+  errorText: {
+    ...theme.typography.label,
+    color: theme.colors.text.danger,
+  },
+  successBox: {
+    backgroundColor: theme.colors.surface.muted,
+    borderWidth: 1,
+    borderColor: theme.colors.border.subtle,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing[3],
+  },
+  successText: {
+    ...theme.typography.label,
+    color: theme.colors.text.primary,
+  },
+  linkText: {
+    ...theme.typography.label,
+    color: theme.colors.action.primary,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 14,
+    ...theme.typography.body,
+    backgroundColor: theme.colors.surface.muted,
+    color: theme.colors.text.primary,
+  },
+  button: {
+    backgroundColor: theme.colors.action.primary,
+    borderRadius: theme.radius.lg,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: theme.spacing[1],
+  },
+  buttonDisabled: {
+    backgroundColor: theme.colors.action.primaryDisabled,
+  },
+  buttonText: {
+    ...theme.typography.button,
+    color: theme.colors.text.inverse,
+  },
+  placeholderColor: {
+    color: theme.colors.text.tertiary,
+  },
+  activityColor: {
+    color: theme.colors.text.inverse,
+  },
+}));
 
 export function SignupForm() {
   const { signUp, resendConfirmationEmail } = useAuth();
@@ -21,6 +85,7 @@ export function SignupForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [needsConfirm, setNeedsConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const styles = getStyles(useTheme());
 
   const handleResendConfirmation = async () => {
     setError(null);
@@ -94,7 +159,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="이름"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={styles.placeholderColor.color}
         value={fullName}
         onChangeText={setFullName}
         autoCapitalize="words"
@@ -105,7 +170,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="이메일"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={styles.placeholderColor.color}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -118,7 +183,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="비밀번호"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={styles.placeholderColor.color}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -129,7 +194,7 @@ export function SignupForm() {
       <TextInput
         style={styles.input}
         placeholder="비밀번호 확인"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={styles.placeholderColor.color}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
@@ -143,7 +208,7 @@ export function SignupForm() {
         disabled={isSubmitting}
       >
         {isSubmitting ? (
-          <ActivityIndicator color={colors.textInverse} />
+          <ActivityIndicator color={styles.activityColor.color} />
         ) : (
           <Text style={styles.buttonText}>가입하기</Text>
         )}
@@ -151,63 +216,3 @@ export function SignupForm() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-    gap: spacing.sm + 4,
-  },
-  errorBox: {
-    backgroundColor: colors.errorBg,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: font.size.sm,
-  },
-  successBox: {
-    backgroundColor: colors.successBg,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
-  },
-  successText: {
-    color: colors.success,
-    fontSize: font.size.sm,
-  },
-  linkText: {
-    color: colors.primary,
-    fontSize: font.size.sm,
-    fontWeight: font.weight.semibold,
-    textAlign: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    fontSize: font.size.md,
-    backgroundColor: colors.bgSubtle,
-    color: colors.text,
-  },
-  button: {
-    backgroundColor: colors.bgInverse,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: colors.textInverse,
-    fontSize: font.size.md,
-    fontWeight: font.weight.semibold,
-  },
-});

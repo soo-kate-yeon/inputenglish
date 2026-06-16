@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +11,73 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { mapAuthError } from "@/lib/auth-errors";
-import { colors, font, radius, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
+
+const getStyles = createThemedStyles((theme) => ({
+  root: {
+    flex: 1,
+    backgroundColor: theme.colors.background.canvas,
+  },
+  flex: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing[6],
+    gap: theme.spacing[3],
+  },
+  title: {
+    ...theme.typography.title,
+    color: theme.colors.text.primary,
+  },
+  subtitle: {
+    ...theme.typography.body,
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing[2],
+  },
+  errorBox: {
+    backgroundColor: theme.colors.surface.danger,
+    borderWidth: 1,
+    borderColor: theme.colors.border.danger,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing[3],
+  },
+  errorText: {
+    ...theme.typography.label,
+    color: theme.colors.text.danger,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 14,
+    ...theme.typography.body,
+    backgroundColor: theme.colors.surface.muted,
+    color: theme.colors.text.primary,
+  },
+  button: {
+    backgroundColor: theme.colors.action.primary,
+    borderRadius: theme.radius.lg,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: theme.spacing[1],
+  },
+  buttonDisabled: {
+    backgroundColor: theme.colors.action.primaryDisabled,
+  },
+  buttonText: {
+    ...theme.typography.button,
+    color: theme.colors.text.inverse,
+  },
+  placeholderColor: {
+    color: theme.colors.text.tertiary,
+  },
+  activityColor: {
+    color: theme.colors.text.inverse,
+  },
+}));
 
 export default function ResetPasswordScreen() {
   const { updatePassword } = useAuth();
@@ -20,6 +85,7 @@ export default function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const styles = getStyles(useTheme());
 
   const handleSubmit = async () => {
     setError(null);
@@ -70,7 +136,7 @@ export default function ResetPasswordScreen() {
           <TextInput
             style={styles.input}
             placeholder="새 비밀번호"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={styles.placeholderColor.color}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -80,7 +146,7 @@ export default function ResetPasswordScreen() {
           <TextInput
             style={styles.input}
             placeholder="새 비밀번호 확인"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={styles.placeholderColor.color}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
@@ -94,7 +160,7 @@ export default function ResetPasswordScreen() {
             disabled={isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <ActivityIndicator color={styles.activityColor.color} />
             ) : (
               <Text style={styles.buttonText}>비밀번호 변경</Text>
             )}
@@ -104,65 +170,3 @@ export default function ResetPasswordScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  flex: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: spacing.sm + 4,
-  },
-  title: {
-    fontSize: font.size.xl,
-    fontWeight: font.weight.bold,
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: font.size.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  errorBox: {
-    backgroundColor: colors.errorBg,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: font.size.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    fontSize: font.size.md,
-    backgroundColor: colors.bgSubtle,
-    color: colors.text,
-  },
-  button: {
-    backgroundColor: colors.bgInverse,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: colors.textInverse,
-    fontSize: font.size.md,
-    fontWeight: font.weight.semibold,
-  },
-});

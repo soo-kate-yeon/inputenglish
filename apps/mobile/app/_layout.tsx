@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AppThemeProvider } from "@/theme/ThemeProvider";
 import { configureRevenueCat, logInRevenueCat } from "@/lib/revenue-cat";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { initSentry, setUser as setSentryUser, wrap } from "@/lib/sentry";
@@ -193,7 +194,7 @@ export function RootLayoutNav() {
           options={{ headerShown: false, gestureEnabled: false }}
         />
         <Stack.Screen
-          name="premium/[sessionId]"
+          name="premium/index"
           options={{
             headerShown: false,
             gestureEnabled: true,
@@ -210,10 +211,12 @@ export function RootLayoutNav() {
 
 function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-      <StatusBar style="auto" />
-    </AuthProvider>
+    <AppThemeProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+        <StatusBar style="auto" />
+      </AuthProvider>
+    </AppThemeProvider>
   );
 }
 

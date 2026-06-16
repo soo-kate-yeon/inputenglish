@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 import YoutubeIframe, { YoutubeIframeRef } from "react-native-youtube-iframe";
-import { palette } from "../../theme";
+import { neutral } from "@inputenglish/design-tokens";
 
 export interface YouTubePlayerHandle {
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     aspectRatio: 16 / 9,
-    backgroundColor: palette.black,
+    backgroundColor: neutral.black,
   },
   webview: {
     opacity: 0.99,

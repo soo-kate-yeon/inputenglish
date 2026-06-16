@@ -1,27 +1,19 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import BottomSheet from "../common/BottomSheet";
 import type {
   PlaybookEntry,
   PlaybookMasteryStatus,
 } from "@inputenglish/shared";
 import { PLAYBOOK_MASTERY_LABELS } from "../../lib/professional-labels";
-import { colors, palette, radius, font, spacing } from "../../theme";
+import { createThemedStyles, useTheme } from "@/components/ui";
 
 const MASTERY_OPTIONS: { key: PlaybookMasteryStatus; label: string }[] = [
   { key: "new", label: PLAYBOOK_MASTERY_LABELS.new },
   { key: "practicing", label: PLAYBOOK_MASTERY_LABELS.practicing },
   { key: "mastered", label: PLAYBOOK_MASTERY_LABELS.mastered },
 ];
-
-function getPlaybookPremiumSessionId(entry: PlaybookEntry): string {
-  const premiumSessionId = entry.attempt_metadata?.premiumSessionId;
-  return typeof premiumSessionId === "string" && premiumSessionId.length > 0
-    ? premiumSessionId
-    : entry.session_id;
-}
 
 interface PlaybookCardProps {
   entry: PlaybookEntry;
@@ -34,25 +26,19 @@ export default function PlaybookCard({
   sessionTitle,
   onSetMastery,
 }: PlaybookCardProps) {
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const [masteryOpen, setMasteryOpen] = useState(false);
 
   return (
     <View style={styles.card}>
-      {/* Session reference */}
+      {/* Session reference (non-interactive label) */}
       {sessionTitle ? (
-        <TouchableOpacity
-          style={styles.sessionRef}
-          onPress={() =>
-            router.push(`/premium/${getPlaybookPremiumSessionId(entry)}`)
-          }
-          activeOpacity={0.6}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
+        <View style={styles.sessionRef}>
           <Text style={styles.sessionRefText} numberOfLines={1}>
             {sessionTitle}
           </Text>
-          <Text style={styles.sessionRefArrow}>→</Text>
-        </TouchableOpacity>
+        </View>
       ) : null}
 
       {/* Source sentence */}
@@ -64,14 +50,18 @@ export default function PlaybookCard({
       {/* User rewrite — the main content (hidden for bookmark-only entries) */}
       {entry.practice_mode === "bookmark" ? (
         <View style={styles.bookmarkBadge}>
-          <Ionicons name="bookmark" size={12} color={colors.textSecondary} />
+          <Ionicons
+            name="bookmark"
+            size={12}
+            color={theme.colors.text.secondary}
+          />
           <Text style={styles.bookmarkText}>북마크한 표현</Text>
         </View>
       ) : (
         <Text style={styles.rewriteText}>{entry.user_rewrite}</Text>
       )}
 
-      {/* Footer: tags + mastery dropdown */}
+      {/* Footer: timestamp + mastery dropdown */}
       <View style={styles.footer}>
         <View style={styles.tagRow}>
           <Text style={styles.timestamp}>
@@ -81,7 +71,6 @@ export default function PlaybookCard({
           </Text>
         </View>
 
-        {/* Mastery dropdown */}
         <TouchableOpacity
           style={styles.masteryTrigger}
           onPress={() => setMasteryOpen(true)}
@@ -90,7 +79,11 @@ export default function PlaybookCard({
           <Text style={styles.masteryTriggerText}>
             {PLAYBOOK_MASTERY_LABELS[entry.mastery_status]}
           </Text>
-          <Ionicons name="chevron-down" size={14} color={colors.text} />
+          <Ionicons
+            name="chevron-down"
+            size={14}
+            color={theme.colors.text.primary}
+          />
         </TouchableOpacity>
       </View>
 
@@ -121,7 +114,7 @@ export default function PlaybookCard({
                 <Ionicons
                   name="checkmark"
                   size={18}
-                  color={colors.textInverse}
+                  color={theme.colors.text.inverse}
                 />
               )}
             </TouchableOpacity>
@@ -132,141 +125,105 @@ export default function PlaybookCard({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
   card: {
-    backgroundColor: palette.white,
-    borderRadius: radius.xl,
+    backgroundColor: theme.colors.surface.base,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.sm,
+    borderColor: theme.colors.border.default,
+    padding: theme.spacing[4],
+    gap: theme.spacing[2],
   },
-
-  // Session reference — matches archive videoTitleRow
   sessionRef: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: theme.spacing[1],
   },
   sessionRefText: {
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    color: colors.textSecondary,
+    ...theme.typography.caption,
+    color: theme.colors.text.secondary,
     flex: 1,
-    letterSpacing: 0.2,
   },
-  sessionRefArrow: {
-    fontSize: font.size.md,
-    color: colors.textMuted,
-    lineHeight: font.size.md * 1.2,
-  },
-
-  // Content
   block: {
-    gap: 4,
+    gap: theme.spacing[1],
   },
   label: {
     fontSize: 10,
-    color: colors.textMuted,
-    fontWeight: font.weight.bold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    color: theme.colors.text.tertiary,
   },
   sourceText: {
-    fontSize: font.size.base,
-    lineHeight: font.size.base * 1.55,
-    color: colors.text,
-    fontWeight: font.weight.regular,
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
   },
   rewriteText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.text,
-    fontWeight: font.weight.semibold,
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
   },
   bookmarkBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: theme.spacing[2],
   },
   bookmarkText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: font.weight.medium,
+    ...theme.typography.caption,
+    color: theme.colors.text.secondary,
   },
-
-  // Footer
   footer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 2,
+    marginTop: theme.spacing[1],
   },
   tagRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: theme.spacing[2],
     flex: 1,
   },
-  tag: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: colors.bgMuted,
-  },
-  tagText: {
-    fontSize: 10,
-    color: colors.textMuted,
-    fontWeight: font.weight.semibold,
-  },
   timestamp: {
-    fontSize: 11,
-    color: colors.textMuted,
+    ...theme.typography.caption,
+    color: theme.colors.text.tertiary,
   },
-
-  // Mastery dropdown trigger
   masteryTrigger: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    gap: 4,
+    borderColor: theme.colors.border.default,
+    borderRadius: theme.radius.full,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[1],
+    gap: theme.spacing[1],
   },
   masteryTriggerText: {
-    fontSize: 10,
-    color: colors.text,
-    fontWeight: font.weight.bold,
+    ...theme.typography.label,
+    color: theme.colors.text.primary,
   },
-
-  // Bottom sheet content
   sheetTitle: {
     fontSize: 10,
-    fontWeight: font.weight.bold,
+    fontWeight: "700",
     letterSpacing: 2,
-    color: colors.textMuted,
     textTransform: "uppercase",
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    color: theme.colors.text.tertiary,
+    paddingHorizontal: theme.spacing[5],
+    paddingBottom: theme.spacing[3],
   },
   sheetItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: theme.spacing[5],
+    paddingVertical: theme.spacing[3],
   },
   sheetItemActive: {
-    backgroundColor: colors.text,
+    backgroundColor: theme.colors.text.primary,
   },
   sheetItemText: {
-    fontSize: 15,
-    fontWeight: font.weight.semibold,
-    color: colors.text,
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
   },
   sheetItemTextActive: {
-    color: colors.textInverse,
+    color: theme.colors.text.inverse,
   },
-});
+}));

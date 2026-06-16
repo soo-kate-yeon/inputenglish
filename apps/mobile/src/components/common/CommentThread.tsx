@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { CardComment } from "@inputenglish/shared";
 import CommentInput from "./CommentInput";
-import { colors, font, radius, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
 
 interface CommentThreadProps {
   comments: CardComment[];
@@ -14,6 +14,48 @@ interface CommentThreadProps {
   onInputActivate?: () => void;
 }
 
+const getStyles = createThemedStyles((theme) => ({
+  container: {
+    gap: theme.spacing[2],
+  },
+  commentRow: {},
+  commentBubble: {
+    backgroundColor: theme.colors.surface.muted,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing[2] + theme.spacing[1],
+    gap: theme.spacing[1],
+  },
+  commentBody: {
+    ...theme.typography.caption,
+    color: theme.colors.text.primary,
+  },
+  commentMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  commentTimestamp: {
+    ...theme.typography.caption,
+    color: theme.colors.text.tertiary,
+    letterSpacing: 0.2,
+  },
+  commentActions: {
+    flexDirection: "row",
+    gap: theme.spacing[2] + theme.spacing[1],
+  },
+  addTrigger: {
+    backgroundColor: theme.colors.background.muted,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing[2],
+    paddingHorizontal: theme.spacing[2] + theme.spacing[1],
+  },
+  addTriggerText: {
+    ...theme.typography.caption,
+    color: theme.colors.text.secondary,
+    letterSpacing: 0.2,
+  },
+}));
+
 export default function CommentThread({
   comments,
   onAdd,
@@ -22,6 +64,8 @@ export default function CommentThread({
   saving = false,
   onInputActivate,
 }: CommentThreadProps) {
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -58,7 +102,7 @@ export default function CommentThread({
                     <Ionicons
                       name="pencil-outline"
                       size={14}
-                      color={colors.textMuted}
+                      color={theme.colors.text.tertiary}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -69,7 +113,7 @@ export default function CommentThread({
                     <Ionicons
                       name="trash-outline"
                       size={14}
-                      color={colors.textMuted}
+                      color={theme.colors.text.tertiary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -104,46 +148,3 @@ export default function CommentThread({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  commentRow: {},
-  commentBubble: {
-    backgroundColor: colors.bgSubtle,
-    borderRadius: radius.md,
-    padding: spacing.sm + spacing.xs,
-    gap: spacing.xs,
-  },
-  commentBody: {
-    fontSize: font.size.md - 1,
-    lineHeight: (font.size.md - 1) * 1.45,
-    color: colors.text,
-  },
-  commentMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  commentTimestamp: {
-    fontSize: font.size.xs,
-    color: colors.textMuted,
-    letterSpacing: 0.2,
-  },
-  commentActions: {
-    flexDirection: "row",
-    gap: spacing.sm + spacing.xs,
-  },
-  addTrigger: {
-    backgroundColor: colors.bgMuted,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm + spacing.xs,
-  },
-  addTriggerText: {
-    fontSize: font.size.sm,
-    color: colors.textSecondary,
-    letterSpacing: 0.2,
-  },
-});

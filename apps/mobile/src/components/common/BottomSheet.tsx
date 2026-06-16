@@ -7,7 +7,8 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { colors } from "../../theme";
+import { mediaOverlay } from "@inputenglish/design-tokens";
+import { createThemedStyles, useTheme } from "@/components/ui";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const OVERLAY_DURATION = 100;
@@ -24,6 +25,7 @@ export default function BottomSheet({
   onClose,
   children,
 }: BottomSheetProps) {
+  const styles = getStyles(useTheme());
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const isClosing = useRef(false);
@@ -92,27 +94,28 @@ export default function BottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
   container: {
     flex: 1,
     justifyContent: "flex-end",
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: mediaOverlay.scrim,
   },
   sheet: {
-    backgroundColor: colors.bg,
+    backgroundColor: theme.colors.surface.base,
     borderTopWidth: 1,
-    borderTopColor: colors.text,
-    paddingBottom: 34,
-    paddingTop: 8,
+    borderTopColor: theme.colors.border.default,
+    paddingBottom: theme.spacing[8],
+    paddingTop: theme.spacing[2],
   },
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: colors.border,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.border.default,
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: theme.spacing[4],
   },
-});
+}));

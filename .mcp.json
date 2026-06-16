@@ -2,11 +2,13 @@
   "mcpServers": {
     "framingui": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@framingui/mcp-server@latest"],
+      "command": "node",
+      "args": [
+        "/Users/sooyeon/Developer/framingui/packages/mcp-server/dist/index.js"
+      ],
       "env": {
-        "FRAMINGUI_API_KEY": "tk_live_095c78484eaef59286e96b4db6aaed9cb78d0e05739a68f62557350aad3d914d",
-        "FRAMINGUI_API_URL": "https://framingui.com"
+        "NODE_ENV": "production",
+        "FRAMINGUI_LOCAL_ONLY": "1"
       }
     },
     "blitz": {

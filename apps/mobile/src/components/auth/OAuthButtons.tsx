@@ -7,7 +7,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   Image,
   Platform,
@@ -17,19 +16,97 @@ import * as AuthSession from "expo-auth-session";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { mapAuthError } from "@/lib/auth-errors";
-import { colors, font, radius, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
 
 const googleGIcon = require("../../../assets/auth/google_g.png");
 const kakaoSymbol = require("../../../assets/auth/kakao_symbol.png");
+
+// Kakao brand colors: required by Kakao developer branding guidelines
+const KAKAO_YELLOW = "#FEE500";
+const KAKAO_TEXT = "#191919";
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Provider = "google" | "kakao";
 
+const getStyles = createThemedStyles((theme) => ({
+  container: {
+    width: "100%",
+    gap: theme.spacing[2],
+  },
+  appleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.action.primary,
+    paddingHorizontal: theme.spacing[4],
+  },
+  appleLogo: {
+    ...theme.typography.body,
+    color: theme.colors.text.inverse,
+    marginRight: 10,
+  },
+  appleText: {
+    ...theme.typography.button,
+    color: theme.colors.text.inverse,
+    letterSpacing: 0.25,
+  },
+  // Google only: outline style on light surface
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.background.canvas,
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+    paddingHorizontal: theme.spacing[4],
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+  },
+  googleText: {
+    ...theme.typography.button,
+    color: theme.colors.text.primary,
+    letterSpacing: 0.25,
+  },
+  kakaoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    borderRadius: theme.radius.md,
+    backgroundColor: KAKAO_YELLOW,
+    paddingHorizontal: theme.spacing[4],
+  },
+  kakaoIcon: {
+    width: 18,
+    height: 18,
+    marginRight: 10,
+  },
+  kakaoText: {
+    ...theme.typography.button,
+    color: KAKAO_TEXT,
+    letterSpacing: 0.25,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  activityInverse: {
+    color: theme.colors.text.inverse,
+  },
+}));
+
 export function OAuthButtons() {
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [appleLoading, setAppleLoading] = useState(false);
   const { completeOAuthCodeExchange, signInWithApple } = useAuth();
+  const styles = getStyles(useTheme());
 
   const handleOAuthSignIn = async (provider: Provider) => {
     try {
@@ -125,10 +202,10 @@ export function OAuthButtons() {
           accessibilityLabel="Apple로 로그인"
         >
           {appleLoading ? (
-            <ActivityIndicator color={colors.textInverse} />
+            <ActivityIndicator color={styles.activityInverse.color} />
           ) : (
             <>
-              <Text style={styles.appleLogo}>{"\uF8FF"}</Text>
+              <Text style={styles.appleLogo}>{""}</Text>
               <Text style={styles.appleText}>Apple로 계속하기</Text>
             </>
           )}
@@ -145,7 +222,7 @@ export function OAuthButtons() {
         accessibilityLabel="Google로 로그인"
       >
         {loadingProvider === "google" ? (
-          <ActivityIndicator color={colors.textInverse} />
+          <ActivityIndicator color={styles.googleText.color} />
         ) : (
           <>
             <Image source={googleGIcon} style={styles.googleIcon} />
@@ -162,7 +239,7 @@ export function OAuthButtons() {
         accessibilityLabel="카카오 로그인"
       >
         {loadingProvider === "kakao" ? (
-          <ActivityIndicator color="#191919" />
+          <ActivityIndicator color={KAKAO_TEXT} />
         ) : (
           <>
             <Image source={kakaoSymbol} style={styles.kakaoIcon} />
@@ -173,76 +250,3 @@ export function OAuthButtons() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-    gap: spacing.sm,
-  },
-  appleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgInverse,
-    paddingHorizontal: spacing.md,
-  },
-  appleLogo: {
-    fontSize: 16,
-    color: colors.textInverse,
-    marginRight: 10,
-  },
-  appleText: {
-    color: colors.textInverse,
-    fontSize: font.size.md,
-    fontWeight: font.weight.medium,
-    letterSpacing: 0.25,
-  },
-  // Google only: outline style on light surface
-  googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    paddingHorizontal: spacing.md,
-  },
-  googleIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
-  },
-  googleText: {
-    color: colors.text,
-    fontSize: font.size.md,
-    fontWeight: font.weight.medium,
-    letterSpacing: 0.25,
-  },
-  kakaoButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 48,
-    borderRadius: radius.md,
-    backgroundColor: "#FEE500",
-    paddingHorizontal: spacing.md,
-  },
-  kakaoIcon: {
-    width: 18,
-    height: 18,
-    marginRight: 10,
-  },
-  kakaoText: {
-    color: "#191919",
-    fontSize: font.size.md,
-    fontWeight: font.weight.medium,
-    letterSpacing: 0.25,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-});

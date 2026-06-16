@@ -36,14 +36,164 @@ import {
   INTRO_SCENES,
   type IntroScene,
 } from "@/lib/onboarding-intro";
-import { colors, font, radius, shadow, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const TITLE_REVEAL_INTERVAL_MS = 18;
 const CTA_REVEAL_DELAY_MS = 500;
 const TYPING_HAPTIC_INTERVAL_MS = 90;
 const TITLE_BLOCK_HEIGHT = 176;
-const TITLE_TO_MEDIA_GAP = spacing.lg;
+
+const getStyles = createThemedStyles((theme) => ({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background.canvas,
+  },
+  scenePage: {
+    width: SCREEN_WIDTH,
+  },
+  sceneFrame: {
+    flex: 1,
+    paddingTop: theme.spacing[8],
+  },
+  sceneHeader: {
+    minHeight: TITLE_BLOCK_HEIGHT,
+    justifyContent: "flex-start",
+    paddingHorizontal: theme.spacing[6],
+  },
+  loginSceneHeader: {
+    minHeight: 112,
+  },
+  sceneTitle: {
+    ...theme.typography.title,
+    color: theme.colors.text.primary,
+    letterSpacing: -0.2,
+  },
+  mediaWrap: {
+    marginTop: theme.spacing[6],
+    alignItems: "center",
+  },
+  mediaPlaceholder: {
+    width: SCREEN_WIDTH - theme.spacing[6] * 2,
+    aspectRatio: 1,
+    borderRadius: theme.radius.full,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surface.muted,
+    borderWidth: 1,
+    borderColor: theme.colors.border.subtle,
+    alignItems: "center",
+    justifyContent: "center",
+    ...theme.shadows.card,
+  },
+  mediaImage: {
+    width: "100%",
+    height: "100%",
+  },
+  mediaFallbackContent: {
+    paddingHorizontal: theme.spacing[6],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mediaBadge: {
+    ...theme.typography.caption,
+    color: theme.colors.text.tertiary,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  mediaLabel: {
+    marginTop: theme.spacing[4],
+    color: theme.colors.text.primary,
+    ...theme.typography.sectionTitle,
+    textAlign: "center",
+  },
+  sceneBody: {
+    marginTop: theme.spacing[6],
+    minHeight: 28,
+    paddingHorizontal: theme.spacing[6],
+  },
+  sceneCitation: {
+    marginTop: theme.spacing[1],
+    color: theme.colors.text.secondary,
+    ...theme.typography.body,
+  },
+  sceneCitationCompact: {
+    ...theme.typography.caption,
+  },
+  swipeHintWrap: {
+    marginTop: "auto",
+    paddingTop: theme.spacing[4],
+    paddingBottom: theme.spacing[2],
+    paddingHorizontal: theme.spacing[6],
+    alignItems: "center",
+  },
+  swipeHintText: {
+    color: theme.colors.text.tertiary,
+    ...theme.typography.body,
+    textAlign: "center",
+  },
+  authStackWrap: {
+    marginTop: theme.spacing[6],
+  },
+  loginSceneScroll: {
+    flex: 1,
+  },
+  loginSceneContent: {
+    flexGrow: 1,
+    paddingTop: theme.spacing[8],
+  },
+  authStackContent: {
+    gap: theme.spacing[4],
+    paddingHorizontal: theme.spacing[6],
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[4],
+    marginVertical: theme.spacing[1],
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: theme.colors.border.subtle,
+  },
+  dividerText: {
+    color: theme.colors.text.tertiary,
+    ...theme.typography.caption,
+    textAlign: "center",
+  },
+  dividerTextWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing[1],
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: theme.spacing[2],
+  },
+  footerText: {
+    color: theme.colors.text.secondary,
+    ...theme.typography.label,
+  },
+  footerLink: {
+    color: theme.colors.text.primary,
+    ...theme.typography.label,
+    fontWeight: "600",
+  },
+  signupSheetContent: {
+    paddingHorizontal: theme.spacing[6],
+    paddingBottom: theme.spacing[6],
+    gap: theme.spacing[4],
+  },
+  signupSheetTitle: {
+    color: theme.colors.text.primary,
+    ...theme.typography.title,
+  },
+  signupSheetBody: {
+    color: theme.colors.text.secondary,
+    ...theme.typography.body,
+  },
+}));
 
 function IntroSceneCard({
   scene,
@@ -62,6 +212,8 @@ function IntroSceneCard({
   bottomInset: number;
   mediaReady: boolean;
 }) {
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const [visibleTitle, setVisibleTitle] = useState(isActive ? "" : scene.title);
   const [signupSheetVisible, setSignupSheetVisible] = useState(false);
   const bodyOpacity = useRef(new Animated.Value(1)).current;
@@ -141,7 +293,7 @@ function IntroSceneCard({
           contentContainerStyle={[
             styles.loginSceneContent,
             {
-              paddingBottom: spacing["3xl"] + bottomInset,
+              paddingBottom: theme.spacing[8] * 2 + bottomInset,
             },
           ]}
           keyboardShouldPersistTaps="handled"
@@ -220,7 +372,7 @@ function IntroSceneCard({
       style={[
         styles.sceneFrame,
         {
-          paddingBottom: spacing["3xl"] + bottomInset,
+          paddingBottom: theme.spacing[8] * 2 + bottomInset,
         },
       ]}
     >
@@ -298,6 +450,7 @@ export default function IntroScreen() {
     return Math.max(0, Math.min(INTRO_SCENES.length - 1, parsedIndex));
   });
   const isPreviewMode = preview === "1";
+  const styles = getStyles(useTheme());
 
   useEffect(() => {
     if (isPreviewMode) return;
@@ -345,11 +498,11 @@ export default function IntroScreen() {
   }, []);
 
   useEffect(() => {
-    const scene = INTRO_SCENES[activeIndex];
-    if (!scene) return;
+    const currentScene = INTRO_SCENES[activeIndex];
+    if (!currentScene) return;
 
     trackEvent("intro_page_view", {
-      sceneId: scene.id,
+      sceneId: currentScene.id,
       index: activeIndex,
     });
   }, [activeIndex]);
@@ -406,169 +559,3 @@ export default function IntroScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  scenePage: {
-    width: SCREEN_WIDTH,
-  },
-  sceneFrame: {
-    flex: 1,
-    paddingTop: spacing.xl,
-  },
-  sceneHeader: {
-    minHeight: TITLE_BLOCK_HEIGHT,
-    justifyContent: "flex-start",
-    paddingHorizontal: spacing.lg,
-  },
-  loginSceneHeader: {
-    minHeight: 112,
-  },
-  sceneTitle: {
-    color: colors.text,
-    fontSize: font.size.xl,
-    lineHeight: 34,
-    fontWeight: font.weight.semibold,
-    letterSpacing: -0.2,
-  },
-  mediaWrap: {
-    marginTop: TITLE_TO_MEDIA_GAP,
-    alignItems: "center",
-  },
-  mediaPlaceholder: {
-    width: SCREEN_WIDTH - spacing.lg * 2,
-    aspectRatio: 1,
-    borderRadius: radius["2xl"],
-    overflow: "hidden",
-    backgroundColor: colors.bgMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadow.md,
-  },
-  mediaImage: {
-    width: "100%",
-    height: "100%",
-  },
-  mediaFallbackContent: {
-    paddingHorizontal: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mediaBadge: {
-    fontSize: font.size.sm,
-    lineHeight: 18,
-    color: colors.textMuted,
-    fontWeight: font.weight.semibold,
-    letterSpacing: 1,
-  },
-  mediaLabel: {
-    marginTop: spacing.md,
-    color: colors.text,
-    fontSize: font.size.lg,
-    lineHeight: 28,
-    fontWeight: font.weight.semibold,
-    textAlign: "center",
-  },
-  sceneBody: {
-    marginTop: spacing.lg,
-    minHeight: 28,
-    paddingHorizontal: spacing.lg,
-  },
-  sceneCitation: {
-    marginTop: spacing.xs,
-    color: colors.textSecondary,
-    fontSize: font.size.md,
-    lineHeight: 24,
-    fontWeight: font.weight.regular,
-  },
-  sceneCitationCompact: {
-    fontSize: font.size.sm,
-    lineHeight: 20,
-  },
-  swipeHintWrap: {
-    marginTop: "auto",
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    alignItems: "center",
-  },
-  swipeHintText: {
-    color: colors.textMuted,
-    fontSize: font.size.md,
-    lineHeight: 22,
-    textAlign: "center",
-  },
-  authStackWrap: {
-    marginTop: spacing.lg,
-  },
-  loginSceneScroll: {
-    flex: 1,
-  },
-  loginSceneContent: {
-    flexGrow: 1,
-    paddingTop: spacing.xl,
-  },
-  authStackContent: {
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginVertical: spacing.xs,
-  },
-  dividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.22)",
-  },
-  dividerText: {
-    color: colors.textMuted,
-    fontSize: font.size.sm,
-    lineHeight: 18,
-    textAlign: "center",
-  },
-  dividerTextWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.xs,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: spacing.sm,
-  },
-  footerText: {
-    color: colors.textSecondary,
-    fontSize: font.size.sm,
-    lineHeight: 20,
-  },
-  footerLink: {
-    color: colors.text,
-    fontSize: font.size.sm,
-    lineHeight: 20,
-    fontWeight: font.weight.semibold,
-  },
-  signupSheetContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    gap: spacing.md,
-  },
-  signupSheetTitle: {
-    color: colors.text,
-    fontSize: font.size.xl,
-    lineHeight: 30,
-    fontWeight: font.weight.semibold,
-  },
-  signupSheetBody: {
-    color: colors.textSecondary,
-    fontSize: font.size.md,
-    lineHeight: 22,
-  },
-});

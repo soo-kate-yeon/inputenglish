@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ReadingPiece } from "@inputenglish/shared";
-import { colors, font, leading, spacing } from "@/theme";
+import { createThemedStyles, useTheme } from "@framingui/react-native";
 
 interface ArticleReaderProps {
   piece: ReadingPiece;
@@ -25,6 +25,8 @@ export default function ArticleReader({
   piece,
   onWordTap,
 }: ArticleReaderProps) {
+  const styles = getStyles(useTheme());
+
   const handleWordTap = useCallback(
     (word: string) => {
       const lemma = toLemma(word);
@@ -78,53 +80,45 @@ export default function ArticleReader({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
   panelScroll: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: theme.spacing[6],
+    gap: theme.spacing[4],
   },
   eyebrow: {
-    fontSize: font.size.sm,
-    fontWeight: font.weight.semibold,
-    letterSpacing: font.tracking.wider,
-    color: colors.textPremiumSecondary,
+    ...theme.typography.label,
+    color: theme.colors.text.secondary,
     textTransform: "uppercase",
-    marginBottom: spacing.xs,
+    letterSpacing: 1.2,
+    marginBottom: theme.spacing[1],
   },
   articleTitle: {
-    fontSize: font.size.lg,
-    lineHeight: leading(font.size.lg, font.lineHeight.tight),
-    fontWeight: font.weight.semibold,
-    color: colors.textPremium,
-    marginBottom: spacing.sm,
+    ...theme.typography.title,
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing[2],
   },
   bodyContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
   },
   articleBody: {
-    fontSize: font.size.base,
-    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
-    fontWeight: font.weight.regular,
-    color: colors.textPremium,
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
   },
   tappableWord: {
-    fontSize: font.size.base,
-    lineHeight: leading(font.size.base, font.lineHeight.relaxed),
-    fontWeight: font.weight.regular,
-    color: colors.textPremium,
+    ...theme.typography.body,
+    color: theme.colors.text.primary,
   },
   metaRow: {
     flexDirection: "row",
-    gap: spacing.md,
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
+    gap: theme.spacing[4],
+    marginTop: theme.spacing[2],
+    paddingTop: theme.spacing[2],
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.textPremiumMuted,
+    borderTopColor: theme.colors.border.default,
   },
   metaText: {
-    fontSize: font.size.sm,
-    fontWeight: font.weight.regular,
-    color: colors.textPremiumSecondary,
+    ...theme.typography.caption,
+    color: theme.colors.text.secondary,
   },
-});
+}));

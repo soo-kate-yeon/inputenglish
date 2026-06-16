@@ -9,7 +9,7 @@ import {
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, font } from "../../theme";
+import { createThemedStyles, useTheme } from "@/components/ui";
 import { trackEvent } from "../../lib/analytics";
 
 const ICONS: Record<
@@ -34,15 +34,15 @@ export default function FloatingTabBar({
   state,
   navigation,
 }: BottomTabBarProps) {
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const insets = useSafeAreaInsets();
-  const isDarkModeBar = state.routes[state.index]?.name === "index";
 
   return (
     <View
       style={[
         styles.container,
-        isDarkModeBar && styles.containerDark,
-        { paddingBottom: Math.max(insets.bottom, 8) },
+        { paddingBottom: Math.max(insets.bottom, theme.spacing[2]) },
       ]}
     >
       {state.routes.map((route, index) => {
@@ -81,23 +81,12 @@ export default function FloatingTabBar({
               name={isFocused ? iconSet.active : iconSet.inactive}
               size={24}
               color={
-                isDarkModeBar
-                  ? isFocused
-                    ? colors.textOnDark
-                    : colors.textOnDarkMuted
-                  : isFocused
-                    ? colors.text
-                    : colors.textMuted
+                isFocused
+                  ? theme.colors.text.primary
+                  : theme.colors.text.tertiary
               }
             />
-            <Text
-              style={[
-                styles.label,
-                isDarkModeBar && styles.labelDark,
-                isFocused && styles.labelActive,
-                isDarkModeBar && isFocused && styles.labelDarkActive,
-              ]}
-            >
+            <Text style={[styles.label, isFocused && styles.labelActive]}>
               {LABELS[route.name]}
             </Text>
           </TouchableOpacity>
@@ -107,15 +96,15 @@ export default function FloatingTabBar({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
   container: {
     flexDirection: "row",
-    backgroundColor: colors.bg,
+    backgroundColor: theme.colors.background.canvas,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    borderTopColor: theme.colors.border.default,
     ...Platform.select({
       ios: {
-        shadowColor: colors.text,
+        shadowColor: theme.colors.text.primary,
         shadowOffset: { width: 0, height: -1 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
@@ -125,43 +114,22 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  containerDark: {
-    backgroundColor: colors.bgDark,
-    borderTopColor: colors.borderOnDark,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.bgDark,
-        shadowOffset: { width: 0, height: -1 },
-        shadowOpacity: 0.24,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 10,
-      },
-    }),
-  },
   tab: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 10,
-    paddingBottom: 4,
-    gap: 3,
+    paddingTop: theme.spacing[2],
+    paddingBottom: theme.spacing[1],
+    gap: theme.spacing[1],
   },
   label: {
     fontSize: 10,
     letterSpacing: 0.3,
-    fontWeight: font.weight.medium,
-    color: colors.textMuted,
-  },
-  labelDark: {
-    color: colors.textOnDarkMuted,
+    fontWeight: "500",
+    color: theme.colors.text.tertiary,
   },
   labelActive: {
-    color: colors.text,
-    fontWeight: font.weight.semibold,
+    color: theme.colors.text.primary,
+    fontWeight: "600",
   },
-  labelDarkActive: {
-    color: colors.textOnDark,
-  },
-});
+}));

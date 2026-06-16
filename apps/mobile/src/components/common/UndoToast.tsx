@@ -1,8 +1,8 @@
 // @MX:NOTE: [AUTO] Undo toast for delayed delete operations in Archive screen.
 // @MX:SPEC: SPEC-MOBILE-005 - REQ-E-004, REQ-N-001, REQ-C-002
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { colors } from "../../theme";
+import { Text, TouchableOpacity, View } from "react-native";
+import { createThemedStyles, useTheme } from "@/components/ui";
 
 interface UndoToastProps {
   visible: boolean;
@@ -15,6 +15,7 @@ export default function UndoToast({
   message,
   onUndo,
 }: UndoToastProps): React.JSX.Element {
+  const styles = getStyles(useTheme());
   if (!visible) return <View />;
 
   return (
@@ -27,19 +28,19 @@ export default function UndoToast({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = createThemedStyles((theme) => ({
   container: {
     position: "absolute",
-    bottom: 24,
-    left: 16,
-    right: 16,
-    backgroundColor: colors.bgInverse,
-    borderRadius: 12,
-    padding: 14,
+    bottom: theme.spacing[6],
+    left: theme.spacing[4],
+    right: theme.spacing[4],
+    backgroundColor: theme.colors.text.primary,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing[4],
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#000",
+    shadowColor: theme.colors.text.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -47,20 +48,19 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   message: {
-    color: colors.textInverse,
-    fontSize: 14,
+    ...theme.typography.body,
+    color: theme.colors.text.inverse,
     flex: 1,
   },
   undoButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    marginLeft: 8,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[1],
+    backgroundColor: theme.colors.text.inverse,
+    borderRadius: theme.radius.md,
+    marginLeft: theme.spacing[2],
   },
   undoText: {
-    color: colors.textInverse,
-    fontSize: 13,
-    fontWeight: "600",
+    ...theme.typography.label,
+    color: theme.colors.text.primary,
   },
-});
+}));

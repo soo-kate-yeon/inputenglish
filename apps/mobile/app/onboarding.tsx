@@ -40,7 +40,8 @@ import { GENRE_LABELS } from "@/lib/professional-labels";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
 import { inferPremiumPreferredSourceTypes } from "@/lib/premium-interest-clusters";
-import { colors, font, radius, spacing } from "@/theme";
+import { useTheme, createThemedStyles } from "@/components/ui";
+import { mediaOverlay } from "@inputenglish/design-tokens";
 
 type OnboardingStep = "level" | "goal" | "details" | "preparing";
 // @MX:NOTE: Speaking/pronunciation is feature-gated on main until the
@@ -109,7 +110,7 @@ const PRONUNCIATION_PEOPLE = [
     imageSource: require("../assets/images/speakers/person_10.png"),
   },
   {
-    name: "Conan O’Brien",
+    name: "Conan O'Brien",
     trait: "리듬감 있고 장난기 있는 억양",
     imageSource: require("../assets/images/speakers/person_11.png"),
   },
@@ -126,6 +127,27 @@ function dedupe(values: string[]) {
   return [...new Set(values)];
 }
 
+const getOptionButtonStyles = createThemedStyles((theme) => ({
+  optionPressable: {
+    width: "100%" as const,
+  },
+  optionButton: {
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+    backgroundColor: theme.colors.surface.muted,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: theme.spacing[4],
+  },
+  optionButtonPressed: {
+    opacity: 0.92,
+  },
+  optionLabel: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
+  },
+}));
+
 function OptionButton({
   label,
   selected,
@@ -135,6 +157,8 @@ function OptionButton({
   selected: boolean;
   onPress: () => void;
 }) {
+  const theme = useTheme();
+  const styles = getOptionButtonStyles(theme);
   const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
 
   useEffect(() => {
@@ -165,11 +189,17 @@ function OptionButton({
           {
             backgroundColor: selectionAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [colors.bgSubtle, colors.primary],
+              outputRange: [
+                theme.colors.surface.muted,
+                theme.colors.action.primary,
+              ],
             }),
             borderColor: selectionAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [colors.border, colors.primary],
+              outputRange: [
+                theme.colors.border.default,
+                theme.colors.action.primary,
+              ],
             }),
           },
         ]}
@@ -180,7 +210,10 @@ function OptionButton({
             {
               color: selectionAnim.interpolate({
                 inputRange: [0, 1],
-                outputRange: [colors.text, colors.textInverse],
+                outputRange: [
+                  theme.colors.text.primary,
+                  theme.colors.text.inverse,
+                ],
               }),
             },
           ]}
@@ -192,6 +225,27 @@ function OptionButton({
   );
 }
 
+const getChoiceChipStyles = createThemedStyles((theme) => ({
+  chipPressable: {
+    alignSelf: "flex-start" as const,
+  },
+  chip: {
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+    backgroundColor: theme.colors.surface.muted,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: 10,
+  },
+  chipPressed: {
+    opacity: 0.92,
+  },
+  chipText: {
+    ...theme.typography.label,
+    color: theme.colors.text.primary,
+  },
+}));
+
 function ChoiceChip({
   label,
   selected,
@@ -201,6 +255,8 @@ function ChoiceChip({
   selected: boolean;
   onPress: () => void;
 }) {
+  const theme = useTheme();
+  const styles = getChoiceChipStyles(theme);
   const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
 
   useEffect(() => {
@@ -222,7 +278,7 @@ function ChoiceChip({
       onPress={onPress}
       style={({ pressed }) => [
         styles.chipPressable,
-        pressed && styles.optionButtonPressed,
+        pressed && styles.chipPressed,
       ]}
     >
       <Animated.View
@@ -231,11 +287,17 @@ function ChoiceChip({
           {
             backgroundColor: selectionAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [colors.bgSubtle, colors.primary],
+              outputRange: [
+                theme.colors.surface.muted,
+                theme.colors.action.primary,
+              ],
             }),
             borderColor: selectionAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [colors.border, colors.primary],
+              outputRange: [
+                theme.colors.border.default,
+                theme.colors.action.primary,
+              ],
             }),
           },
         ]}
@@ -246,7 +308,10 @@ function ChoiceChip({
             {
               color: selectionAnim.interpolate({
                 inputRange: [0, 1],
-                outputRange: [colors.text, colors.textInverse],
+                outputRange: [
+                  theme.colors.text.primary,
+                  theme.colors.text.inverse,
+                ],
               }),
             },
           ]}
@@ -257,6 +322,55 @@ function ChoiceChip({
     </Pressable>
   );
 }
+
+const getPersonCardStyles = createThemedStyles((theme) => ({
+  personCardPressable: {
+    width: "48.5%" as const,
+  },
+  personCard: {
+    aspectRatio: 1,
+    borderRadius: theme.radius.lg,
+    overflow: "hidden" as const,
+    borderWidth: 2,
+    backgroundColor: theme.colors.surface.muted,
+  },
+  personCardPressed: {
+    opacity: 0.92,
+  },
+  personImage: {
+    flex: 1,
+  },
+  // borderRadius matches card minus border width to avoid inner corner bleed
+  personImageInner: {
+    borderRadius: theme.radius.lg - 2,
+  },
+  personGradient: {
+    flex: 1,
+    justifyContent: "space-between" as const,
+    padding: theme.spacing[2],
+  },
+  personCardBadge: {
+    alignSelf: "flex-end" as const,
+    width: 24,
+    height: 24,
+    borderRadius: theme.radius.lg,
+    backgroundColor: mediaOverlay.badge,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  personCopy: {
+    gap: 2,
+  },
+  personName: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.inverse,
+  },
+  personTrait: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: mediaOverlay.onImageText,
+  },
+}));
 
 function PronunciationPersonCard({
   name,
@@ -271,6 +385,8 @@ function PronunciationPersonCard({
   selected: boolean;
   onPress: () => void;
 }) {
+  const theme = useTheme();
+  const styles = getPersonCardStyles(theme);
   const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
 
   useEffect(() => {
@@ -292,7 +408,7 @@ function PronunciationPersonCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.personCardPressable,
-        pressed && styles.optionButtonPressed,
+        pressed && styles.personCardPressed,
       ]}
     >
       <Animated.View
@@ -301,7 +417,10 @@ function PronunciationPersonCard({
           {
             borderColor: selectionAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [colors.border, colors.primary],
+              outputRange: [
+                theme.colors.border.default,
+                theme.colors.action.primary,
+              ],
             }),
           },
         ]}
@@ -313,9 +432,9 @@ function PronunciationPersonCard({
         >
           <LinearGradient
             colors={[
-              "rgba(0,0,0,0.04)",
-              "rgba(0,0,0,0.18)",
-              "rgba(0,0,0,0.82)",
+              mediaOverlay.gradientTop,
+              mediaOverlay.gradientMid,
+              mediaOverlay.gradientBottom,
             ]}
             locations={[0, 0.45, 1]}
             style={styles.personGradient}
@@ -331,7 +450,11 @@ function PronunciationPersonCard({
                 },
               ]}
             >
-              <Ionicons name="checkmark" size={14} color={colors.textInverse} />
+              <Ionicons
+                name="checkmark"
+                size={14}
+                color={theme.colors.text.inverse}
+              />
             </Animated.View>
             <View style={styles.personCopy}>
               <Text style={styles.personName}>{name}</Text>
@@ -345,6 +468,131 @@ function PronunciationPersonCard({
     </Pressable>
   );
 }
+
+const getScreenStyles = createThemedStyles((theme) => ({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background.canvas,
+  },
+  screen: {
+    flex: 1,
+  },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: theme.spacing[4],
+    paddingTop: theme.spacing[4],
+    paddingBottom: theme.spacing[8],
+  },
+  contentWithFooter: {
+    paddingBottom: 136,
+  },
+  centeredState: {
+    flex: 1,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  headerRow: {
+    alignItems: "flex-start" as const,
+    marginBottom: theme.spacing[4],
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.full,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    marginLeft: -theme.spacing[1],
+  },
+  backButtonPressed: {
+    opacity: 0.7,
+  },
+  stepViewport: {
+    position: "relative" as const,
+    flexGrow: 1,
+    overflow: "hidden" as const,
+  },
+  stepLayerCurrent: {
+    width: "100%" as const,
+  },
+  stepStatic: {
+    opacity: 1,
+    transform: [{ translateX: 0 }],
+  },
+  stepAnimatedContainer: {
+    width: "100%" as const,
+  },
+  stepBlock: {
+    flex: 1,
+    justifyContent: "flex-start" as const,
+    paddingTop: theme.spacing[6],
+    paddingBottom: theme.spacing[8],
+  },
+  title: {
+    ...theme.typography.title,
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing[4],
+  },
+  body: {
+    ...theme.typography.body,
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing[4],
+  },
+  optionList: {
+    gap: theme.spacing[2],
+    marginTop: theme.spacing[2],
+    marginBottom: theme.spacing[8],
+  },
+  modeRow: {
+    gap: theme.spacing[2],
+    marginBottom: theme.spacing[6],
+  },
+  focusSection: {
+    marginBottom: theme.spacing[8],
+  },
+  focusTitle: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing[2],
+  },
+  secondaryFocusTitle: {
+    marginTop: theme.spacing[6],
+  },
+  chipWrap: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: theme.spacing[2],
+  },
+  personGrid: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    justifyContent: "space-between" as const,
+    gap: theme.spacing[2],
+  },
+  primaryButton: {
+    backgroundColor: theme.colors.action.primary,
+    borderRadius: theme.radius.full,
+    paddingVertical: theme.spacing[4],
+    alignItems: "center" as const,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.35,
+  },
+  primaryButtonText: {
+    ...theme.typography.button,
+    color: theme.colors.text.inverse,
+  },
+  loader: {
+    marginTop: theme.spacing[6],
+  },
+  footerCta: {
+    position: "absolute" as const,
+    left: theme.spacing[4],
+    right: theme.spacing[4],
+    bottom: theme.spacing[6],
+    padding: theme.spacing[1],
+    backgroundColor: theme.colors.background.canvas,
+  },
+}));
 
 export default function OnboardingScreen() {
   const { edit } = useLocalSearchParams<{ edit?: string }>();
@@ -373,6 +621,9 @@ export default function OnboardingScreen() {
   const transitionSwapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+
+  const theme = useTheme();
+  const styles = getScreenStyles(theme);
 
   useEffect(() => {
     if (
@@ -780,7 +1031,10 @@ export default function OnboardingScreen() {
           선택한 목표를 바탕으로 오늘부터 바로 따라 말할 수 있는 학습 흐름을
           준비하고 있어요.
         </Text>
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
+        <ActivityIndicator
+          color={theme.colors.action.primary}
+          style={styles.loader}
+        />
       </View>
     );
   };
@@ -789,7 +1043,7 @@ export default function OnboardingScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centeredState}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={theme.colors.action.primary} />
         </View>
       </SafeAreaView>
     );
@@ -814,7 +1068,11 @@ export default function OnboardingScreen() {
                 pressed && styles.backButtonPressed,
               ]}
             >
-              <Ionicons name="arrow-back" size={22} color={colors.text} />
+              <Ionicons
+                name="arrow-back"
+                size={22}
+                color={theme.colors.text.primary}
+              />
             </Pressable>
           </View>
           <View style={styles.stepViewport}>
@@ -888,218 +1146,3 @@ export default function OnboardingScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  screen: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  contentWithFooter: {
-    paddingBottom: 136,
-  },
-  centeredState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerRow: {
-    alignItems: "flex-start",
-    marginBottom: spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: -spacing.xs,
-  },
-  backButtonPressed: {
-    opacity: 0.7,
-  },
-  stepViewport: {
-    position: "relative",
-    flexGrow: 1,
-    overflow: "hidden",
-  },
-  stepLayerCurrent: {
-    width: "100%",
-  },
-  stepStatic: {
-    opacity: 1,
-    transform: [{ translateX: 0 }],
-  },
-  stepAnimatedContainer: {
-    width: "100%",
-  },
-  stepBlock: {
-    flex: 1,
-    justifyContent: "flex-start",
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  title: {
-    fontSize: font.size["2xl"],
-    fontWeight: font.weight.bold,
-    color: colors.text,
-    lineHeight: 38,
-    marginBottom: spacing.md,
-  },
-  body: {
-    fontSize: font.size.md,
-    color: colors.textSecondary,
-    lineHeight: 24,
-    marginBottom: spacing.md,
-  },
-  optionList: {
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  modeRow: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  optionPressable: {
-    width: "100%",
-  },
-  optionButton: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgSubtle,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  optionButtonSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  optionButtonPressed: {
-    opacity: 0.92,
-  },
-  optionLabel: {
-    fontSize: font.size.base,
-    color: colors.text,
-    fontWeight: font.weight.medium,
-  },
-  focusSection: {
-    marginBottom: spacing.xl,
-  },
-  focusTitle: {
-    fontSize: font.size.md,
-    color: colors.text,
-    fontWeight: font.weight.semibold,
-    marginBottom: spacing.sm,
-  },
-  secondaryFocusTitle: {
-    marginTop: spacing.lg,
-  },
-  chipWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  personGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  personCardPressable: {
-    width: "48.5%",
-  },
-  personCard: {
-    aspectRatio: 1,
-    borderRadius: radius.xl,
-    overflow: "hidden",
-    borderWidth: 2,
-    backgroundColor: colors.bgSubtle,
-  },
-  personImage: {
-    flex: 1,
-  },
-  personImageInner: {
-    borderRadius: radius.xl - 2,
-  },
-  personGradient: {
-    flex: 1,
-    justifyContent: "space-between",
-    padding: spacing.sm,
-  },
-  personCardBadge: {
-    alignSelf: "flex-end",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(0,0,0,0.42)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  personCopy: {
-    gap: 2,
-  },
-  personName: {
-    fontSize: font.size.base,
-    fontWeight: font.weight.semibold,
-    color: colors.textInverse,
-  },
-  personTrait: {
-    fontSize: font.size.xs,
-    lineHeight: 16,
-    color: "rgba(255,255,255,0.86)",
-  },
-  chipPressable: {
-    alignSelf: "flex-start",
-  },
-  chip: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgSubtle,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    fontSize: font.size.sm,
-    color: colors.text,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.xl,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-  },
-  primaryButtonDisabled: {
-    opacity: 0.35,
-  },
-  primaryButtonText: {
-    fontSize: font.size.base,
-    fontWeight: font.weight.semibold,
-    color: colors.textInverse,
-  },
-  loader: {
-    marginTop: spacing.lg,
-  },
-  footerCta: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.lg,
-    padding: spacing.xs,
-    backgroundColor: colors.bg,
-  },
-});
