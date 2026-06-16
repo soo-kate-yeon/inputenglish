@@ -6,13 +6,10 @@ import React, {
   useState,
 } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
   Animated,
   Easing,
-  ImageSourcePropType,
-  ImageBackground,
   LayoutAnimation,
   Platform,
   Pressable,
@@ -25,35 +22,16 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import {
-  GENRES,
-  SPEAKING_SITUATIONS,
-  SPEAKING_SITUATION_LABELS,
-} from "@inputenglish/shared";
-import type {
-  Genre,
-  LearningGoalMode,
-  LearningLevelBand,
-  SpeakingSituation,
-} from "@inputenglish/shared";
-import { GENRE_LABELS } from "@/lib/professional-labels";
+import type { LearningLevelBand } from "@inputenglish/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/analytics";
-import { inferPremiumPreferredSourceTypes } from "@/lib/premium-interest-clusters";
 import { useTheme, createThemedStyles } from "@/components/ui";
-import { mediaOverlay } from "@inputenglish/design-tokens";
 import { VocabAssessment } from "@/components/onboarding/VocabAssessment";
 import { submitVocabAssessment } from "@/lib/premium-api";
 import type { VocabAnswer } from "@/lib/premium-api";
 import { safeSelectionAsync, safeImpactLight } from "@/lib/safeHaptic";
 
-type OnboardingStep =
-  | "vocab"
-  | "level"
-  | "goal"
-  | "topics"
-  | "formats"
-  | "preparing";
+type OnboardingStep = "vocab" | "level" | "topics" | "formats" | "preparing";
 
 // @MX:NOTE: Interest questions are aligned to the v1.3 CI content model
 //   (reading pool = band × format × topic). TOPIC values match the reading
@@ -84,13 +62,8 @@ const TOPIC_TAG_PREFIX = "topic:";
 const FORMAT_TAG_PREFIX = "format:";
 // @MX:NOTE: "vocab" is the primary first step — a Yes/No vocab-size test
 //           (SPEC-INPUT-003) that measures the user's band instead of the
-//           self-reported 4-choice. "level" is kept as an off-sequence
-//           fallback reached by skipping the test (abandonment, I-W1).
-// @MX:NOTE: Speaking/pronunciation is feature-gated on main until the
-//           Azure + ffmpeg pipeline on feature/speaking-stability is
-//           stable. The "goal" step is dropped because "expression" is
-//           the only selectable goal_mode right now; re-insert it here
-//           when speaking returns.
+//           self-reported 4-choice. "level" is an off-sequence fallback used
+//           only on vocab-test failure or in edit mode (abandonment, I-W1).
 const STEP_SEQUENCE: OnboardingStep[] = [
   "vocab",
   "topics",
@@ -105,74 +78,7 @@ const LEVEL_OPTIONS: Array<{ value: LearningLevelBand; label: string }> = [
   { value: "professional", label: "영어로 업무 소통이나 논의까지 가능해요" },
 ];
 
-const PRONUNCIATION_PEOPLE = [
-  {
-    name: "Michelle Obama",
-    trait: "차분하고 또렷한 리더형 리듬",
-    imageSource: require("../assets/images/speakers/person_1.png"),
-  },
-  {
-    name: "Oprah",
-    trait: "따뜻하고 밀도 있는 저음 톤",
-    imageSource: require("../assets/images/speakers/person_2.png"),
-  },
-  {
-    name: "Taylor Swift",
-    trait: "부드럽고 선명한 미국식 딕션",
-    imageSource: require("../assets/images/speakers/person_3.png"),
-  },
-  {
-    name: "Zendaya",
-    trait: "가볍고 세련된 대화체 억양",
-    imageSource: require("../assets/images/speakers/person_4.png"),
-  },
-  {
-    name: "Emma Watson",
-    trait: "정갈한 영국식 발음과 호흡",
-    imageSource: require("../assets/images/speakers/person_5.png"),
-  },
-  {
-    name: "Jennie",
-    trait: "짧고 감각적인 글로벌 톤",
-    imageSource: require("../assets/images/speakers/person_6.png"),
-  },
-  {
-    name: "Ryan Reynolds",
-    trait: "위트 있게 튀는 북미식 리듬",
-    imageSource: require("../assets/images/speakers/person_7.png"),
-  },
-  {
-    name: "Matt Damon",
-    trait: "담백하고 안정적인 표준 억양",
-    imageSource: require("../assets/images/speakers/person_8.png"),
-  },
-  {
-    name: "Jensen Huang",
-    trait: "명확하고 에너지 있는 발표 톤",
-    imageSource: require("../assets/images/speakers/person_9.png"),
-  },
-  {
-    name: "Simon Sinek",
-    trait: "단단하고 설득력 있는 강연 호흡",
-    imageSource: require("../assets/images/speakers/person_10.png"),
-  },
-  {
-    name: "Conan O'Brien",
-    trait: "리듬감 있고 장난기 있는 억양",
-    imageSource: require("../assets/images/speakers/person_11.png"),
-  },
-  {
-    name: "Barack Obama",
-    trait: "여유롭고 묵직한 연설형 억양",
-    imageSource: require("../assets/images/speakers/person_12.png"),
-  },
-] as const;
-
 const IS_TEST_ENV = process.env.NODE_ENV === "test";
-
-function dedupe(values: string[]) {
-  return [...new Set(values)];
-}
 
 const getOptionButtonStyles = createThemedStyles((theme) => ({
   optionPressable: {
@@ -345,256 +251,6 @@ function MultiSelectRow({
   );
 }
 
-const getChoiceChipStyles = createThemedStyles((theme) => ({
-  chipPressable: {
-    alignSelf: "flex-start" as const,
-  },
-  chip: {
-    borderRadius: theme.radius.full,
-    borderWidth: 1,
-    borderColor: theme.colors.border.default,
-    backgroundColor: theme.colors.surface.muted,
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: 10,
-  },
-  chipPressed: {
-    opacity: 0.92,
-  },
-  chipText: {
-    ...theme.typography.label,
-    color: theme.colors.text.primary,
-  },
-}));
-
-function ChoiceChip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const theme = useTheme();
-  const styles = getChoiceChipStyles(theme);
-  const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
-
-  useEffect(() => {
-    if (IS_TEST_ENV) {
-      selectionAnim.setValue(selected ? 1 : 0);
-      return;
-    }
-
-    Animated.timing(selectionAnim, {
-      toValue: selected ? 1 : 0,
-      duration: 180,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [selected, selectionAnim]);
-
-  return (
-    <Pressable
-      onPress={() => {
-        safeSelectionAsync();
-        onPress();
-      }}
-      style={({ pressed }) => [
-        styles.chipPressable,
-        pressed && styles.chipPressed,
-      ]}
-    >
-      <Animated.View
-        style={[
-          styles.chip,
-          {
-            backgroundColor: selectionAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [
-                theme.colors.surface.muted,
-                theme.colors.action.primary,
-              ],
-            }),
-            borderColor: selectionAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [
-                theme.colors.border.default,
-                theme.colors.action.primary,
-              ],
-            }),
-          },
-        ]}
-      >
-        <Animated.Text
-          style={[
-            styles.chipText,
-            {
-              color: selectionAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [
-                  theme.colors.text.primary,
-                  theme.colors.text.inverse,
-                ],
-              }),
-            },
-          ]}
-        >
-          {label}
-        </Animated.Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-const getPersonCardStyles = createThemedStyles((theme) => ({
-  personCardPressable: {
-    width: "48.5%" as const,
-  },
-  personCard: {
-    aspectRatio: 1,
-    borderRadius: theme.radius.lg,
-    overflow: "hidden" as const,
-    borderWidth: 2,
-    backgroundColor: theme.colors.surface.muted,
-  },
-  personCardPressed: {
-    opacity: 0.92,
-  },
-  personImage: {
-    flex: 1,
-  },
-  // borderRadius matches card minus border width to avoid inner corner bleed
-  personImageInner: {
-    borderRadius: theme.radius.lg - 2,
-  },
-  personGradient: {
-    flex: 1,
-    justifyContent: "space-between" as const,
-    padding: theme.spacing[2],
-  },
-  personCardBadge: {
-    alignSelf: "flex-end" as const,
-    width: 24,
-    height: 24,
-    borderRadius: theme.radius.lg,
-    backgroundColor: mediaOverlay.badge,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  },
-  personCopy: {
-    gap: 2,
-  },
-  personName: {
-    ...theme.typography.bodyStrong,
-    color: theme.colors.text.inverse,
-  },
-  personTrait: {
-    fontSize: 11,
-    lineHeight: 16,
-    color: mediaOverlay.onImageText,
-  },
-}));
-
-function PronunciationPersonCard({
-  name,
-  trait,
-  imageSource,
-  selected,
-  onPress,
-}: {
-  name: string;
-  trait: string;
-  imageSource: ImageSourcePropType;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const theme = useTheme();
-  const styles = getPersonCardStyles(theme);
-  const selectionAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
-
-  useEffect(() => {
-    if (IS_TEST_ENV) {
-      selectionAnim.setValue(selected ? 1 : 0);
-      return;
-    }
-
-    Animated.timing(selectionAnim, {
-      toValue: selected ? 1 : 0,
-      duration: 180,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [selected, selectionAnim]);
-
-  return (
-    <Pressable
-      onPress={() => {
-        safeSelectionAsync();
-        onPress();
-      }}
-      style={({ pressed }) => [
-        styles.personCardPressable,
-        pressed && styles.personCardPressed,
-      ]}
-    >
-      <Animated.View
-        style={[
-          styles.personCard,
-          {
-            borderColor: selectionAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [
-                theme.colors.border.default,
-                theme.colors.action.primary,
-              ],
-            }),
-          },
-        ]}
-      >
-        <ImageBackground
-          source={imageSource}
-          style={styles.personImage}
-          imageStyle={styles.personImageInner}
-        >
-          <LinearGradient
-            colors={[
-              mediaOverlay.gradientTop,
-              mediaOverlay.gradientMid,
-              mediaOverlay.gradientBottom,
-            ]}
-            locations={[0, 0.45, 1]}
-            style={styles.personGradient}
-          >
-            <Animated.View
-              style={[
-                styles.personCardBadge,
-                {
-                  opacity: selectionAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 1],
-                  }),
-                },
-              ]}
-            >
-              <Ionicons
-                name="checkmark"
-                size={14}
-                color={theme.colors.text.inverse}
-              />
-            </Animated.View>
-            <View style={styles.personCopy}>
-              <Text style={styles.personName}>{name}</Text>
-              <Text style={styles.personTrait} numberOfLines={1}>
-                {trait}
-              </Text>
-            </View>
-          </LinearGradient>
-        </ImageBackground>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 const getScreenStyles = createThemedStyles((theme) => ({
   container: {
     flex: 1,
@@ -674,32 +330,6 @@ const getScreenStyles = createThemedStyles((theme) => ({
     marginTop: theme.spacing[2],
     marginBottom: theme.spacing[8],
   },
-  modeRow: {
-    gap: theme.spacing[2],
-    marginBottom: theme.spacing[6],
-  },
-  focusSection: {
-    marginBottom: theme.spacing[8],
-  },
-  focusTitle: {
-    ...theme.typography.bodyStrong,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing[2],
-  },
-  secondaryFocusTitle: {
-    marginTop: theme.spacing[6],
-  },
-  chipWrap: {
-    flexDirection: "row" as const,
-    flexWrap: "wrap" as const,
-    gap: theme.spacing[2],
-  },
-  personGrid: {
-    flexDirection: "row" as const,
-    flexWrap: "wrap" as const,
-    justifyContent: "space-between" as const,
-    gap: theme.spacing[2],
-  },
   primaryButton: {
     backgroundColor: theme.colors.action.primary,
     borderRadius: theme.radius.full,
@@ -741,12 +371,6 @@ export default function OnboardingScreen() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [level, setLevel] = useState<LearningLevelBand | null>(null);
   const [vocabSubmitting, setVocabSubmitting] = useState(false);
-  // @MX:NOTE: Pronunciation mode is feature-gated — default to expression
-  //           on main while speaking stability work continues on the
-  //           feature/speaking-stability branch.
-  const [goalMode, setGoalMode] = useState<LearningGoalMode | null>(
-    "expression",
-  );
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -809,7 +433,6 @@ export default function OnboardingScreen() {
     hydratedProfileKeyRef.current = profileHydrationKey;
 
     setLevel(learningProfile.level_band);
-    setGoalMode("expression");
 
     // Hydrate v1.3 topic/format selections from focus_tags (prefixed).
     const tags = learningProfile.focus_tags ?? [];
@@ -942,11 +565,6 @@ export default function OnboardingScreen() {
       } else {
         transitionToStep("vocab");
       }
-      return;
-    }
-
-    if (step === "goal") {
-      transitionToStep("level");
       return;
     }
 
