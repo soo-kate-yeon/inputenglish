@@ -13,6 +13,9 @@ export * from "./lib/supabase-store";
 export * from "./lib/vocab-band";
 // SPEC-INPUT-003: Frequency-list loader (REQ-VOCAB-F)
 export * from "./lib/frequency-list";
+// SPEC-INPUT-003: Yes/No assessment sampler + scorer (REQ-VOCAB-A)
+export * from "./lib/vocab-assessment-sampler";
+export * from "./lib/vocab-assessment-scorer";
 // Stores
 export * from "./store/app-store";
 export * from "./store/study-store";
