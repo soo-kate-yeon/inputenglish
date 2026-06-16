@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Vocab Assessment & Adaptive Band Loop (SPEC-INPUT-003)
+
+Real vocabulary measurement that drives content↔level matching (replaces the
+self-reported onboarding level). Seed → Persist → Refine, web/shared only
+(mobile onboarding UI is a separate coordinated track).
+
+- **Frequency foundation (REQ-VOCAB-F)**: `packages/shared/src/data/ngsl-frequency.ts` — 3807 frequency-ranked lemmas from NGSL + NAWL (Browne/Culligan/Phillips), CC BY-SA 4.0. `frequency-list.ts` loader (`getLemmaRank`, `bandForRank`, `cumulativeKnownSet`). `band-coverage.ts` hand-seeds replaced (−941 lines).
+- **Yes/No assessment (REQ-VOCAB-A)**: `vocab-assessment-scorer.ts` — pseudoword false-positive correction (`correctedFrac = max(0,(hit−fpr)/(1−fpr))`), estimated vocab size → band (clamped to professional) + seed `known_words`. `vocab-assessment-sampler.ts` builds the test items.
+- **Persist writers (REQ-VOCAB-P)**: `POST /api/premium/vocab-assessment` — fills the previously-writer-less `user_vocab_profiles` + `known_words` (server re-validates tokens against the frequency list; idempotent upsert; RLS user-scoped).
+- **Adaptive refine loop (REQ-VOCAB-R)**: `vocab-band-hysteresis.ts` (K consecutive votes before a one-step band flip, 4-band clamp), `POST /api/premium/vocab-signal`, tap-to-gloss `known_words` writer (`source='tap'`), cold-start fallback to `computeBandCoverage`.
+- **Integration (REQ-VOCAB-I)**: `/api/premium/reading` now feeds the user's `known_words` set to the existing `generateReadingPiece` coverage gate (per-user i+1, signature unchanged); `resolveUserBand` Priority 1 (`estimated_band`) goes live with no `today` route change.
+
 ### Added — Content Automation Layer (SPEC-INPUT-002)
 
 **Agentic video ingest (REQ-AUTO-001)**
