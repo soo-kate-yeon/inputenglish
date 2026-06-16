@@ -47,7 +47,41 @@ import { submitVocabAssessment } from "@/lib/premium-api";
 import type { VocabAnswer } from "@/lib/premium-api";
 import { safeSelectionAsync, safeImpactLight } from "@/lib/safeHaptic";
 
-type OnboardingStep = "vocab" | "level" | "goal" | "details" | "preparing";
+type OnboardingStep =
+  | "vocab"
+  | "level"
+  | "goal"
+  | "topics"
+  | "formats"
+  | "preparing";
+
+// @MX:NOTE: Interest questions are aligned to the v1.3 CI content model
+//   (reading pool = band × format × topic). TOPIC values match the reading
+//   matrix + channel topics; FORMAT values match reading-generation formats.
+//   Selections persist into the learning profile's focus_tags (prefixed) for
+//   the v1.3 assembly wiring (follow-up).
+const TOPIC_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "science", label: "과학" },
+  { value: "technology", label: "테크 / IT" },
+  { value: "economics", label: "경제" },
+  { value: "health", label: "건강 / 웰빙" },
+  { value: "education", label: "교육 / 학습" },
+  { value: "culture", label: "문화 / 예술" },
+  { value: "history", label: "역사" },
+  { value: "climate", label: "환경 / 기후" },
+];
+
+const FORMAT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "nonfiction", label: "정보 / 설명형" },
+  { value: "editorial", label: "시사 / 오피니언" },
+  { value: "dialogue", label: "대화 / 회화체" },
+  { value: "noir", label: "이야기 / 소설" },
+  { value: "business", label: "비즈니스 / 실무" },
+  { value: "economic", label: "경제 분석" },
+];
+
+const TOPIC_TAG_PREFIX = "topic:";
+const FORMAT_TAG_PREFIX = "format:";
 // @MX:NOTE: "vocab" is the primary first step — a Yes/No vocab-size test
 //           (SPEC-INPUT-003) that measures the user's band instead of the
 //           self-reported 4-choice. "level" is kept as an off-sequence
@@ -57,7 +91,12 @@ type OnboardingStep = "vocab" | "level" | "goal" | "details" | "preparing";
 //           stable. The "goal" step is dropped because "expression" is
 //           the only selectable goal_mode right now; re-insert it here
 //           when speaking returns.
-const STEP_SEQUENCE: OnboardingStep[] = ["vocab", "details", "preparing"];
+const STEP_SEQUENCE: OnboardingStep[] = [
+  "vocab",
+  "topics",
+  "formats",
+  "preparing",
+];
 
 const LEVEL_OPTIONS: Array<{ value: LearningLevelBand; label: string }> = [
   { value: "beginner", label: "거의 한 마디도 못해요" },
@@ -232,6 +271,76 @@ function OptionButton({
           {label}
         </Animated.Text>
       </Animated.View>
+    </Pressable>
+  );
+}
+
+const getMultiSelectRowStyles = createThemedStyles((theme) => ({
+  pressable: {
+    width: "100%" as const,
+  },
+  row: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border.default,
+    backgroundColor: theme.colors.surface.muted,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: theme.spacing[4],
+  },
+  rowSelected: {
+    borderColor: theme.colors.action.primary,
+    backgroundColor: theme.colors.action.primary,
+  },
+  rowPressed: {
+    opacity: 0.92,
+  },
+  label: {
+    ...theme.typography.bodyStrong,
+    color: theme.colors.text.primary,
+  },
+  labelSelected: {
+    color: theme.colors.text.inverse,
+  },
+}));
+
+// Full-width, one-per-row multi-select button (replaces the wrap-chip layout).
+function MultiSelectRow({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const styles = getMultiSelectRowStyles(theme);
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={label}
+      onPress={() => {
+        safeSelectionAsync();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.pressable, pressed && styles.rowPressed]}
+    >
+      <View style={[styles.row, selected && styles.rowSelected]}>
+        <Text style={[styles.label, selected && styles.labelSelected]}>
+          {label}
+        </Text>
+        <Ionicons
+          name={selected ? "checkmark-circle" : "ellipse-outline"}
+          size={22}
+          color={
+            selected ? theme.colors.text.inverse : theme.colors.text.secondary
+          }
+        />
+      </View>
     </Pressable>
   );
 }
@@ -638,11 +747,8 @@ export default function OnboardingScreen() {
   const [goalMode, setGoalMode] = useState<LearningGoalMode | null>(
     "expression",
   );
-  const [focusTags, setFocusTags] = useState<string[]>([]);
-  const [expressionSituations, setExpressionSituations] = useState<string[]>(
-    [],
-  );
-  const [expressionTopics, setExpressionTopics] = useState<string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const hydratedProfileKeyRef = useRef<string | null>(null);
   const stepTransition = useRef(new Animated.Value(1)).current;
@@ -703,73 +809,29 @@ export default function OnboardingScreen() {
     hydratedProfileKeyRef.current = profileHydrationKey;
 
     setLevel(learningProfile.level_band);
-    // @MX:NOTE: Coerce any legacy "pronunciation" profile into "expression"
-    //           while the speaking feature is gated off on main. The
-    //           pronunciation-specific focus tags (preferred_speakers)
-    //           do not map onto expression's situation/topic data model,
-    //           so we reset them and let the user re-pick on the details
-    //           step. When speaking comes back, drop this coercion.
-    const effectiveGoalMode: LearningGoalMode =
-      learningProfile.goal_mode === "pronunciation" ||
-      !learningProfile.goal_mode
-        ? "expression"
-        : learningProfile.goal_mode;
-    setGoalMode(effectiveGoalMode);
+    setGoalMode("expression");
 
-    if (learningProfile.goal_mode === "expression") {
-      const situations =
-        learningProfile.preferred_situations.length > 0
-          ? learningProfile.preferred_situations.filter((item) =>
-              SPEAKING_SITUATIONS.includes(item as SpeakingSituation),
-            )
-          : learningProfile.focus_tags.filter((item) =>
-              SPEAKING_SITUATIONS.includes(item as SpeakingSituation),
-            );
-      const topics =
-        learningProfile.preferred_genres.length > 0
-          ? learningProfile.preferred_genres.filter((item) =>
-              GENRES.includes(item as Genre),
-            )
-          : learningProfile.focus_tags.filter((item) =>
-              GENRES.includes(item as Genre),
-            );
-      setExpressionSituations(situations);
-      setExpressionTopics(topics);
-      setFocusTags(dedupe([...situations, ...topics]));
-    } else {
-      setFocusTags([]);
-      setExpressionSituations([]);
-      setExpressionTopics([]);
-    }
+    // Hydrate v1.3 topic/format selections from focus_tags (prefixed).
+    const tags = learningProfile.focus_tags ?? [];
+    setSelectedTopics(
+      tags
+        .filter((t) => t.startsWith(TOPIC_TAG_PREFIX))
+        .map((t) => t.slice(TOPIC_TAG_PREFIX.length)),
+    );
+    setSelectedFormats(
+      tags
+        .filter((t) => t.startsWith(FORMAT_TAG_PREFIX))
+        .map((t) => t.slice(FORMAT_TAG_PREFIX.length)),
+    );
   }, [learningProfile, user]);
 
-  useEffect(() => {
-    if (goalMode !== "expression") return;
-    setFocusTags(dedupe([...expressionSituations, ...expressionTopics]));
-  }, [expressionSituations, expressionTopics, goalMode]);
-
-  useEffect(() => {
-    if (step !== "details") return;
-
-    if (!goalMode) {
-      // goalMode is always defaulted to "expression" while speaking is
-      // gated, so this path is effectively unreachable. Kept as a safety
-      // net — route back to level instead of the removed goal step.
-      setStep("level");
-    }
-  }, [goalMode, step]);
-
-  const canSubmit = useMemo(() => {
-    if (!level || !goalMode) return false;
-    if (goalMode === "pronunciation") return focusTags.length > 0;
-    return expressionSituations.length > 0 && expressionTopics.length > 0;
-  }, [
-    expressionSituations.length,
-    expressionTopics.length,
-    focusTags.length,
-    goalMode,
-    level,
-  ]);
+  // Each interest step needs at least one selection before advancing.
+  const canLeaveTopics = selectedTopics.length > 0;
+  const canSubmit = useMemo(
+    () =>
+      Boolean(level) && selectedTopics.length > 0 && selectedFormats.length > 0,
+    [level, selectedTopics.length, selectedFormats.length],
+  );
 
   const toggleSelection = (
     value: string,
@@ -849,7 +911,7 @@ export default function OnboardingScreen() {
         level: result.estimatedLevel,
         seedCount: result.seedCount,
       });
-      transitionToStep("details");
+      transitionToStep("topics");
     } catch (error) {
       console.error("[Onboarding] vocab assessment failed:", error);
       // Abandonment / failure → manual level fallback (no garbage persisted).
@@ -863,14 +925,18 @@ export default function OnboardingScreen() {
     if (isSaving || step === "preparing" || vocabSubmitting) return;
     safeImpactLight();
 
-    if (step === "details") {
+    if (step === "formats") {
+      transitionToStep("topics");
+      return;
+    }
+
+    if (step === "topics") {
       transitionToStep(isEditMode ? "level" : "vocab");
       return;
     }
 
     if (step === "level") {
-      // Manual picker is the skip fallback from the vocab test. In edit mode
-      // it is the first step, so back exits the flow.
+      // Manual picker is the vocab-failure fallback / edit-mode entry.
       if (isEditMode) {
         router.back();
       } else {
@@ -880,8 +946,6 @@ export default function OnboardingScreen() {
     }
 
     if (step === "goal") {
-      // Dead fallback: goal step is removed from STEP_SEQUENCE. Kept in
-      // case some future code path lands here, route back to level.
       transitionToStep("level");
       return;
     }
@@ -890,7 +954,7 @@ export default function OnboardingScreen() {
   };
 
   const handleComplete = async () => {
-    if (!user || !goalMode || !level || focusTags.length === 0) return;
+    if (!user || !level || !canSubmit) return;
     safeImpactLight();
 
     cancelPendingStepTransition();
@@ -899,34 +963,24 @@ export default function OnboardingScreen() {
 
     try {
       trackEvent("onboarding_level_selected", { levelBand: level });
-      trackEvent("onboarding_goal_selected", { goalMode, focusTags });
 
+      // Persist v1.3 interest selections in focus_tags (prefixed) for the
+      // assembly wiring (follow-up). Legacy curation fields are left empty.
       await updateLearningProfile({
         level_band: level,
-        goal_mode: goalMode,
-        focus_tags:
-          goalMode === "expression"
-            ? dedupe([...expressionSituations, ...expressionTopics])
-            : [],
-        preferred_speakers: goalMode === "pronunciation" ? focusTags : [],
-        preferred_situations:
-          goalMode === "expression"
-            ? (expressionSituations as SpeakingSituation[])
-            : [],
-        preferred_source_types:
-          goalMode === "expression"
-            ? inferPremiumPreferredSourceTypes({
-                situations: expressionSituations as SpeakingSituation[],
-                genres: expressionTopics as Genre[],
-              })
-            : [],
-        preferred_genres:
-          goalMode === "expression" ? (expressionTopics as Genre[]) : [],
+        goal_mode: "expression",
+        focus_tags: [
+          ...selectedTopics.map((t) => `${TOPIC_TAG_PREFIX}${t}`),
+          ...selectedFormats.map((f) => `${FORMAT_TAG_PREFIX}${f}`),
+        ],
+        preferred_speakers: [],
+        preferred_situations: [],
+        preferred_source_types: [],
+        preferred_genres: [],
         onboarding_completed_at: new Date().toISOString(),
       });
 
       trackEvent("onboarding_complete", {
-        goalMode,
         levelBand: level,
         source: isEditMode ? "settings" : "auth",
       });
@@ -935,7 +989,7 @@ export default function OnboardingScreen() {
     } catch (error) {
       console.error("[Onboarding] Failed to save learning profile:", error);
       cancelPendingStepTransition();
-      setStep("details");
+      setStep("formats");
     } finally {
       setIsSaving(false);
     }
@@ -985,105 +1039,46 @@ export default function OnboardingScreen() {
       );
     }
 
-    if (targetStep === "goal") {
+    if (targetStep === "topics") {
       return (
         <View style={styles.stepBlock}>
-          <Text style={styles.title}>
-            지금 집중하고 싶은 영역은 어느 쪽인가요?
-          </Text>
+          <Text style={styles.title}>어떤 주제에 관심 있으세요?</Text>
           <Text style={styles.body}>
-            선택에 따라 제공해드릴 학습 컨텐츠가 달라져요. 언제든지 바꿀 수
-            있어요.
+            고른 주제로 매일 도착하는 콘텐츠가 맞춰져요. 여러 개 골라도 돼요.
           </Text>
-          <View style={styles.modeRow}>
-            <OptionButton
-              label="발음이나 억양을 개선하고 싶어요"
-              selected={goalMode === "pronunciation"}
-              onPress={() => {
-                setGoalMode("pronunciation");
-                setFocusTags([]);
-                setExpressionSituations([]);
-                setExpressionTopics([]);
-              }}
-            />
-            <OptionButton
-              label="말할 때 쓸 수 있는 표현이 다양해지면 좋겠어요"
-              selected={goalMode === "expression"}
-              onPress={() => {
-                setGoalMode("expression");
-                setFocusTags([]);
-                setExpressionSituations([]);
-                setExpressionTopics([]);
-              }}
-            />
+          <View style={styles.optionList}>
+            {TOPIC_OPTIONS.map((option) => (
+              <MultiSelectRow
+                key={option.value}
+                label={option.label}
+                selected={selectedTopics.includes(option.value)}
+                onPress={() => toggleSelection(option.value, setSelectedTopics)}
+              />
+            ))}
           </View>
         </View>
       );
     }
 
-    if (targetStep === "details") {
+    if (targetStep === "formats") {
       return (
         <View style={styles.stepBlock}>
-          {goalMode === "pronunciation" ? (
-            <View style={styles.focusSection}>
-              <Text style={styles.title}>
-                발음이나 억양 연습을 할 때 선호하는 인물이 있나요?
-              </Text>
-              <Text style={styles.body}>
-                선호도에 맞춰 영상을 추천해드릴게요.
-              </Text>
-              <View style={styles.personGrid}>
-                {PRONUNCIATION_PEOPLE.map((person) => (
-                  <PronunciationPersonCard
-                    key={person.name}
-                    name={person.name}
-                    trait={person.trait}
-                    imageSource={person.imageSource}
-                    selected={focusTags.includes(person.name)}
-                    onPress={() => toggleSelection(person.name, setFocusTags)}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          {goalMode === "expression" ? (
-            <View style={styles.focusSection}>
-              <Text style={styles.title}>
-                주로 어떤 상황에서 영어를 많이 쓰게 될까요?
-              </Text>
-              <Text style={styles.body}>
-                처음 관심사 클러스터를 잡아두면 매일 도착하는 큐레이션이 더
-                빠르게 맞아져요.
-              </Text>
-              <View style={styles.chipWrap}>
-                {SPEAKING_SITUATIONS.map((tag) => (
-                  <ChoiceChip
-                    key={tag}
-                    label={SPEAKING_SITUATION_LABELS[tag]}
-                    selected={expressionSituations.includes(tag)}
-                    onPress={() =>
-                      toggleSelection(tag, setExpressionSituations)
-                    }
-                  />
-                ))}
-              </View>
-
-              <Text style={[styles.focusTitle, styles.secondaryFocusTitle]}>
-                어떤 주제의 영상들이 있으면 하루라도 더 들어오고 싶어질까요?
-              </Text>
-              <View style={styles.chipWrap}>
-                {GENRES.map((tag) => (
-                  <ChoiceChip
-                    key={tag}
-                    label={GENRE_LABELS[tag]}
-                    selected={expressionTopics.includes(tag)}
-                    onPress={() => toggleSelection(tag, setExpressionTopics)}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
+          <Text style={styles.title}>어떤 스타일을 좋아하세요?</Text>
+          <Text style={styles.body}>
+            같은 주제도 풀어내는 방식이 달라요. 끌리는 형식을 골라주세요.
+          </Text>
+          <View style={styles.optionList}>
+            {FORMAT_OPTIONS.map((option) => (
+              <MultiSelectRow
+                key={option.value}
+                label={option.label}
+                selected={selectedFormats.includes(option.value)}
+                onPress={() =>
+                  toggleSelection(option.value, setSelectedFormats)
+                }
+              />
+            ))}
+          </View>
         </View>
       );
     }
@@ -1176,8 +1171,7 @@ export default function OnboardingScreen() {
                     onPress={() => {
                       if (!level) return;
                       safeImpactLight();
-                      // Skip the goal step (gated off with speaking).
-                      transitionToStep("details");
+                      transitionToStep("topics");
                     }}
                     disabled={!level}
                   >
@@ -1185,25 +1179,25 @@ export default function OnboardingScreen() {
                   </Pressable>
                 ) : null}
 
-                {step === "goal" ? (
+                {step === "topics" ? (
                   <Pressable
-                    accessibilityLabel="학습 목표 다음 단계"
+                    accessibilityLabel="관심 주제 다음 단계"
                     style={[
                       styles.primaryButton,
-                      !goalMode && styles.primaryButtonDisabled,
+                      !canLeaveTopics && styles.primaryButtonDisabled,
                     ]}
                     onPress={() => {
-                      if (!goalMode) return;
+                      if (!canLeaveTopics) return;
                       safeImpactLight();
-                      transitionToStep("details");
+                      transitionToStep("formats");
                     }}
-                    disabled={!goalMode}
+                    disabled={!canLeaveTopics}
                   >
                     <Text style={styles.primaryButtonText}>다음</Text>
                   </Pressable>
                 ) : null}
 
-                {step === "details" ? (
+                {step === "formats" ? (
                   <Pressable
                     accessibilityLabel="온보딩 완료하기"
                     style={[
@@ -1213,9 +1207,7 @@ export default function OnboardingScreen() {
                     onPress={handleComplete}
                     disabled={!canSubmit || isSaving}
                   >
-                    <Text style={styles.primaryButtonText}>
-                      {isEditMode ? "저장하기" : "저장하기"}
-                    </Text>
+                    <Text style={styles.primaryButtonText}>저장하기</Text>
                   </Pressable>
                 ) : null}
               </View>

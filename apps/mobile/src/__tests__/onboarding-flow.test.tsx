@@ -36,18 +36,25 @@ jest.mock("../../src/lib/premium-api", () => ({
   submitVocabAssessment: (...args: unknown[]) => mockSubmitVocab(...args),
 }));
 
-// Page through the (mandatory) vocab test and submit, landing on the details
-// step. The button is always "다음"; the final press submits and advances, so we
-// stop once the details title appears (and flush the async submit between taps).
+// Page through the (mandatory) vocab test; the final "다음" submits the band and
+// lands on the topics step.
 async function passVocabTest(utils: ReturnType<typeof render>) {
   for (let i = 0; i < 10; i += 1) {
-    if (utils.queryByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?")) break;
+    if (utils.queryByText("어떤 주제에 관심 있으세요?")) break;
     const next = utils.queryByText("다음");
     if (!next) break;
     fireEvent.press(next);
     await act(async () => {});
   }
-  await utils.findByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?");
+  await utils.findByText("어떤 주제에 관심 있으세요?");
+}
+
+// On the topics step: pick a topic → next → pick a format → save.
+function selectInterestsAndComplete(utils: ReturnType<typeof render>) {
+  fireEvent.press(utils.getByText("과학"));
+  fireEvent.press(utils.getByText("다음"));
+  fireEvent.press(utils.getByText("정보 / 설명형"));
+  fireEvent.press(utils.getByText("저장하기"));
 }
 
 describe("OnboardingScreen", () => {
@@ -69,11 +76,9 @@ describe("OnboardingScreen", () => {
     mockLearningProfile = null;
   });
 
-  it("measures the band via the vocab test then advances to details", async () => {
+  it("measures the band via the vocab test then advances to topics", async () => {
     const utils = render(<OnboardingScreen />);
-
     await passVocabTest(utils);
-
     expect(mockSubmitVocab).toHaveBeenCalled();
   });
 
@@ -92,97 +97,70 @@ describe("OnboardingScreen", () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
-  it("completes onboarding and saves the learning profile with expression as the forced goal", async () => {
-    // Speaking/pronunciation is feature-gated on main (see
-    // feature/speaking-stability), so the goal step is skipped and
-    // goal_mode is always "expression" at submit time. The band comes from the
-    // vocab test (mocked → "conversation").
+  it("completes onboarding and saves v1.3 topic/format interests", async () => {
     const utils = render(<OnboardingScreen />);
-    const { getByText, getByLabelText } = utils;
 
     await passVocabTest(utils);
-    fireEvent.press(getByText("학교/업무"));
-    fireEvent.press(getByText("업무"));
-    fireEvent.press(getByLabelText("온보딩 완료하기"));
+    selectInterestsAndComplete(utils);
 
     await waitFor(() => {
       expect(mockUpdateLearningProfile).toHaveBeenCalledWith({
         level_band: "conversation",
         goal_mode: "expression",
-        focus_tags: ["school-work", "business"],
+        focus_tags: ["topic:science", "format:nonfiction"],
         preferred_speakers: [],
-        preferred_situations: ["school-work"],
-        preferred_source_types: [
-          "public-speech",
-          "interview",
-          "podcast",
-          "keynote",
-        ],
-        preferred_genres: ["business"],
+        preferred_situations: [],
+        preferred_source_types: [],
+        preferred_genres: [],
         onboarding_completed_at: expect.any(String),
       });
       expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
     });
   });
 
-  it("coerces a legacy pronunciation profile into expression on edit", async () => {
-    // Existing profiles with goal_mode = "pronunciation" from before the
-    // feature gate must be migrated on the fly: the speaker selections
-    // do not map onto expression's situation/topic model, so we reset
-    // them and require the user to pick expression-specific details.
+  it("saves from edit mode starting at the manual level picker", async () => {
     mockParams = { edit: "1" };
     mockLearningProfile = {
       user_id: "user-1",
       level_band: "professional",
-      goal_mode: "pronunciation",
-      focus_tags: ["Jensen Huang"],
-      preferred_speakers: ["Jensen Huang"],
+      goal_mode: "expression",
+      focus_tags: [],
+      preferred_speakers: [],
       preferred_situations: [],
       preferred_source_types: [],
       preferred_genres: [],
       onboarding_completed_at: null,
     };
 
-    const { getByText, getByLabelText } = render(<OnboardingScreen />);
+    const utils = render(<OnboardingScreen />);
 
-    fireEvent.press(getByLabelText("학습 수준 다음 단계"));
-    fireEvent.press(getByText("학교/업무"));
-    fireEvent.press(getByText("업무"));
-    fireEvent.press(getByText("저장하기"));
+    // Edit mode starts at the manual level picker (level is hydrated).
+    fireEvent.press(utils.getByLabelText("학습 수준 다음 단계"));
+    selectInterestsAndComplete(utils);
 
     await waitFor(() => {
       expect(mockUpdateLearningProfile).toHaveBeenCalledWith({
         level_band: "professional",
         goal_mode: "expression",
-        focus_tags: ["school-work", "business"],
+        focus_tags: ["topic:science", "format:nonfiction"],
         preferred_speakers: [],
-        preferred_situations: ["school-work"],
-        preferred_source_types: [
-          "public-speech",
-          "interview",
-          "podcast",
-          "keynote",
-        ],
-        preferred_genres: ["business"],
+        preferred_situations: [],
+        preferred_source_types: [],
+        preferred_genres: [],
         onboarding_completed_at: expect.any(String),
       });
     });
   });
 
-  it("returns to the details step when saving the profile fails", async () => {
+  it("returns to the formats step when saving the profile fails", async () => {
     mockUpdateLearningProfile.mockRejectedValueOnce(new Error("save failed"));
 
     const utils = render(<OnboardingScreen />);
-    const { getByText, getByLabelText, findByText } = utils;
 
     await passVocabTest(utils);
-    fireEvent.press(getByText("학교/업무"));
-    fireEvent.press(getByText("업무"));
-    fireEvent.press(getByLabelText("온보딩 완료하기"));
+    selectInterestsAndComplete(utils);
 
-    expect(
-      await findByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?"),
-    ).toBeTruthy();
+    expect(await utils.findByText("어떤 스타일을 좋아하세요?")).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });
