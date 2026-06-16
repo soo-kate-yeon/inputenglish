@@ -4,6 +4,7 @@ import type {
   PremiumSession,
   ReadingPiece,
   VideoSegment,
+  VocabBand,
 } from "@inputenglish/shared";
 import { premiumSessionFixture } from "@/fixtures/premium-session";
 import { ciSessionFixture } from "@/fixtures/ci-session";
@@ -270,4 +271,53 @@ export async function askHighlightQuestion(
   }
 
   return response.json() as Promise<QuestionResponse>;
+}
+
+// --- Vocab assessment (SPEC-INPUT-003 REQ-VOCAB-P) ---
+
+export interface VocabAnswer {
+  token: string;
+  known: boolean;
+}
+
+export interface VocabAssessmentResult {
+  estimatedBand: VocabBand;
+  estimatedLevel: string;
+  seedCount: number;
+}
+
+// Submit the onboarding Yes/No vocab test. The server is authoritative: it
+// re-derives isReal/band from the frequency list, scores, and persists
+// user_vocab_profiles + seed known_words. We only send { token, known }.
+export async function submitVocabAssessment(
+  answers: VocabAnswer[],
+): Promise<VocabAssessmentResult> {
+  const webApiUrl = getWebApiUrl();
+  if (shouldForceFixtureMode(webApiUrl)) {
+    return {
+      estimatedBand: "conversation",
+      estimatedLevel: "B1",
+      seedCount: answers.filter((a) => a.known).length,
+    };
+  }
+  if (!webApiUrl) {
+    throw new PremiumApiConfigurationError();
+  }
+
+  const response = await fetch(`${webApiUrl}/api/premium/vocab-assessment`, {
+    method: "POST",
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ answers }),
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(
+      payload.error ?? `어휘 평가 제출에 실패했어요. (${response.status})`,
+    );
+  }
+
+  return response.json() as Promise<VocabAssessmentResult>;
 }

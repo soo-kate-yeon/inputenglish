@@ -4,6 +4,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 const mockReplace = jest.fn();
 const mockUpdateLearningProfile = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockSubmitVocab = jest.fn();
 let mockParams: { edit?: string } = {};
 let mockLearningProfile: any = null;
 
@@ -27,6 +28,12 @@ jest.mock("../../src/lib/analytics", () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
+// premium-api pulls in @/lib/supabase (throws at load without env). Mock it so
+// onboarding can import submitVocabAssessment in tests.
+jest.mock("../../src/lib/premium-api", () => ({
+  submitVocabAssessment: (...args: unknown[]) => mockSubmitVocab(...args),
+}));
+
 describe("OnboardingScreen", () => {
   const OnboardingScreen = require("../../app/onboarding").default;
 
@@ -35,8 +42,34 @@ describe("OnboardingScreen", () => {
     mockUpdateLearningProfile.mockReset();
     mockUpdateLearningProfile.mockResolvedValue({});
     mockTrackEvent.mockClear();
+    mockSubmitVocab.mockReset();
+    mockSubmitVocab.mockResolvedValue({
+      estimatedBand: "conversation",
+      estimatedLevel: "B1",
+      seedCount: 12,
+    });
     mockParams = {};
     mockLearningProfile = null;
+  });
+
+  it("measures the band via the vocab test then advances to details", async () => {
+    const { getByText, queryByText } = render(<OnboardingScreen />);
+
+    // Vocab test is the first step. Page through to the end and submit.
+    for (let i = 0; i < 12; i += 1) {
+      const next = queryByText("다음");
+      if (!next) break;
+      fireEvent.press(next);
+    }
+    fireEvent.press(getByText("결과 확인"));
+
+    await waitFor(() => {
+      expect(mockSubmitVocab).toHaveBeenCalled();
+      // Advanced to the details step after the server returns the band.
+      expect(
+        getByText("주로 어떤 상황에서 영어를 많이 쓰게 될까요?"),
+      ).toBeTruthy();
+    });
   });
 
   it("completes onboarding and saves the learning profile with expression as the forced goal", async () => {
@@ -45,6 +78,8 @@ describe("OnboardingScreen", () => {
     // goal_mode is always "expression" at submit time.
     const { getByText, getByLabelText } = render(<OnboardingScreen />);
 
+    // Skip the vocab test to reach the manual level picker (fallback path).
+    fireEvent.press(getByText("건너뛰고 직접 선택할게요"));
     fireEvent.press(getByText("일상 회화는 가능해요"));
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
     fireEvent.press(getByText("학교/업무"));
@@ -122,6 +157,7 @@ describe("OnboardingScreen", () => {
       <OnboardingScreen />,
     );
 
+    fireEvent.press(getByText("건너뛰고 직접 선택할게요"));
     fireEvent.press(getByText("일상 회화는 가능해요"));
     fireEvent.press(getByLabelText("학습 수준 다음 단계"));
     fireEvent.press(getByText("학교/업무"));

@@ -42,14 +42,21 @@ import { trackEvent } from "@/lib/analytics";
 import { inferPremiumPreferredSourceTypes } from "@/lib/premium-interest-clusters";
 import { useTheme, createThemedStyles } from "@/components/ui";
 import { mediaOverlay } from "@inputenglish/design-tokens";
+import { VocabAssessment } from "@/components/onboarding/VocabAssessment";
+import { submitVocabAssessment } from "@/lib/premium-api";
+import type { VocabAnswer } from "@/lib/premium-api";
 
-type OnboardingStep = "level" | "goal" | "details" | "preparing";
+type OnboardingStep = "vocab" | "level" | "goal" | "details" | "preparing";
+// @MX:NOTE: "vocab" is the primary first step — a Yes/No vocab-size test
+//           (SPEC-INPUT-003) that measures the user's band instead of the
+//           self-reported 4-choice. "level" is kept as an off-sequence
+//           fallback reached by skipping the test (abandonment, I-W1).
 // @MX:NOTE: Speaking/pronunciation is feature-gated on main until the
 //           Azure + ffmpeg pipeline on feature/speaking-stability is
 //           stable. The "goal" step is dropped because "expression" is
 //           the only selectable goal_mode right now; re-insert it here
 //           when speaking returns.
-const STEP_SEQUENCE: OnboardingStep[] = ["level", "details", "preparing"];
+const STEP_SEQUENCE: OnboardingStep[] = ["vocab", "details", "preparing"];
 
 const LEVEL_OPTIONS: Array<{ value: LearningLevelBand; label: string }> = [
   { value: "beginner", label: "거의 한 마디도 못해요" },
@@ -477,6 +484,12 @@ const getScreenStyles = createThemedStyles((theme) => ({
   screen: {
     flex: 1,
   },
+  vocabContainer: {
+    flex: 1,
+    paddingHorizontal: theme.spacing[4],
+    paddingTop: theme.spacing[4],
+    paddingBottom: theme.spacing[6],
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: theme.spacing[4],
@@ -600,10 +613,15 @@ export default function OnboardingScreen() {
     useAuth();
   const { width: viewportWidth } = useWindowDimensions();
   const isEditMode = edit === "1";
-  const [step, setStep] = useState<OnboardingStep>("level");
+  // Fresh onboarding starts with the vocab test; edit mode jumps straight to
+  // the manual level picker (no need to re-measure on a profile edit).
+  const [step, setStep] = useState<OnboardingStep>(
+    isEditMode ? "level" : "vocab",
+  );
   const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [level, setLevel] = useState<LearningLevelBand | null>(null);
+  const [vocabSubmitting, setVocabSubmitting] = useState(false);
   // @MX:NOTE: Pronunciation mode is feature-gated — default to expression
   //           on main while speaking stability work continues on the
   //           feature/speaking-stability branch.
@@ -804,13 +822,55 @@ export default function OnboardingScreen() {
     stepTransition.setValue(1);
   }, [stepTransition]);
 
+  // @MX:NOTE: Vocab test completion (SPEC-INPUT-003 I-E1). The server scores +
+  //           persists user_vocab_profiles + seed known_words and returns the
+  //           estimated band, which seeds the manual `level` state so the
+  //           profile save stays consistent. On failure, fall back to the
+  //           manual level picker (abandonment-safe, I-W1).
+  const handleVocabComplete = async (answers: VocabAnswer[]) => {
+    if (vocabSubmitting) return;
+    setVocabSubmitting(true);
+    try {
+      const result = await submitVocabAssessment(answers);
+      // VocabBand and LearningLevelBand share the same 4 values.
+      setLevel(result.estimatedBand as LearningLevelBand);
+      trackEvent("onboarding_vocab_assessed", {
+        band: result.estimatedBand,
+        level: result.estimatedLevel,
+        seedCount: result.seedCount,
+      });
+      transitionToStep("details");
+    } catch (error) {
+      console.error("[Onboarding] vocab assessment failed:", error);
+      // Abandonment / failure → manual level fallback (no garbage persisted).
+      transitionToStep("level");
+    } finally {
+      setVocabSubmitting(false);
+    }
+  };
+
+  const handleVocabSkip = () => {
+    if (vocabSubmitting) return;
+    trackEvent("onboarding_vocab_skipped", {});
+    transitionToStep("level");
+  };
+
   const handleBack = () => {
-    if (isSaving || step === "preparing") return;
+    if (isSaving || step === "preparing" || vocabSubmitting) return;
 
     if (step === "details") {
-      // Goal step is skipped while speaking is gated — go straight back
-      // to level.
-      transitionToStep("level");
+      transitionToStep(isEditMode ? "level" : "vocab");
+      return;
+    }
+
+    if (step === "level") {
+      // Manual picker is the skip fallback from the vocab test. In edit mode
+      // it is the first step, so back exits the flow.
+      if (isEditMode) {
+        router.back();
+      } else {
+        transitionToStep("vocab");
+      }
       return;
     }
 
@@ -1052,96 +1112,124 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.screen}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            step !== "preparing" && styles.contentWithFooter,
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.headerRow}>
-            <Pressable
-              accessibilityLabel="이전"
-              onPress={handleBack}
-              style={({ pressed }) => [
-                styles.backButton,
-                pressed && styles.backButtonPressed,
+        {step === "vocab" ? (
+          <View style={styles.vocabContainer}>
+            <View style={styles.headerRow}>
+              <Pressable
+                accessibilityLabel="이전"
+                onPress={handleBack}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.backButtonPressed,
+                ]}
+              >
+                <Ionicons
+                  name="arrow-back"
+                  size={22}
+                  color={theme.colors.text.primary}
+                />
+              </Pressable>
+            </View>
+            <VocabAssessment
+              onComplete={handleVocabComplete}
+              onSkip={handleVocabSkip}
+              submitting={vocabSubmitting}
+            />
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              contentContainerStyle={[
+                styles.content,
+                step !== "preparing" && styles.contentWithFooter,
               ]}
+              showsVerticalScrollIndicator={false}
             >
-              <Ionicons
-                name="arrow-back"
-                size={22}
-                color={theme.colors.text.primary}
-              />
-            </Pressable>
-          </View>
-          <View style={styles.stepViewport}>
-            <Animated.View
-              style={[
-                styles.stepAnimatedContainer,
-                styles.stepLayerCurrent,
-                buildStepAnimatedStyle(),
-              ]}
-            >
-              {renderStepContent(step)}
-            </Animated.View>
-          </View>
-        </ScrollView>
+              <View style={styles.headerRow}>
+                <Pressable
+                  accessibilityLabel="이전"
+                  onPress={handleBack}
+                  style={({ pressed }) => [
+                    styles.backButton,
+                    pressed && styles.backButtonPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="arrow-back"
+                    size={22}
+                    color={theme.colors.text.primary}
+                  />
+                </Pressable>
+              </View>
+              <View style={styles.stepViewport}>
+                <Animated.View
+                  style={[
+                    styles.stepAnimatedContainer,
+                    styles.stepLayerCurrent,
+                    buildStepAnimatedStyle(),
+                  ]}
+                >
+                  {renderStepContent(step)}
+                </Animated.View>
+              </View>
+            </ScrollView>
 
-        {step !== "preparing" ? (
-          <View style={styles.footerCta}>
-            {step === "level" ? (
-              <Pressable
-                accessibilityLabel="학습 수준 다음 단계"
-                style={[
-                  styles.primaryButton,
-                  !level && styles.primaryButtonDisabled,
-                ]}
-                onPress={() => {
-                  if (!level) return;
-                  // Skip the goal step (gated off with speaking).
-                  transitionToStep("details");
-                }}
-                disabled={!level}
-              >
-                <Text style={styles.primaryButtonText}>다음</Text>
-              </Pressable>
-            ) : null}
+            {step !== "preparing" ? (
+              <View style={styles.footerCta}>
+                {step === "level" ? (
+                  <Pressable
+                    accessibilityLabel="학습 수준 다음 단계"
+                    style={[
+                      styles.primaryButton,
+                      !level && styles.primaryButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      if (!level) return;
+                      // Skip the goal step (gated off with speaking).
+                      transitionToStep("details");
+                    }}
+                    disabled={!level}
+                  >
+                    <Text style={styles.primaryButtonText}>다음</Text>
+                  </Pressable>
+                ) : null}
 
-            {step === "goal" ? (
-              <Pressable
-                accessibilityLabel="학습 목표 다음 단계"
-                style={[
-                  styles.primaryButton,
-                  !goalMode && styles.primaryButtonDisabled,
-                ]}
-                onPress={() => {
-                  if (!goalMode) return;
-                  transitionToStep("details");
-                }}
-                disabled={!goalMode}
-              >
-                <Text style={styles.primaryButtonText}>다음</Text>
-              </Pressable>
-            ) : null}
+                {step === "goal" ? (
+                  <Pressable
+                    accessibilityLabel="학습 목표 다음 단계"
+                    style={[
+                      styles.primaryButton,
+                      !goalMode && styles.primaryButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      if (!goalMode) return;
+                      transitionToStep("details");
+                    }}
+                    disabled={!goalMode}
+                  >
+                    <Text style={styles.primaryButtonText}>다음</Text>
+                  </Pressable>
+                ) : null}
 
-            {step === "details" ? (
-              <Pressable
-                accessibilityLabel="온보딩 완료하기"
-                style={[
-                  styles.primaryButton,
-                  (!canSubmit || isSaving) && styles.primaryButtonDisabled,
-                ]}
-                onPress={handleComplete}
-                disabled={!canSubmit || isSaving}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {isEditMode ? "저장하기" : "저장하기"}
-                </Text>
-              </Pressable>
+                {step === "details" ? (
+                  <Pressable
+                    accessibilityLabel="온보딩 완료하기"
+                    style={[
+                      styles.primaryButton,
+                      (!canSubmit || isSaving) && styles.primaryButtonDisabled,
+                    ]}
+                    onPress={handleComplete}
+                    disabled={!canSubmit || isSaving}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {isEditMode ? "저장하기" : "저장하기"}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
             ) : null}
-          </View>
-        ) : null}
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
