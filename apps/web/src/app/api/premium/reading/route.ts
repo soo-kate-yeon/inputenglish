@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiUser } from "@/utils/supabase/api-auth";
+import { createAdminClient } from "@/utils/supabase/server";
 import { resolvePremiumEntitlement } from "@/lib/premium/entitlement";
 import { generateReadingPiece } from "@/lib/premium/reading-generation";
+import { fetchKnownLemmas } from "@/lib/premium/vocab-assessment-repository";
 import type { ReadingFormat } from "@inputenglish/shared";
 
 const PREMIUM_API_HEADERS = {
@@ -24,7 +26,11 @@ const readingRequestSchema = z.object({
 });
 
 // @MX:ANCHOR: [AUTO] POST /api/premium/reading — entitlement-gated reading piece generation.
-// @MX:REASON: Fan-in from mobile client; auth + entitlement must be verified before LLM call.
+// @MX:REASON: [AUTO] Fan-in from mobile client; auth + entitlement must be verified before LLM call.
+// @MX:NOTE: [AUTO] Per-user i+1 gate now live (REQ-VOCAB-I I-E1).
+//   fetchKnownLemmas() supplies the user's known_words as a Set<string> to generateReadingPiece().
+//   The gate inside generateReadingPiece self-skips when the set is empty (cold-start safe).
+//   generateReadingPiece signature is UNCHANGED (knownLemmas?: Set<string> remains optional).
 export async function POST(request: NextRequest) {
   const user = await requireApiUser(request);
   if (user instanceof Response) return user;
@@ -61,11 +67,18 @@ export async function POST(request: NextRequest) {
 
     const { level, format, topic, userId } = parseResult.data;
 
+    // I-E1: Fetch per-user known lemmas to supply the coverage gate.
+    // Uses the authenticated user's id (from JWT), not the client-sent userId.
+    // An empty Set is safe: generateReadingPiece's gate self-skips when size === 0.
+    const supabase = createAdminClient();
+    const knownLemmas = await fetchKnownLemmas(supabase, user.id);
+
     const piece = await generateReadingPiece({
       level,
       format: format as ReadingFormat,
       topic,
       userId,
+      knownLemmas,
     });
 
     return NextResponse.json(piece, { headers: PREMIUM_API_HEADERS });
