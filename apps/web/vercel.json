@@ -25,6 +25,15 @@
   "functions": {
     "src/app/api/admin/analyze-scenes/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/reading-batch/route.ts": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/reading-batch",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }
