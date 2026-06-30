@@ -1,6 +1,6 @@
 ---
 id: SPEC-WEB-001
-version: 0.2.0
+version: 0.3.0
 status: Planned
 created: 2026-06-30
 updated: 2026-06-30
@@ -21,6 +21,7 @@ depends_on: SPEC-INPUT-001, SPEC-INPUT-002, SPEC-INPUT-003
 
 ## HISTORY
 
+- **v0.3.0 — 2026-06-30** — 미결 5건 확정: ① **7일 무료체험 1회 포함**(기존 trial 로직 계승), ② 약정 만료 **토스 빌링키 자동갱신**, ③ 친구추천 크레딧 = **후속 우선순위(deferred)**, ④ 발송 벤더 = **솔라피(알림톡) + Resend(이메일)** 추천 채택(1인 빌더·Cron 자동화 최적), ⑤ 질문 캡 = **횟수 아닌 월 ₩1,000 토큰비용 캡**(소프트). REQ-WEB-004/007/008 갱신.
 - **v0.2.0 — 2026-06-30** — **PRD v1.4 전면 정렬.** 비즈니스 모델 개편 반영: ① 앱→웹, ② 결과보장·환불 제거, ③ IL 7밴드 직접선택, ④ 코스×밴드 격자(뉴스 1종 런칭), ⑤ 카톡+이메일 리마인드 + 주간 예습자료, ⑥ 연구독 우선 가격(연 79k/반년 49k/3개월 29k). **PG는 토스페이먼츠**(사용자 지정 — PRD의 PortOne 대신 토스 채택), ⑦ 생성 리딩 제거 → 리딩=그날 리스닝 콘텐츠 클린 스크립트(하나의 콘텐츠 유연 사다리). 요구 모듈 5개→8개로 확장. 가격·PG 충돌 2건을 §0.2에 명시.
 - **v0.1.0 — 2026-06-30** — 초안(월 ₩4,900 + 토스페이먼츠 가정). v1.4 도입으로 supersede.
 
@@ -68,17 +69,17 @@ SPEC-INPUT-001/002/003은 PRD v1.3을 단일 근거로 작성되었다. PRD v1.4
 | D9 | 주간 리듬 | 일요일 예습자료 발송 → 평일 콘텐츠 타임라인 → 가치완결 리마인드(§4.3, §8) | REQ-WEB-006, REQ-WEB-007 |
 | D10 | 리마인드 | 카톡 + 이메일. 가치완결형(안 눌러도 한 입) + **주제 스토리텔링 먼저**(§6.6, §12.0) | REQ-WEB-007 |
 | D11 | 배포 | **Render**(Web Service + Cron). 기존 cron 이전 | §5 |
+| D12 | 무료체험 | **7일 무료체험 1회**(사용자당 1회). 기존 `entitlement.ts` 7일 trial(created_at 기준 → 자연 1회) 계승. 체험 종료 시 결제 유도, 미결제 시 차단 | REQ-WEB-008 |
+| D13 | 약정 자동갱신 | **토스페이먼츠 빌링키 자동갱신.** 약정 만료일에 저장 billingKey로 동일 약정 자동결제. 결제 전 사전 고지(정보성 알림톡/메일) | REQ-WEB-008-E3 |
+| D14 | 발송 벤더 | **솔라피(Solapi) = 알림톡, Resend = 이메일.** 둘 다 HTTP API·Cron 친화, 1인 빌더 운영 부담 최소. 알림톡 실패 → 이메일 폴백 어댑터(§5, REQ-WEB-007) | REQ-WEB-007 |
+| D15 | 질문 캡 | **횟수 캡 아님 — 월 ₩1,000 AI 토큰비용 소프트 캡**(사용자당). 질문마다 토큰 사용량×모델단가를 KRW로 누적, ₩1,000 초과 시 경량모델 강등·완곡 안내(하드 차단 아님). 다음 달 리셋 | REQ-WEB-004 |
 
-### 미결 결정 (Open Decisions — run 전 확정)
+### 미결 결정 (Open Decisions — 후속)
 
-| # | 항목 | 후보 | 영향 |
+| # | 항목 | 상태 | 영향 |
 |---|------|------|------|
-| O-1 | 무료체험 유무 | 무료체험 없음(3개월 29k가 체험 티어) vs 기존 7일 trial 단기 유지 | REQ-WEB-008 entitlement |
-| O-2 | 토스 결제 방식 | 약정 선불 = 일반결제(단건) 확정. 만료 자동갱신을 빌링키로 할지(O-3 연계) | REQ-WEB-008 구현 |
-| O-3 | 약정 만료 자동갱신 | 토스 빌링키 자동갱신 vs 만료 시 수동 재구매 유도 | REQ-WEB-008-E3 |
-| O-4 | 친구추천 크레딧 지급 방식 | 추천인 재등록 크레딧(현금환불 아님, §4.4 잠정) | REQ-WEB-008-O1 |
-| O-5 | 알림톡 벤더 / 이메일 벤더 | 솔라피·NHN Cloud / Resend·SES·Postmark | REQ-WEB-007 |
-| O-6 | 월 질문 캡 수치 + 소프트/하드(§14.6) | 예: 100회/월 소프트 | REQ-WEB-004 |
+| O-1 | 친구추천 크레딧 지급 방식 | **Deferred(후속 우선순위)** — 추천인 재등록 크레딧(현금환불 아님) 방향만 잠정. MVP 결제 플로우에서는 코드 자리만 두고 미구현 | REQ-WEB-008-O1 |
+| O-2 | 가격 정책 최종 | 본 SPEC은 PRD v1.4(연 79k/반년 49k/3개월 29k) 채택. 직전 대화의 "월 4,900"과 충돌 — 미정정 시 v1.4 유지(§0.2-C1) | REQ-WEB-008 |
 
 ---
 
@@ -190,9 +191,12 @@ SPEC-INPUT-001/002/003은 PRD v1.3을 단일 근거로 작성되었다. PRD v1.4
   - Reference: `apps/mobile/src/lib/premium-transcript-sync.ts`(싱크 이식), `YouTubePlayer.tsx`
 - **E2 (Event-driven, WHEN):** WHEN 시스템의 난도 모델이 RWL→무자막 전환 시점으로 판단하면, THEN 시스템은 같은/인접 세그먼트의 무자막(2단)을 *시스템 주도로* 제시해야 한다(유저 토글에만 의존하지 않음). 토글은 보조(언제든 재ON)(§6.3 위닝).
 - **W1 (State-driven, WHILE):** WHILE 콘텐츠가 IL 상한 근처이고 탭률이 높은 동안, THEN 시스템은 0.5단 **스크립트 선행읽기(클린본)**를 RWL 전에 안전망으로 꺼내야 한다(어려울 때만, 매일 강제 아님)(§6.2 4단).
-- **E3 (Event-driven, WHEN):** WHEN 사용자가 텍스트를 하이라이트하고 질문을 보내면, THEN 시스템은 짧은 답(뜻·뉘앙스·용법)을 반환해 흐름 복귀를 보장하고 `AskedItem`으로 영속하며 월 질문 캡(O-6) 잔여를 반영해야 한다(§6.7).
-  - Reference: `apps/web/src/app/api/premium/question/`, `apps/web/src/lib/premium/question-cap.ts`
+- **E3 (Event-driven, WHEN):** WHEN 사용자가 텍스트를 하이라이트하고 질문을 보내면, THEN 시스템은 짧은 답(뜻·뉘앙스·용법)을 반환해 흐름 복귀를 보장하고 `AskedItem`으로 영속해야 한다(§6.7).
+  - Reference: `apps/web/src/app/api/premium/question/`, `apps/web/src/lib/premium/question-cap.ts`(횟수→비용 기준으로 확장)
+- **U4 (Ubiquitous):** 시스템은 항상 질문 응답마다 AI 토큰 사용량(input+output)을 모델 단가로 KRW 환산해 사용자별 당월 누적비용을 집계해야 한다(D15).
+- **W2 (State-driven, WHILE):** WHILE 사용자의 당월 질문 토큰비용이 **₩1,000 이하**인 동안, THEN 시스템은 기본 모델로 질문을 처리하고 잔여 한도를 긍정형으로 표시해야 한다(D15).
 - **U3 (Unwanted, IF/THEN):** IF 학습 화면이 카드·회상 퀴즈·내 표현 사전 큐레이션 surface를 노출하려 한다면, THEN 시스템은 이를 노출하지 않아야 한다(§13 Out, 능동 레이어=질문 히스토리만).
+- **U5 (Unwanted, IF/THEN):** IF 사용자의 당월 질문 토큰비용이 ₩1,000 소프트 캡을 초과했다면, THEN 시스템은 질문을 하드 차단하지 않고 경량 모델로 강등하거나 완곡 안내(다음 달 리셋)를 표시해야 한다(D15).
 
 ### REQ-WEB-005 — 코스×밴드 격자 + 세션 조립 + 서버 entitlement
 
@@ -221,7 +225,7 @@ SPEC-INPUT-001/002/003은 PRD v1.3을 단일 근거로 작성되었다. PRD v1.4
 목적(PRD §6.6, §12.0): 부담이 아니라 선물. 안 눌러도 메시지 *안에서* 오늘 표현 1개·한 문장은 건진다. **영어보다 주제의 운을 먼저 띄운다.**
 
 - **U1 (Ubiquitous):** 시스템은 항상 리마인드 메시지를 가치완결형(미클릭 시에도 표현 1개·한 문장 도달)으로 구성해야 한다(§6.6).
-- **E1 (Event-driven, WHEN):** WHEN 일일 리마인드 시각이 도래하면, THEN 시스템은 *주제 호기심을 먼저 건드리는* 본문("오늘 BBC에서 이런 일이 있었는데—")으로 카톡을 발송하고, 실패 시 이메일로 폴백해야 한다(§6.6, §12.0).
+- **E1 (Event-driven, WHEN):** WHEN 일일 리마인드 시각이 도래하면, THEN 시스템은 *주제 호기심을 먼저 건드리는* 본문("오늘 BBC에서 이런 일이 있었는데—")으로 **솔라피 알림톡**을 발송하고, 실패 시 **Resend 이메일**로 폴백해야 한다(§6.6, §12.0, D14).
 - **U2 (Ubiquitous):** 시스템은 항상 리마인드를 매일 과제부과("콘텐츠 왔어요 ✅")가 아닌 가치·호기심 톤으로 구성해야 한다(매일 해지 트리거 회피 — §6.6 근거).
 - **W1 (State-driven, WHILE):** WHILE 사용자가 학습 리마인드 수신 거부(opt-out) 상태인 동안, THEN 시스템은 학습 리마인드를 발송하지 않아야 한다(거래성 고지는 정책상 예외 가능).
 - **U3 (Unwanted, IF/THEN):** IF 카톡 발송과 이메일 폴백이 모두 실패하면, THEN 시스템은 실패를 로깅하고 운영 알림으로 에스컬레이션해야 한다(무한 재시도 금지).
@@ -234,9 +238,13 @@ SPEC-INPUT-001/002/003은 PRD v1.3을 단일 근거로 작성되었다. PRD v1.4
 - **E1 (Event-driven, WHEN):** WHEN 사용자가 약정을 선택하고 토스페이먼츠 결제를 완료하면, THEN 시스템은 서버 결제 승인/검증(`POST /v1/payments/confirm`)을 통과한 경우에만 `UserProfile` 구독(약정길이·만료일)과 entitlement를 활성화해야 한다(§10, §13).
   - Reference: 신규 `apps/web/src/app/api/billing/{confirm,webhook}/route.ts`(생성 예정) · 토스페이먼츠 결제 승인 API
 - **E2 (Event-driven, WHEN):** WHEN 토스페이먼츠 결제 상태 웹훅이 수신되면, THEN 시스템은 서명/출처를 검증한 뒤 구독·entitlement를 웹훅 사실에 동기화해야 한다.
-- **E3 (Event-driven, WHEN):** WHEN 약정 만료일이 도래하면, THEN 시스템은 자동갱신 정책(O-3)에 따라 갱신 결제 또는 만료 처리(entitlement 종료)를 수행해야 한다.
-- **W1 (State-driven, WHILE):** WHILE 사용자의 약정이 활성(만료 전)인 동안, THEN 시스템은 유료 콘텐츠 접근을 허용하고 만료일·갱신 안내를 표시해야 한다.
-- **O1 (Optional, WHERE):** WHERE 사용자가 친구추천 코드로 가입한 경우, 시스템은 추천인에게 재등록 크레딧(현금환불 아님, O-4)을 부여할 수 있다(§4.4).
+- **E3 (Event-driven, WHEN):** WHEN 약정 결제 시 자동갱신 동의로 카드 등록이 완료되면, THEN 시스템은 토스 `authKey`를 서버에서 billingKey로 교환해 `customerKey`와 함께 안전하게 저장해야 한다(자동갱신용, D13).
+  - Reference: 토스페이먼츠 빌링 발급 `POST /v1/billing/authorizations/issue`
+- **W1 (State-driven, WHILE):** WHILE 사용자가 7일 무료체험 기간(사용자당 1회) 내인 동안, THEN 시스템은 결제 없이 콘텐츠 접근을 허용하되 체험 잔여일·결제 전환 CTA를 표시해야 한다(D12).
+  - Reference: `apps/web/src/lib/premium/entitlement.ts:11,20-58`(`TRIAL_DAYS=7` 계승)
+- **W2 (State-driven, WHILE):** WHILE 사용자의 약정이 활성(만료 전)인 동안, THEN 시스템은 유료 콘텐츠 접근을 허용하고 만료일·자동갱신 안내를 표시해야 한다.
+- **E4 (Event-driven, WHEN):** WHEN 약정 만료일에 자동갱신이 예정되어 있으면, THEN 시스템은 사전 고지(정보성 알림톡/메일) 후 저장된 토스 빌링키로 동일 약정 자동결제를 승인하고 만료일을 갱신해야 한다(D13).
+- **O1 (Optional, WHERE):** WHERE 사용자가 친구추천 코드로 가입한 경우, 시스템은 추천인에게 재등록 크레딧을 부여할 수 있다(현금환불 아님). **MVP에서는 코드 자리만 두고 미구현(O-1 Deferred)**(§4.4).
 - **U2 (Unwanted, IF/THEN):** IF 토스페이먼츠 결제 승인/검증·웹훅 서명 검증에 실패하거나 중복 결제(멱등키 중복)라면, THEN 시스템은 구독/entitlement를 활성화하거나 중복 과금하지 않아야 한다.
 
 ---
@@ -261,8 +269,9 @@ SPEC-INPUT-001/002/003은 PRD v1.3을 단일 근거로 작성되었다. PRD v1.4
 ## 5. 배포 / 운영 (Render) — 비기능 요구
 
 - **Web Service**(Render): Next.js monorepo `apps/web`. 빌드 `pnpm --filter web build`, 시작 `next start`(standalone 활용 가능). Reference: `apps/web/next.config.ts`(standalone·보안헤더).
-- **Cron Jobs**(Render Cron, `CRON_SECRET` 보호): ① 주간 예습자료 생성·발송(일요일, REQ-WEB-006) ② 일일 리마인드(REQ-WEB-007) ③ 약정 만료 갱신/만료 처리(REQ-WEB-008-E3) ④ 콘텐츠 인제스트 배치(기존 cron 이전).
-- **환경변수(신규):** `TOSS_SECRET_KEY`·`TOSS_CLIENT_KEY`(공개)·`TOSS_WEBHOOK_SECRET`, 알림톡 벤더 키(O-5), 이메일 벤더 키(O-5), 기존 Supabase/Gemini 승계. 결제 시크릿은 서버 전용(클라이언트 번들 유입 금지 — `TOSS_CLIENT_KEY`만 공개 예외).
+- **Cron Jobs**(Render Cron, `CRON_SECRET` 보호): ① 주간 예습자료 생성·발송(일요일, REQ-WEB-006) ② 일일 리마인드(REQ-WEB-007) ③ 약정 만료 **빌링키 자동갱신**/만료 처리 + 갱신 사전고지(REQ-WEB-008-E4) ④ 콘텐츠 인제스트 배치(기존 cron 이전).
+- **환경변수(신규):** `TOSS_SECRET_KEY`·`TOSS_CLIENT_KEY`(공개)·`TOSS_WEBHOOK_SECRET`, `SOLAPI_API_KEY`·`SOLAPI_API_SECRET`(알림톡), `RESEND_API_KEY`(이메일), 기존 Supabase/Gemini 승계. 결제·발송 시크릿은 서버 전용(클라이언트 번들 유입 금지 — `TOSS_CLIENT_KEY`만 공개 예외).
+- **발송 어댑터:** 알림톡(Solapi) primary → 이메일(Resend) fallback의 단일 추상 인터페이스. 둘 다 순수 HTTP API라 별도 인프라 없이 Cron에서 호출(1인 빌더 운영 부담 최소).
 - **리전:** 한국 인접(가용 시) 선택.
 - **모니터링:** 결제·웹훅·발송 실패 구조적 로깅 + 운영 알림(Sentry 등 기존 자산).
 
