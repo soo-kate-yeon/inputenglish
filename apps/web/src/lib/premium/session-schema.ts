@@ -384,6 +384,30 @@ export function getPremiumPublishIssues(input: {
     issues.push(`copy slop in transcript: ${issue}`);
   }
   if (!session.article.reviewed) issues.push("article is not reviewed");
+  // @MX:NOTE: [AUTO] Delivery analysis is only mandatory before expression
+  // cards exist. Pipeline-generated drafts intentionally leave
+  // delivery_analysis empty once expression cards take over as the primary
+  // coaching content, so gate the emptiness check on card presence instead
+  // of requiring it unconditionally.
+  if (cards.length === 0 && session.delivery_analysis.length === 0) {
+    issues.push("delivery analysis is empty");
+  }
+  session.delivery_analysis.forEach((item) => {
+    if (!transcriptIds.has(item.line_id)) {
+      issues.push(`delivery analysis ${item.id} line_id is not in transcript`);
+    }
+  });
+  for (const issue of findPremiumCopySlop(
+    session.delivery_analysis
+      .flatMap((item) => [
+        item.intonation_note,
+        item.style_note,
+        item.coaching_note,
+      ])
+      .join("\n"),
+  )) {
+    issues.push(`copy slop in delivery analysis: ${issue}`);
+  }
   if (cards.length === 0) issues.push("expression cards are empty");
   if (cards.some((card) => !card.reviewed)) {
     issues.push("expression cards are not fully reviewed");

@@ -290,9 +290,16 @@ function selectSupportLines(
   session: PremiumSessionDraftInput,
   anchorLine: PremiumTranscriptLine,
 ) {
-  return session.transcript
+  const otherLines = session.transcript
     .filter((line) => line.id !== anchorLine.id)
     .slice(0, 2);
+  // @MX:NOTE: [AUTO] Short transcripts (e.g. a single substantive line) have
+  // no distinct "other" line to support from; reuse the anchor line so a
+  // support card can still be generated instead of silently dropping it.
+  if (otherLines.length === 0) {
+    return [anchorLine];
+  }
+  return otherLines;
 }
 
 function buildPipelineExpressionRequest(

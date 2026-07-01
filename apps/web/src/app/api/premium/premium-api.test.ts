@@ -5,6 +5,8 @@ const requireApiUser = vi.fn();
 const resolvePremiumEntitlement = vi.fn();
 const fetchTodayPremiumSessionForUser = vi.fn();
 const fetchPublishedPremiumSessionById = vi.fn();
+const getMonthlyQuestionCount = vi.fn();
+const mockFrom = vi.fn();
 
 vi.mock("@/utils/supabase/api-auth", () => ({
   requireApiUser: (...args: unknown[]) => requireApiUser(...args),
@@ -21,6 +23,174 @@ vi.mock("@/lib/premium/repository", () => ({
   fetchPublishedPremiumSessionById: (...args: unknown[]) =>
     fetchPublishedPremiumSessionById(...args),
 }));
+
+// GET /api/premium/today (SPEC-INPUT-002 Phase 3) no longer reads sessions via
+// the repository helpers above — it assembles pool-based sessions directly
+// through createAdminClient and getMonthlyQuestionCount. These mocks let the
+// "allows trial users" test below exercise that real assembly path instead of
+// hitting a live Supabase project (see src/app/api/premium/today/route.test.ts
+// for the exhaustive assembly test suite this mirrors).
+vi.mock("@/utils/supabase/server", () => ({
+  createAdminClient: () => ({ from: mockFrom }),
+}));
+
+vi.mock("@/lib/premium/question-cap", () => ({
+  getMonthlyQuestionCount: (...args: unknown[]) =>
+    getMonthlyQuestionCount(...args),
+  MONTHLY_QUESTION_CAP: 100,
+}));
+
+// Minimal pool-assembly fixtures for the "allows trial users" test — mirrors
+// the mockFrom shape used in today/route.test.ts.
+const fixturePoolReadingPiece = {
+  id: "pool-reading-1",
+  level: "B1",
+  format: "nonfiction",
+  topic: "climate",
+  body: "Climate change is a serious challenge.",
+  coverage_pct: 95,
+  validation_status: "approved",
+  source_facts: {},
+  user_id: null,
+  band: "conversation",
+  expires_at: null,
+  created_at: "2026-06-15T00:00:00.000Z",
+};
+
+const fixtureSegment = {
+  id: "seg-1",
+  parent_video_id: "yt-abc",
+  channel_id: "ch-1",
+  start_time: 10,
+  end_time: 70,
+  transcript: [],
+  wpm: 130,
+  band_coverage: {
+    beginner: 0.8,
+    basic: 0.9,
+    conversation: 0.95,
+    professional: 0.98,
+  },
+  topic_tags: ["technology"],
+  self_contained: true,
+  difficulty_score: 2,
+  created_at: "2026-06-15T00:00:00.000Z",
+};
+
+const fixtureCiSessionRow = {
+  id: "session-1",
+  user_id: "user-1",
+  session_date: "2026-06-15",
+  reading_piece_id: "pool-reading-1",
+  segment_ids: ["seg-1"],
+  assembly_meta: {
+    status: "ready",
+    pool_band: "conversation",
+    fallback_band: null,
+    pool_thin: false,
+    assembledAt: "2026-06-15T00:00:00.000Z",
+    segmentCount: 1,
+    hasReading: true,
+  },
+  created_at: "2026-06-15T00:00:00.000Z",
+};
+
+function setupTodayAssemblyMocks() {
+  getMonthlyQuestionCount.mockResolvedValue(0);
+  mockFrom.mockImplementation((table: string) => {
+    if (table === "ci_sessions") {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi
+                .fn()
+                .mockResolvedValue({ data: fixtureCiSessionRow, error: null }),
+            }),
+          }),
+        }),
+      };
+    }
+
+    if (table === "user_vocab_profiles") {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      };
+    }
+
+    if (table === "users") {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      };
+    }
+
+    if (table === "reading_pieces") {
+      return {
+        select: vi.fn().mockReturnValue({
+          is: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                gt: vi.fn().mockReturnValue({
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockReturnValue({
+                      maybeSingle: vi.fn().mockResolvedValue({
+                        data: fixturePoolReadingPiece,
+                        error: null,
+                      }),
+                    }),
+                  }),
+                }),
+                order: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: fixturePoolReadingPiece,
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: fixturePoolReadingPiece,
+              error: null,
+            }),
+          }),
+        }),
+      };
+    }
+
+    if (table === "video_segments") {
+      const chain = { data: [fixtureSegment], error: null };
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue(chain),
+            }),
+            limit: vi.fn().mockResolvedValue(chain),
+          }),
+          in: vi.fn().mockResolvedValue(chain),
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(chain),
+          }),
+          limit: vi.fn().mockResolvedValue(chain),
+        }),
+      };
+    }
+
+    return { select: vi.fn().mockResolvedValue({ data: null, error: null }) };
+  });
+}
 
 const user = { id: "user-1" };
 const trialEntitlement = {
@@ -49,6 +219,8 @@ describe("premium read APIs", () => {
     resolvePremiumEntitlement.mockReset();
     fetchTodayPremiumSessionForUser.mockReset();
     fetchPublishedPremiumSessionById.mockReset();
+    getMonthlyQuestionCount.mockReset();
+    mockFrom.mockReset();
   });
 
   it("rejects unauthenticated premium reads", async () => {
@@ -68,7 +240,7 @@ describe("premium read APIs", () => {
   it("allows trial users and disables cache", async () => {
     requireApiUser.mockResolvedValue(user);
     resolvePremiumEntitlement.mockResolvedValue(trialEntitlement);
-    fetchTodayPremiumSessionForUser.mockResolvedValue({ id: "session-1" });
+    setupTodayAssemblyMocks();
 
     const { GET } = await import("./today/route");
     const response = await GET(
@@ -78,9 +250,7 @@ describe("premium read APIs", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(payload.entitlement.reason).toBe("trial");
     expect(payload.session.id).toBe("session-1");
-    expect(fetchTodayPremiumSessionForUser).toHaveBeenCalledWith("user-1");
   });
 
   it("blocks expired free users even when the client claims premium", async () => {

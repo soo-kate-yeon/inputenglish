@@ -336,15 +336,27 @@ export async function loadTranscriptWithYtDlp(
   const runFetch = deps.fetch ?? fetch;
   let metadata: YtDlpMetadata = {};
   let transcript: PremiumLoadedTranscript = [];
+  let missingTrackError: Error | undefined;
+
   try {
     metadata = await loadYtDlpMetadata(sourceUrl, runExecFile);
     const track = selectCaptionTrack(metadata);
-    transcript = track?.url
+    if (!track) {
+      // Metadata loaded successfully but reported no English subtitle track:
+      // this is a definitive result, not a transient yt-dlp failure, so skip
+      // the raw-file-download and library fallbacks and report it directly.
+      missingTrackError = new Error(
+        "yt-dlp did not return an English subtitle track",
+      );
+      throw missingTrackError;
+    }
+    transcript = track.url
       ? await fetchCaptionTrack(track, runFetch).catch(() =>
           downloadSubtitleWithYtDlp(sourceUrl, runExecFile),
         )
       : await downloadSubtitleWithYtDlp(sourceUrl, runExecFile);
   } catch (ytDlpError) {
+    if (missingTrackError) throw missingTrackError;
     try {
       transcript = await loadTranscriptWithLibrary(sourceUrl);
     } catch (libraryError) {

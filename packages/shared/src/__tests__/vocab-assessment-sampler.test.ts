@@ -200,10 +200,12 @@ describe("buildAssessmentItems — edge cases", () => {
     expect(unique.size).toBe(realTokens.length);
   });
 
-  it("professional band items: capped at available words (≤807 in NGSL)", () => {
-    // Request more than available in professional band (807 words in NGSL)
+  it("professional band items: capped at available words (≤3000 in NGSL)", () => {
+    // Professional band spans NGSL ranks 3001–6000 (3000 words available since the
+    // frequency list was extended 3807→6000 lemmas — see ngsl-frequency.ts header).
+    // Request more than available to exercise the clamp.
     const items = buildAssessmentItems({
-      wordsPerBand: 900,
+      wordsPerBand: 3500,
       pseudowordCount: 0,
       seed: 0,
     });
@@ -211,6 +213,6 @@ describe("buildAssessmentItems — edge cases", () => {
       (i: AssessmentItem) => i.isReal && i.band === "professional",
     );
     // Should not exceed available words
-    expect(profItems.length).toBeLessThanOrEqual(807);
+    expect(profItems.length).toBeLessThanOrEqual(3000);
   });
 });

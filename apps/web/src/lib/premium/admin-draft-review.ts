@@ -288,6 +288,12 @@ export function getPremiumAdminOperationalSummary({
       detail: stats.articleReviewed ? "검수 완료" : "사람 검수가 필요합니다",
     },
     {
+      id: "delivery",
+      label: "딜리버리 분석 검수",
+      done: stats.deliveryReviewed,
+      detail: stats.deliveryReviewed ? "검수 완료" : "사람 검수가 필요합니다",
+    },
+    {
       id: "anchor",
       label: "핵심 표현",
       done: stats.anchorCount > 0,

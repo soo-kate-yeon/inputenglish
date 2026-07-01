@@ -67,13 +67,18 @@ describe("POST /api/premium/entitlement/sync", () => {
   it("verifies RevenueCat before writing PREMIUM server entitlement", async () => {
     requireApiUser.mockResolvedValue(user);
     process.env.REVENUECAT_SECRET_API_KEY = "rc-secret";
+    // Use an expiry relative to "now" (not a hardcoded date) so this test does
+    // not silently start failing once the wall clock passes a fixed date.
+    const futureExpiry = new Date(
+      Date.now() + 365 * 24 * 60 * 60 * 1000,
+    ).toISOString();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         subscriber: {
           entitlements: {
             premium: {
-              expires_date: "2026-07-01T00:00:00Z",
+              expires_date: futureExpiry,
             },
           },
         },
