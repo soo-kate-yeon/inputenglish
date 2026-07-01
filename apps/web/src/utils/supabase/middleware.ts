@@ -1,6 +1,37 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// SPEC-WEB-001 Phase 1, Task 1.3 (REQ-WEB-001-W1, EC-001-A) — new protected
+// route prefixes (learning/billing/account) redirect unauthenticated users to
+// /login instead of the legacy /home fallback. Additive only: existing /api
+// passthrough, /auth, /, /home exemptions, and cookie refresh logic are
+// unchanged (AC-NFR-3 regression guard).
+const LOGIN_PROTECTED_PREFIXES = ["/learning", "/billing", "/account"];
+
+function isLoginProtectedPath(pathname: string): boolean {
+  return LOGIN_PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+// Single dispatch for "where does an unauthenticated user go for path X" —
+// keeps the two redirect targets (new /login gate vs. the legacy /home
+// fallback) as one ordered decision instead of two independently-maintained
+// conditionals over the same pathname.
+function unauthenticatedRedirectTarget(pathname: string): string | null {
+  if (isLoginProtectedPath(pathname)) {
+    return "/login";
+  }
+  if (
+    !pathname.startsWith("/auth") &&
+    pathname !== "/" &&
+    pathname !== "/home"
+  ) {
+    return "/home";
+  }
+  return null;
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -42,16 +73,13 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    request.nextUrl.pathname !== "/" &&
-    request.nextUrl.pathname !== "/home"
-  ) {
-    // no user, potentially respond by redirecting the user to the home page
-    const url = request.nextUrl.clone();
-    url.pathname = "/home";
-    return NextResponse.redirect(url);
+  if (!user) {
+    const target = unauthenticatedRedirectTarget(request.nextUrl.pathname);
+    if (target) {
+      const url = request.nextUrl.clone();
+      url.pathname = target;
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

@@ -140,6 +140,12 @@ export interface LearningProfile {
   preferred_genres: Genre[];
   onboarding_completed_at: string | null;
   updated_at?: string | null;
+  /** SPEC-WEB-001 Phase 0 (REQ-WEB-002-U1): IL 7-band float index, 1.0-7.0. Coexists with level_band. */
+  ilIndex?: number | null;
+  /** SPEC-WEB-001 Phase 0: estimated known-word count from vocab diagnostic. */
+  vocabEstimate?: number | null;
+  /** SPEC-WEB-001 Phase 0 (REQ-WEB-005): selected course id/slug for the course x band grid. */
+  selectedCourse?: string | null;
 }
 
 export interface FeaturedSpeaker {
@@ -726,6 +732,13 @@ export interface ReadingPiece {
   expiresAt?: string | null;
 }
 
+/** SPEC-WEB-001 Phase 0 (REQ-WEB-003-U3): whitelist entry-rule legal status. */
+export type ChannelLegalStatus =
+  | "official"
+  | "unofficial_reupload"
+  | "embed_disabled"
+  | "major_ip_excluded";
+
 export interface Channel {
   id: string;
   name: string;
@@ -735,6 +748,8 @@ export interface Channel {
   topics: string[];
   active: boolean;
   createdAt: string;
+  /** SPEC-WEB-001 Phase 0 (REQ-WEB-003-U1/U3): whitelist entry-rule legal status. */
+  legalStatus?: ChannelLegalStatus;
 }
 
 export interface TranscriptLine {
@@ -758,6 +773,12 @@ export interface VideoSegment {
   selfContained: boolean;
   difficultyScore: number | null; // 1-5
   createdAt: string;
+  /** SPEC-WEB-001 Phase 0 (REQ-WEB-003-U2, D7): clean reading script for the "reading=script" model. */
+  scriptClean?: string | null;
+  /** SPEC-WEB-001 Phase 0 (REQ-WEB-004): 0=preview/script, 1=RWL captions-on, 2=captions-off. */
+  subtitleDependencyStage?: number | null;
+  /** SPEC-WEB-001 Phase 0 (REQ-WEB-002): IL 7-band float (1.0-7.0), parallel to bandCoverage. */
+  il?: number | null;
 }
 
 export interface AskedItemSourceRef {
@@ -784,5 +805,58 @@ export interface CiSession {
   readingPieceId: string | null;
   segmentIds: string[];
   assemblyMeta: Record<string, unknown>;
+  createdAt: string;
+}
+
+// === SPEC-WEB-001 Phase 0 Types (PRD v1.4 web subscription launch) ===
+
+/** REQ-WEB-008: 3 prepaid commitment plans only (no monthly), server-confirmed. */
+export type SubscriptionPlanType = "annual" | "semiannual" | "quarterly";
+
+export type SubscriptionStatus = "active" | "expired" | "cancelled";
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  planType: SubscriptionPlanType;
+  startDate: string;
+  expiryDate: string;
+  status: SubscriptionStatus;
+  /** Toss Payments billing key for auto-renewal. Server-only; never returned to the client. */
+  billingKey: string | null;
+  customerKey: string | null;
+  nextRenewalDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** REQ-WEB-005: course x band grid — domain lane climbed via an IL ladder. */
+export interface Course {
+  id: string;
+  domainLane: string;
+  ilRangeLow: number;
+  ilRangeHigh: number;
+  beforeGoal: string | null;
+  afterGoal: string | null;
+  narrativeFrame: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface WeeklyPrepSourceSentence {
+  text: string;
+  translation?: string | null;
+}
+
+/** REQ-WEB-006: weekly priming material — band-matched vocab/expressions with real source sentences. */
+export interface WeeklyPrep {
+  id: string;
+  userId: string;
+  weekStartDate: string;
+  courseId: string | null;
+  vocab: string[];
+  expressions: string[];
+  sourceSentences: WeeklyPrepSourceSentence[];
+  sendStatus: "pending" | "sent" | "failed";
   createdAt: string;
 }

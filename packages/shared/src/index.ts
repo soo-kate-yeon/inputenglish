@@ -22,6 +22,8 @@ export * from "./lib/vocab-assessment-sampler";
 export * from "./lib/vocab-assessment-scorer";
 // SPEC-INPUT-003: Hysteresis band adjustment pure function (REQ-VOCAB-R-W1)
 export * from "./lib/vocab-band-hysteresis";
+// SPEC-WEB-001 Phase 0: 4-band -> IL 7-band seed-compatible mapping (REQ-WEB-002)
+export * from "./lib/il-band-mapping";
 // Stores
 export * from "./store/app-store";
 export * from "./store/study-store";

@@ -1,0 +1,72 @@
+# SPEC-WEB-001 Phase 0 (Task 0.4, plan.md §3 Phase 0, §5) — Render scaffold.
+#
+# This file is a PARALLEL deployment option alongside the existing Vercel setup
+# (`apps/web/package.json` `deploy:vercel` script). It does not remove or modify
+# any Vercel configuration. Config/docs only in this Phase — no actual deploy
+# wiring or secret values are set here (see env var placeholders below).
+#
+# Full activation (secrets, cron implementation, monitoring) is Phase 8 scope
+# per plan.md and is explicitly OUT OF SCOPE for this Phase 0/1 run.
+
+services:
+  - type: web
+    name: inputenglish-web
+    runtime: node
+    plan: starter
+    region: singapore # closest available region to Korea per spec.md §5
+    rootDir: apps/web
+    buildCommand: pnpm --filter web build
+    startCommand: pnpm --filter web start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Existing Supabase / Gemini vars are expected to be provisioned the same
+      # way as the current Vercel deployment (not duplicated here).
+      - key: TOSS_SECRET_KEY
+        sync: false # server-only secret, set manually in Render dashboard
+      - key: TOSS_CLIENT_KEY
+        sync: false # public key exception (D3, AC-NFR-2) — still managed via dashboard
+      - key: TOSS_WEBHOOK_SECRET
+        sync: false
+      - key: SOLAPI_API_KEY
+        sync: false
+      - key: SOLAPI_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false # protects all Render Cron jobs below (AC-NFR-1)
+
+  # ── Cron placeholders (Phase 8 implements the handlers; Phase 0 only reserves the schedule) ──
+  - type: cron
+    name: inputenglish-weekly-prep-send
+    runtime: node
+    rootDir: apps/web
+    schedule: "0 21 * * 0" # Sunday 21:00 UTC (~Sun 06:00 KST next day boundary; tune in Phase 8)
+    buildCommand: pnpm --filter web build
+    # Phase 8 will wire this to a real endpoint call once REQ-WEB-006 send is implemented.
+    startCommand: echo "placeholder: weekly prep generation + send (REQ-WEB-006)"
+
+  - type: cron
+    name: inputenglish-daily-reminder
+    runtime: node
+    rootDir: apps/web
+    schedule: "0 11 * * *" # daily reminder trigger window (tune in Phase 8, REQ-WEB-007)
+    buildCommand: pnpm --filter web build
+    startCommand: echo "placeholder: daily reminder Solapi+Resend fallback (REQ-WEB-007)"
+
+  - type: cron
+    name: inputenglish-subscription-renewal
+    runtime: node
+    rootDir: apps/web
+    schedule: "0 0 * * *" # daily check for expiring subscriptions (REQ-WEB-008-E4)
+    buildCommand: pnpm --filter web build
+    startCommand: echo "placeholder: billing-key auto-renewal + pre-notice (REQ-WEB-008)"
+
+  - type: cron
+    name: inputenglish-content-ingest-batch
+    runtime: node
+    rootDir: apps/web
+    schedule: "0 3 * * *" # nightly batch ingest (migrated from existing Vercel cron in Phase 8)
+    buildCommand: pnpm --filter web build
+    startCommand: echo "placeholder: content ingest batch (migrated from Vercel cron)"

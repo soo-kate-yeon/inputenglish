@@ -1,4 +1,4 @@
-import { Button } from "@framingui/ui";
+import { LoginActions } from "./LoginActions";
 
 export default function LoginPage() {
   return (
@@ -28,27 +28,7 @@ export default function LoginPage() {
 
       {/* Auth CTAs - bottom */}
       <div className="relative z-10 flex w-full max-w-sm flex-col gap-3 px-6 pb-12">
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
-        >
-          Google로 계속하기
-        </Button>
-        <Button
-          variant="default"
-          size="lg"
-          className="w-full bg-white text-black hover:bg-white/90"
-        >
-          Apple로 계속하기
-        </Button>
-        <Button
-          variant="secondary"
-          size="lg"
-          className="w-full bg-transparent text-white/70 underline-offset-4 hover:text-white hover:underline"
-        >
-          이메일로 시작하기
-        </Button>
+        <LoginActions />
       </div>
     </div>
   );
