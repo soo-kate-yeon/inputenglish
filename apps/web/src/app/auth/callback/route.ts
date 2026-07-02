@@ -3,7 +3,14 @@
 //   see login-actions.ts). Establishes the SSR cookie session via exchangeCodeForSession, then
 //   ensures a UserProfile row exists (idempotent upsert — never duplicates an existing row,
 //   EC-001-C) before branching to onboarding or learning home (REQ-WEB-001-E2).
-// @MX:SPEC: SPEC-WEB-001 - Phase 1 (REQ-WEB-001-E2)
+//   Onboarding-complete is gated on `onboarding_completed_at` (an existing timestamptz
+//   column already used as the canonical completion signal on mobile — see
+//   apps/mobile/app/onboarding.tsx/_layout.tsx), NOT `il_index`: Task 3.1's band-seed
+//   route writes an intermediate, un-cross-validated il_index before Task 3.2's
+//   finalize-band runs, so a user who drops off mid-onboarding would otherwise be sent
+//   straight to the learning home with a never-validated IL value. Task 3.3's
+//   select-course route sets onboarding_completed_at as the true final onboarding step.
+// @MX:SPEC: SPEC-WEB-001 - Phase 1 (REQ-WEB-001-E2), Phase 3 (onboarding-complete gate fix)
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/utils/supabase/server";
 
@@ -38,7 +45,7 @@ export async function GET(request: NextRequest) {
   // onboarding/home branch without relying on upsert return semantics alone.
   const { data: existing } = await admin
     .from("users")
-    .select("il_index, plan")
+    .select("onboarding_completed_at, plan")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -55,8 +62,12 @@ export async function GET(request: NextRequest) {
     { onConflict: "id" },
   );
 
-  const ilIndexSet =
-    existing?.il_index !== null && existing?.il_index !== undefined;
+  // Onboarding-complete gate: onboarding_completed_at (set by Task 3.3's
+  // select-course route, the final onboarding step), not il_index — see
+  // @MX:REASON above for why il_index alone is not a safe signal.
+  const onboardingComplete =
+    existing?.onboarding_completed_at !== null &&
+    existing?.onboarding_completed_at !== undefined;
 
-  return redirectTo(request, ilIndexSet ? "/" : "/onboarding");
+  return redirectTo(request, onboardingComplete ? "/" : "/onboarding");
 }

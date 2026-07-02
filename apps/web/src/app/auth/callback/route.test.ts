@@ -70,13 +70,19 @@ describe("GET /auth/callback", () => {
     expect(response.headers.get("location")).toContain("/onboarding");
   });
 
-  it("does not duplicate an existing UserProfile row (EC-001-C) and redirects to learning home when il_index is already set", async () => {
+  it("does not duplicate an existing UserProfile row (EC-001-C) and redirects to learning home when onboarding is fully complete (onboarding_completed_at set)", async () => {
     exchangeCodeForSession.mockResolvedValue({
       data: { session: { user: sessionUser } },
       error: null,
     });
     maybeSingle.mockResolvedValue({
-      data: { id: "user-1", il_index: 4.0, plan: "PREMIUM" },
+      data: {
+        id: "user-1",
+        il_index: 4.0,
+        selected_course: "news",
+        onboarding_completed_at: "2026-07-01T00:00:00.000Z",
+        plan: "PREMIUM",
+      },
       error: null,
     });
     upsertSelect.mockResolvedValue({
@@ -97,6 +103,35 @@ describe("GET /auth/callback", () => {
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).not.toContain("/onboarding");
     expect(response.headers.get("location")).toContain("/");
+  });
+
+  it("redirects back to onboarding when the user abandoned the flow after only the band-seed step (il_index set, onboarding_completed_at still null — SPEC-WEB-001 Phase 3 gap: band-seed writes an intermediate, un-cross-validated il_index before finalize-band/select-course run sets onboarding_completed_at)", async () => {
+    exchangeCodeForSession.mockResolvedValue({
+      data: { session: { user: sessionUser } },
+      error: null,
+    });
+    maybeSingle.mockResolvedValue({
+      data: {
+        id: "user-1",
+        il_index: 7.0, // intermediate self-report write from band-seed, never cross-validated
+        selected_course: null,
+        onboarding_completed_at: null,
+        plan: "FREE",
+      },
+      error: null,
+    });
+    upsertSelect.mockResolvedValue({
+      data: { id: "user-1", il_index: 7.0 },
+      error: null,
+    });
+
+    const { GET } = await import("./route");
+    const response = await GET(
+      new NextRequest("http://localhost/auth/callback?code=abc123"),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/onboarding");
   });
 
   it("redirects to /login with an error when code exchange fails", async () => {
