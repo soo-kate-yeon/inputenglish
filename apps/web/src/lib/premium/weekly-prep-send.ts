@@ -9,6 +9,7 @@
 //   EC-006-B: a failed send sets send_status='failed' (never silently dropped), so a later
 //   retry pass (Phase 7/8) can find and retry it via the same findPendingWeeklyPreps query.
 // @MX:SPEC: SPEC-WEB-001 Phase 6 Task 6.3 (REQ-WEB-006-E2, AC-006-2, EC-006-B)
+import { safeEscalate } from "@/lib/safe-escalate";
 
 /** Minimal shape of a pending WeeklyPrep needed to attempt a send. */
 export interface PendingWeeklyPrep {
@@ -98,17 +99,13 @@ export async function sendPendingWeeklyPreps(
       failed.push({ weeklyPrepId: prep.id, error: message });
       // EC-006-B: record the failure so a retry pass can find it — never
       // silently swallow a failed send without persisting send_status='failed'.
-      // This write is independently guarded: if it also fails, the row simply
-      // stays in its current status (still discoverable/retriable later) —
-      // it must not throw out of the loop and abort remaining WeeklyPreps.
-      try {
-        await deps.updateSendStatus(prep.id, "failed");
-      } catch (statusErr) {
-        console.error(
-          `[weekly-prep-send] failed to record failed status for ${prep.id}`,
-          statusErr,
-        );
-      }
+      // This write is independently guarded via safeEscalate: if it also
+      // fails, the row simply stays in its current status (still
+      // discoverable/retriable later) — it must not throw out of the loop
+      // and abort remaining WeeklyPreps.
+      await safeEscalate(`weekly-prep-send:${prep.id}`, () =>
+        deps.updateSendStatus(prep.id, "failed"),
+      );
     }
   }
 
