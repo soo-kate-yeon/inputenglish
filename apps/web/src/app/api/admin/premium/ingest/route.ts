@@ -20,6 +20,8 @@ import {
   computeBandCoverage,
   extractTopicTags,
 } from "@/lib/premium/band-coverage";
+import { buildScriptClean } from "@/lib/premium/script-clean";
+import { evaluateListeningGate } from "@/lib/premium/listening-threshold";
 import type { TranscriptLine } from "@inputenglish/shared";
 
 // Segment duration window in seconds (configurable via env)
@@ -184,6 +186,46 @@ export async function POST(request: NextRequest) {
 
         const selfContained = await isSelfContained(transcriptText);
 
+        // --- Task 4.3: script_clean (D7 — reading = today's clean transcript) ---
+        const scriptClean = buildScriptClean(lines);
+
+        // @MX:WARN: [AUTO] Uncalibrated placeholder — this `il` value is NOT on the
+        //   same calibrated scale as users.il_index (set via onboarding's sample-clip
+        //   self-report + vocab-diagnostic cross-validation, see
+        //   apps/web/src/app/api/premium/onboarding/finalize-band/route.ts). It is a
+        //   linear remap of the existing 1-5 difficultyScore heuristic
+        //   (scoreSegmentDifficulty: wpm-bucket + coverage-bucket average) onto the
+        //   1.0-7.0 range, with no verified relationship to onboarding-derived IL
+        //   values. Do NOT use this field to match segments to users by IL proximity
+        //   until it is reconciled with the onboarding scale (e.g. via a band-bridge
+        //   like finalize-band/route.ts's diagnostic->IL conversion) — Phase 5's
+        //   session-assembly work must address this before relying on `il` for
+        //   content matching.
+        // @MX:REASON: [AUTO] Task 4.3 needed a non-null `il` value to satisfy the
+        //   video_segments schema now; deriving a properly calibrated score requires
+        //   the same content-anchor calibration onboarding uses, which is out of
+        //   scope for Phase 4 (segment ingest only, no user-facing IL matching yet).
+        const il = Math.min(
+          7.0,
+          Math.max(1.0, Number((1 + (difficultyScore - 1) * 1.5).toFixed(1))),
+        );
+
+        // --- Task 4.3: listening-specific difficulty gate (stricter than
+        // reading's POOL_MAX_UNKNOWN_RATIO — REQ-WEB-003-E1, AC-003-3).
+        // subtitle_dependency_stage: 0 = passes listening gate (captions-off
+        // eligible), 1 = fails listening gate (RWL captions-on required first).
+        // Uses a fixed "professional" band lookup into bandCoverage, mirroring the
+        // fixed "beginner" band already used for unknownRatio above (line 184) —
+        // this route does not yet look up the segment's channel-level target band
+        // (channelId is stored as a FK but its levelBand isn't fetched here); both
+        // fixed-band choices are a Phase 4 ingest-time simplification, not a
+        // per-channel-calibrated score.
+        const listeningGate = evaluateListeningGate({
+          bandCoverage,
+          band: "professional",
+        });
+        const subtitleDependencyStage = listeningGate.passes ? 0 : 1;
+
         const { data, error } = await supabase
           .from("video_segments")
           .insert({
@@ -197,6 +239,9 @@ export async function POST(request: NextRequest) {
             topic_tags: topicTags,
             self_contained: selfContained,
             difficulty_score: difficultyScore,
+            script_clean: scriptClean,
+            subtitle_dependency_stage: subtitleDependencyStage,
+            il,
           })
           .select("id")
           .single();
