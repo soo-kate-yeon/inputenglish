@@ -146,6 +146,24 @@ async function resolveUserBand(
   return "conversation";
 }
 
+// @MX:NOTE: [AUTO] fetchUserIl — Task 5.1 (SPEC-WEB-001 REQ-WEB-005-E1) secondary ranking
+//   signal. Reads users.il_index (Phase 0 column, Phase 3 writer). Returns null when unset
+//   (new/pre-Phase-3 users) — callers must degrade to pure band-fit ranking in that case,
+//   identical to the existing interests=[] degrade pattern used by fetchUserInterests.
+async function fetchUserIl(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<number | null> {
+  const { data } = await supabase
+    .from("users")
+    .select("il_index")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const il = data?.il_index;
+  return typeof il === "number" ? il : null;
+}
+
 // @MX:ANCHOR: [AUTO] fetchUserInterests — single source of truth for user's topic/format interests.
 // @MX:REASON: [AUTO] Fan-in from GET handler into all interest-aware assembly helpers. Reads
 //   users.focus_tags (same table as resolveUserBand Priority 2), parses topic:/format: prefixes.
@@ -277,11 +295,12 @@ async function fetchPoolReadingForBand(
 //      meaning 2-5% unknown words per Krashen i+1 principle).
 //   3. Difficulty filter: prefer difficulty_score <= 3 for non-professional bands.
 //   4. Return top `count` by combined band-fit score.
-async function fetchSegmentsForBand(
+export async function fetchSegmentsForBand(
   supabase: ReturnType<typeof createAdminClient>,
   band: VocabBand,
   count: number,
   topics: string[] = [],
+  userIl: number | null = null,
 ): Promise<VideoSegment[]> {
   // Fetch candidate pool: prefer self-contained segments, limit to reasonable candidate set
   const candidateLimit = Math.max(count * 5, 20);
@@ -307,6 +326,7 @@ async function fetchSegmentsForBand(
       band,
       count,
       topics,
+      userIl,
     );
   }
 
@@ -315,6 +335,7 @@ async function fetchSegmentsForBand(
     band,
     count,
     topics,
+    userIl,
   );
 }
 
@@ -325,11 +346,26 @@ async function fetchSegmentsForBand(
 //   +0.1 if seg.topicTags overlaps the user's topic interests. This tips ties and near-matches
 //   without overriding band-fit: a 0.1 bonus cannot compensate a coverage gap > 0.1 (e.g. 0.965
 //   vs 0.765 → gap of 0.2, bonus insufficient). Default topics=[] → no bonus → pure band-fit.
-function rankAndSliceSegments(
+// @MX:NOTE: [AUTO] IL-proximity bonus (Task 5.1, SPEC-WEB-001 REQ-WEB-005-E1 — secondary signal,
+//   band-fit stays primary): up to +0.1, scaled by closeness of seg.il to userIl (max bonus at
+//   |delta|=0, 0 bonus at |delta|>=1.0 IL point). Mirrors the interest-bonus cap so IL proximity
+//   alone can never override a band-fit gap > 0.1. Segments without an `il` value (pre-Phase-4
+//   ingest) or a null userIl (pre-Phase-3 user) get 0 IL bonus — pure band-fit, no behavior change.
+function ilProximityBonus(
+  segIl: number | null | undefined,
+  userIl: number | null,
+): number {
+  if (typeof segIl !== "number" || userIl === null) return 0;
+  const delta = Math.abs(segIl - userIl);
+  return Math.max(0, 0.1 * (1 - Math.min(delta, 1.0)));
+}
+
+export function rankAndSliceSegments(
   segments: VideoSegment[],
   band: VocabBand,
   count: number,
   topics: string[] = [],
+  userIl: number | null = null,
 ): VideoSegment[] {
   const TARGET_COVERAGE = 0.965; // midpoint of 0.95-0.98 optimal range
   const topicSet = new Set(topics);
@@ -351,6 +387,9 @@ function rankAndSliceSegments(
     if (topicSet.size > 0 && seg.topicTags.some((t) => topicSet.has(t))) {
       score += 0.1;
     }
+
+    // IL-proximity bonus (secondary signal, Task 5.1)
+    score += ilProximityBonus(seg.il, userIl);
 
     return { seg, score };
   });
@@ -512,6 +551,10 @@ export async function GET(request: NextRequest) {
       // Fetch user's topic/format interests (secondary ranking signal only)
       const interests = await fetchUserInterests(supabase, user.id);
 
+      // Fetch user's IL index (Task 5.1, secondary ranking signal only — null degrades
+      // to pure band-fit, identical to the interests=[] degrade path above)
+      const userIl = await fetchUserIl(supabase, user.id);
+
       // Fetch pool reading (primary) — REQ-AUTO-003-U2; interests used for secondary ranking
       const poolReading = await fetchPoolReadingForBand(
         supabase,
@@ -519,12 +562,13 @@ export async function GET(request: NextRequest) {
         interests,
       );
 
-      // Fetch band-filtered segments — REQ-AUTO-003-U1; interests used for secondary ranking
+      // Fetch band-filtered segments — REQ-AUTO-003-U1; interests + IL used for secondary ranking
       let segments = await fetchSegmentsForBand(
         supabase,
         userBand,
         SEGMENT_COUNT,
         interests.topics,
+        userIl,
       );
       let fallbackBand: VocabBand | null = null;
       let poolThin = false;
@@ -540,6 +584,7 @@ export async function GET(request: NextRequest) {
             adjBand,
             needed,
             interests.topics,
+            userIl,
           );
           if (adjSegments.length > 0) {
             segments = [...segments, ...adjSegments];

@@ -10,6 +10,12 @@ import {
   getCapStatus,
   selectQuestionModel,
 } from "@/lib/premium/question-cap";
+import {
+  DAILY_QUESTION_CAP,
+  getDailyQuestionCount,
+  getDailyCapStatus,
+  incrementDailyQuestionCount,
+} from "@/lib/premium/daily-question-cap";
 import { callGeminiWithSchema } from "@/lib/premium/llm-utils";
 import { createAdminClient } from "@/utils/supabase/server";
 import { SchemaType, type ResponseSchema } from "@google/generative-ai";
@@ -81,8 +87,26 @@ export async function POST(request: NextRequest) {
     const monthlyCount = await getMonthlyQuestionCount(supabase, user.id);
     const capStatus = getCapStatus(monthlyCount);
 
-    // Flash-gate (D1): model selection based on question complexity and cap status
-    const model = selectQuestionModel(question, capStatus.isExceeded);
+    // Daily cap check (D15/REQ-WEB-004-W2/U4, SPEC-WEB-001 Phase 5 Task 5.5 — NEW,
+    // parallel to the monthly cap above, using daily_question_counts). Defensively
+    // wrapped: a lookup failure must never block the pre-existing monthly-cap flow
+    // (mirrors the [[feedback_defensive_additive_extensions]] pattern — extending an
+    // INVIOLABLE KEEP route with a brittle existing mock elsewhere in the test suite).
+    let dailyCount = 0;
+    let dailyCapStatus = getDailyCapStatus(dailyCount);
+    try {
+      dailyCount = await getDailyQuestionCount(supabase, user.id);
+      dailyCapStatus = getDailyCapStatus(dailyCount);
+    } catch (err) {
+      console.error("[premium/question] daily cap lookup failed", err);
+    }
+
+    // Flash-gate (D1): model selection based on question complexity and cap status.
+    // Daily soft-fail (EC-004-B) also demotes to flash, same as the monthly cap.
+    const model = selectQuestionModel(
+      question,
+      capStatus.isExceeded || dailyCapStatus.isExceeded,
+    );
 
     const prompt = buildQuestionPrompt({ highlightText, question, context });
 
@@ -112,19 +136,43 @@ export async function POST(request: NextRequest) {
       answer,
     });
 
+    // Increment today's daily count (Task 5.5). Defensively wrapped — same
+    // reasoning as the lookup above: a write failure here must never turn a
+    // successfully-answered question into a 500.
+    let remainingDailyCap = dailyCapStatus.remaining;
+    let dailyCapNotice = dailyCapStatus.notice;
+    try {
+      const newDailyCount = await incrementDailyQuestionCount(
+        supabase,
+        user.id,
+        dailyCount,
+      );
+      const refreshedDailyStatus = getDailyCapStatus(newDailyCount);
+      remainingDailyCap = refreshedDailyStatus.remaining;
+      dailyCapNotice = refreshedDailyStatus.notice;
+    } catch (err) {
+      console.error("[premium/question] daily cap increment failed", err);
+    }
+
     const responseBody: {
       answer: string;
       model: string;
       remainingCap: number;
       capNotice?: string;
+      remainingDailyCap: number;
+      dailyCapNotice?: string;
     } = {
       answer,
       model,
       remainingCap: capStatus.remaining,
+      remainingDailyCap,
     };
 
     if (capStatus.notice) {
       responseBody.capNotice = capStatus.notice;
+    }
+    if (dailyCapNotice) {
+      responseBody.dailyCapNotice = dailyCapNotice;
     }
 
     return NextResponse.json(responseBody, { headers: PREMIUM_API_HEADERS });

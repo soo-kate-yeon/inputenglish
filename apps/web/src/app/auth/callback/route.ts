@@ -69,5 +69,7 @@ export async function GET(request: NextRequest) {
     existing?.onboarding_completed_at !== null &&
     existing?.onboarding_completed_at !== undefined;
 
-  return redirectTo(request, onboardingComplete ? "/" : "/onboarding");
+  // SPEC-WEB-001 Phase 5, Task 5.2: learning home now lives at /learning
+  // (root `/` remains the admin redirect for the existing admin surface).
+  return redirectTo(request, onboardingComplete ? "/learning" : "/onboarding");
 }
