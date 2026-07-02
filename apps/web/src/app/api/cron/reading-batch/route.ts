@@ -31,32 +31,11 @@ import {
   type PoolReadingPieceRow,
 } from "@/lib/premium/reading-batch";
 import { enumerateMatrixCells } from "@/lib/premium/reading-matrix";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-
-/**
- * Validate cron authorization.
- * Accepts:
- *   - Authorization: Bearer <CRON_SECRET>  (Vercel Cron standard)
- *   - x-cron-secret: <CRON_SECRET>         (manual/agent trigger)
- *
- * Fail-closed: if CRON_SECRET env is not set, every request is rejected.
- */
-function isAuthorized(request: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  // Fail-closed: no secret configured → reject all
-  if (!cronSecret) {
-    return false;
-  }
-
-  const authHeader = request.headers.get("authorization");
-  const bearerSecret = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
-  const xCronSecret = request.headers.get("x-cron-secret");
-
-  return bearerSecret === cronSecret || xCronSecret === cronSecret;
-}
+// Auth check extracted to lib/cron-auth.ts (SPEC-WEB-001 Phase 8) — was
+// duplicated verbatim across all /api/cron/* routes; see isCronAuthorized().
 
 // ── Idempotency ───────────────────────────────────────────────────────────────
 
@@ -192,7 +171,7 @@ function computeDailyOffset(totalCells: number): number {
  */
 export async function GET(request: NextRequest) {
   // ── 1. Auth ──────────────────────────────────────────────────────────────
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

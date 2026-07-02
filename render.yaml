@@ -1,12 +1,21 @@
 # SPEC-WEB-001 Phase 0 (Task 0.4, plan.md §3 Phase 0, §5) — Render scaffold.
+# Finalized in Phase 8 (Task 8.1-8.4, plan.md §3 Phase 8, spec.md §5): all 4 Cron
+# jobs now invoke their real route handlers via curl, protected by CRON_SECRET.
 #
 # This file is a PARALLEL deployment option alongside the existing Vercel setup
 # (`apps/web/package.json` `deploy:vercel` script). It does not remove or modify
-# any Vercel configuration. Config/docs only in this Phase — no actual deploy
-# wiring or secret values are set here (see env var placeholders below).
+# any Vercel configuration. `apps/web/vercel.json` still declares its own Cron
+# entry for reading-batch — see the note on the content-ingest-batch job below
+# for the Phase 8 migration decision on that overlap.
 #
-# Full activation (secrets, cron implementation, monitoring) is Phase 8 scope
-# per plan.md and is explicitly OUT OF SCOPE for this Phase 0/1 run.
+# Each Cron job's startCommand is a curl call to this Web Service's own deployed
+# URL, authenticated with the shared CRON_SECRET via the x-cron-secret header
+# (the same header contract every /api/cron/* route already accepts — see
+# apps/web/src/app/api/cron/reading-batch/route.ts's isAuthorized()). The target
+# URL is injected via Render's fromService env var reference (host of the
+# inputenglish-web service), so no environment-specific URL is hardcoded here.
+# `-f` makes curl exit non-zero on an HTTP error response so Render Cron surfaces
+# job failures instead of reporting false success.
 
 services:
   - type: web
@@ -37,23 +46,42 @@ services:
       - key: CRON_SECRET
         sync: false # protects all Render Cron jobs below (AC-NFR-1)
 
-  # ── Cron placeholders (Phase 8 implements the handlers; Phase 0 only reserves the schedule) ──
+  # ── Cron jobs (Task 8.1 — handlers implemented, real curl invocation wired) ──
   - type: cron
     name: inputenglish-weekly-prep-send
     runtime: node
     rootDir: apps/web
-    schedule: "0 21 * * 0" # Sunday 21:00 UTC (~Sun 06:00 KST next day boundary; tune in Phase 8)
+    schedule: "0 21 * * 0" # Sunday 21:00 UTC (~Sun 06:00 KST next day boundary)
     buildCommand: pnpm --filter web build
-    # Phase 8 will wire this to a real endpoint call once REQ-WEB-006 send is implemented.
-    startCommand: echo "placeholder: weekly prep generation + send (REQ-WEB-006)"
+    envVars:
+      - key: CRON_TARGET_HOST
+        fromService:
+          type: web
+          name: inputenglish-web
+          property: host
+      - key: CRON_SECRET
+        sync: false
+    startCommand: >-
+      curl -fsS -H "x-cron-secret: $CRON_SECRET"
+      "https://$CRON_TARGET_HOST/api/cron/weekly-prep-send"
 
   - type: cron
     name: inputenglish-daily-reminder
     runtime: node
     rootDir: apps/web
-    schedule: "0 11 * * *" # daily reminder trigger window (tune in Phase 8, REQ-WEB-007)
+    schedule: "0 11 * * *" # daily reminder trigger window (REQ-WEB-007)
     buildCommand: pnpm --filter web build
-    startCommand: echo "placeholder: daily reminder Solapi+Resend fallback (REQ-WEB-007)"
+    envVars:
+      - key: CRON_TARGET_HOST
+        fromService:
+          type: web
+          name: inputenglish-web
+          property: host
+      - key: CRON_SECRET
+        sync: false
+    startCommand: >-
+      curl -fsS -H "x-cron-secret: $CRON_SECRET"
+      "https://$CRON_TARGET_HOST/api/cron/daily-reminder"
 
   - type: cron
     name: inputenglish-subscription-renewal
@@ -61,12 +89,39 @@ services:
     rootDir: apps/web
     schedule: "0 0 * * *" # daily check for expiring subscriptions (REQ-WEB-008-E4)
     buildCommand: pnpm --filter web build
-    startCommand: echo "placeholder: billing-key auto-renewal + pre-notice (REQ-WEB-008)"
+    envVars:
+      - key: CRON_TARGET_HOST
+        fromService:
+          type: web
+          name: inputenglish-web
+          property: host
+      - key: CRON_SECRET
+        sync: false
+    startCommand: >-
+      curl -fsS -H "x-cron-secret: $CRON_SECRET"
+      "https://$CRON_TARGET_HOST/api/cron/subscription-renewal"
 
   - type: cron
     name: inputenglish-content-ingest-batch
     runtime: node
     rootDir: apps/web
-    schedule: "0 3 * * *" # nightly batch ingest (migrated from existing Vercel cron in Phase 8)
+    schedule: "0 3 * * *" # nightly batch ingest
+    # Task 8.4: migrates the existing reading-batch trigger to Render Cron.
+    # `apps/web/vercel.json` still declares its own `crons` entry for this same
+    # route (`/api/cron/reading-batch`, schedule "0 0 * * *") — that Vercel Cron
+    # config was NOT removed as part of this migration (out of scope: this repo
+    # continues to also support a parallel Vercel deployment per the Phase 0
+    # note above). If/when the Vercel deployment is retired, remove the `crons`
+    # block from apps/web/vercel.json to avoid double-running this batch daily.
     buildCommand: pnpm --filter web build
-    startCommand: echo "placeholder: content ingest batch (migrated from Vercel cron)"
+    envVars:
+      - key: CRON_TARGET_HOST
+        fromService:
+          type: web
+          name: inputenglish-web
+          property: host
+      - key: CRON_SECRET
+        sync: false
+    startCommand: >-
+      curl -fsS -H "x-cron-secret: $CRON_SECRET"
+      "https://$CRON_TARGET_HOST/api/cron/reading-batch"
