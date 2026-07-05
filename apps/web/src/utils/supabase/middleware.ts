@@ -8,9 +8,26 @@ import { NextResponse, type NextRequest } from "next/server";
 // unchanged (AC-NFR-3 regression guard).
 const LOGIN_PROTECTED_PREFIXES = ["/learning", "/billing", "/account"];
 
+// Public entry points a logged-out visitor must be able to reach directly —
+// the middleware's legacy /home fallback (below) would otherwise redirect
+// away from these before they ever render.
+const PUBLIC_EXEMPT_PATHS = [
+  "/login",
+  "/onboarding",
+  "/privacy",
+  "/support",
+  "/terms",
+];
+
 function isLoginProtectedPath(pathname: string): boolean {
   return LOGIN_PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function isPublicExemptPath(pathname: string): boolean {
+  return PUBLIC_EXEMPT_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
 }
 
@@ -25,7 +42,8 @@ function unauthenticatedRedirectTarget(pathname: string): string | null {
   if (
     !pathname.startsWith("/auth") &&
     pathname !== "/" &&
-    pathname !== "/home"
+    pathname !== "/home" &&
+    !isPublicExemptPath(pathname)
   ) {
     return "/home";
   }

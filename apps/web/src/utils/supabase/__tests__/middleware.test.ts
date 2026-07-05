@@ -80,6 +80,20 @@ describe("updateSession middleware", () => {
     });
   });
 
+  describe("regression: public unauthenticated entry points must stay reachable", () => {
+    it.each(["/login", "/onboarding", "/privacy", "/support", "/terms"])(
+      "does not redirect unauthenticated access to %s",
+      async (publicPath) => {
+        getUser.mockResolvedValue({ data: { user: null } });
+
+        const { updateSession } = await import("../middleware");
+        const response = await updateSession(makeRequest(publicPath));
+
+        expect(response.headers.get("location")).toBeNull();
+      },
+    );
+  });
+
   describe("extension: learning/billing/account protected routes redirect to /login (EC-001-A)", () => {
     it.each(["/learning", "/billing", "/account"])(
       "redirects unauthenticated access to %s to /login",
