@@ -5,17 +5,20 @@
 //   surfaced via the client-side onboarding flow after seeding completes.
 // @MX:SPEC: SPEC-WEB-001 Phase 3 REQ-WEB-002 (E1, E2, U1, U2)
 
+import { Heading, Text } from "@framingui/ui";
 import { BAND_ANCHOR_FIXTURES } from "@/lib/onboarding/band-anchor-fixtures";
 import { OnboardingFlow } from "./OnboardingFlow";
 
 export default function OnboardingPage() {
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-10">
-      <header>
-        <h1 className="text-2xl font-bold">밴드 자가배치</h1>
-        <p className="text-sm text-gray-500">
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
+      <header className="flex flex-col gap-1">
+        <Heading level={1} className="text-2xl">
+          밴드 자가배치
+        </Heading>
+        <Text variant="body" className="text-neutral-500">
           네게 딱 맞는 난이도를 찾기 위한 3단계를 진행할게요.
-        </p>
+        </Text>
       </header>
 
       <OnboardingFlow fixtures={BAND_ANCHOR_FIXTURES} />

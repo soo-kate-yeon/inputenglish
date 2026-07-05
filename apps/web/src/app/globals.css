@@ -311,6 +311,114 @@
     0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
+/* ========================================
+ * @framingui/ui component token bridge
+ * Maps the component-level CSS variables @framingui/ui's Button/Heading/
+ * Text/Badge/Card read (see node_modules/@framingui/ui/dist/src/**) onto
+ * this project's existing Editorial Tech semantic tokens above. Without
+ * this, those components fall back to unset custom properties and render
+ * with near-invisible default text color.
+ * ======================================== */
+:root {
+  --bg-background: var(--color-bg-default);
+  --bg-foreground: var(--color-text-default);
+  --bg-card: var(--color-bg-default);
+  --bg-card-foreground: var(--color-text-default);
+  --bg-popover: var(--color-bg-default);
+  --bg-popover-foreground: var(--color-text-default);
+  --bg-primary: var(--color-interactive-default);
+  --bg-primary-foreground: var(--color-text-inverse);
+  --bg-secondary: var(--color-bg-muted);
+  --bg-secondary-foreground: var(--color-text-default);
+  --bg-muted: var(--color-bg-muted);
+  --bg-muted-foreground: var(--color-text-muted);
+  --bg-destructive: var(--color-error);
+  --bg-destructive-foreground: var(--color-text-inverse);
+
+  --border-default: var(--color-border-default);
+  --border-ring: var(--color-border-focus);
+
+  --heading-foreground: var(--color-text-default);
+
+  --text-body-color: var(--color-text-default);
+  --text-caption-color: var(--color-text-muted);
+  --text-label-color: var(--color-text-default);
+  --text-code-color: var(--color-text-default);
+  --text-popover-foreground: var(--color-text-default);
+
+  --button-default-background: var(--color-interactive-default);
+  --button-default-foreground: var(--color-text-inverse);
+  --button-default-border: transparent;
+  --button-default-hover-background: var(--color-interactive-hover);
+  --button-secondary-background: var(--color-bg-muted);
+  --button-secondary-foreground: var(--color-text-default);
+  --button-secondary-hover-background: var(--color-border-default);
+  --button-outline-border: var(--color-border-strong);
+  --button-outline-hover-background: var(--color-bg-subtle);
+  --button-outline-hover-foreground: var(--color-text-default);
+  --button-ghost-hover-background: var(--color-bg-subtle);
+  --button-ghost-hover-foreground: var(--color-text-default);
+  --button-destructive-background: var(--color-error);
+  --button-destructive-foreground: var(--color-text-inverse);
+  --button-destructive-hover-background: var(--color-red-600);
+  --button-link-foreground: var(--color-text-default);
+
+  --badge-default-background: var(--color-interactive-default);
+  --badge-default-foreground: var(--color-text-inverse);
+  --badge-secondary-background: var(--color-bg-muted);
+  --badge-secondary-foreground: var(--color-text-default);
+  --badge-outline-border: var(--color-border-strong);
+  --badge-outline-foreground: var(--color-text-default);
+  --badge-destructive-background: var(--color-error);
+  --badge-destructive-foreground: var(--color-text-inverse);
+}
+
+.dark {
+  --bg-background: var(--color-neutral-950, var(--color-neutral-900));
+  --bg-foreground: var(--color-text-inverse);
+  --bg-card: var(--color-neutral-900);
+  --bg-card-foreground: var(--color-text-inverse);
+  --bg-popover: var(--color-neutral-900);
+  --bg-popover-foreground: var(--color-text-inverse);
+  --bg-primary: var(--color-text-inverse);
+  --bg-primary-foreground: var(--color-neutral-900);
+  --bg-secondary: var(--color-neutral-800);
+  --bg-secondary-foreground: var(--color-text-inverse);
+  --bg-muted: var(--color-neutral-800);
+  --bg-muted-foreground: var(--color-neutral-400);
+
+  --border-default: var(--color-neutral-700);
+  --border-ring: var(--color-text-inverse);
+
+  --heading-foreground: var(--color-text-inverse);
+
+  --text-body-color: var(--color-text-inverse);
+  --text-caption-color: var(--color-neutral-400);
+  --text-label-color: var(--color-text-inverse);
+  --text-code-color: var(--color-text-inverse);
+  --text-popover-foreground: var(--color-text-inverse);
+
+  --button-default-background: var(--color-text-inverse);
+  --button-default-foreground: var(--color-neutral-900);
+  --button-default-hover-background: var(--color-neutral-200);
+  --button-secondary-background: var(--color-neutral-800);
+  --button-secondary-foreground: var(--color-text-inverse);
+  --button-secondary-hover-background: var(--color-neutral-700);
+  --button-outline-border: var(--color-neutral-600);
+  --button-outline-hover-background: var(--color-neutral-800);
+  --button-outline-hover-foreground: var(--color-text-inverse);
+  --button-ghost-hover-background: var(--color-neutral-800);
+  --button-ghost-hover-foreground: var(--color-text-inverse);
+  --button-link-foreground: var(--color-text-inverse);
+
+  --badge-default-background: var(--color-text-inverse);
+  --badge-default-foreground: var(--color-neutral-900);
+  --badge-secondary-background: var(--color-neutral-800);
+  --badge-secondary-foreground: var(--color-text-inverse);
+  --badge-outline-border: var(--color-neutral-600);
+  --badge-outline-foreground: var(--color-text-inverse);
+}
+
 /* Base Styles */
 @layer base {
   body {

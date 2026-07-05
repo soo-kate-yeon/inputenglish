@@ -8,6 +8,7 @@
 // @MX:SPEC: SPEC-WEB-001 Phase 5 Task 5.2 (REQ-WEB-004, REQ-WEB-005, AC-004-1, AC-005-2)
 
 import { useEffect, useState } from "react";
+import { Button, Card, CardContent, Heading, Text } from "@framingui/ui";
 import { fetchTodaySession } from "@/lib/premium/fetch-today-session";
 import {
   buildLearningHomeViewModel,
@@ -32,43 +33,52 @@ export function LearningHome() {
   }, []);
 
   if (vm.kind === "loading") {
-    return <p className="text-sm text-gray-500">오늘 세션을 불러오는 중…</p>;
+    return (
+      <Text variant="body" className="text-neutral-500">
+        오늘 세션을 불러오는 중…
+      </Text>
+    );
   }
 
   if (vm.kind === "upgrade-required") {
     return (
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold">구독이 필요해요</h2>
-        <p className="text-sm text-gray-600">
-          체험 기간이 끝났거나 구독이 없어요. 약정을 시작하면 오늘의 콘텐츠에
-          바로 접근할 수 있어요.
-        </p>
-        <a
-          href="/billing"
-          className="w-fit rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-        >
-          구독 시작하기
-        </a>
-      </div>
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-6">
+          <Heading level={2} className="text-lg">
+            구독이 필요해요
+          </Heading>
+          <Text variant="body" className="text-neutral-600">
+            체험 기간이 끝났거나 구독이 없어요. 약정을 시작하면 오늘의 콘텐츠에
+            바로 접근할 수 있어요.
+          </Text>
+          <Button asChild variant="default" className="w-fit">
+            <a href="/billing">구독 시작하기</a>
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   if (vm.kind === "preparing") {
     return (
-      <div className="flex flex-col gap-2 rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold">콘텐츠 준비 중</h2>
-        <p className="text-sm text-gray-600">
-          지금 밴드에 맞는 콘텐츠를 준비하고 있어요. 곧 채워드릴게요.
-        </p>
-      </div>
+      <Card>
+        <CardContent className="flex flex-col gap-2 p-6">
+          <Heading level={2} className="text-lg">
+            콘텐츠 준비 중
+          </Heading>
+          <Text variant="body" className="text-neutral-600">
+            지금 밴드에 맞는 콘텐츠를 준비하고 있어요. 곧 채워드릴게요.
+          </Text>
+        </CardContent>
+      </Card>
     );
   }
 
   if (vm.kind === "error") {
     return (
-      <p className="text-sm text-red-500">
+      <Text variant="body" className="text-red-600 dark:text-red-400">
         오늘 세션을 불러오지 못했어요: {vm.message}
-      </p>
+      </Text>
     );
   }
 

@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import type { VocabBand } from "@inputenglish/shared";
+import { Button, Card, CardContent, Text } from "@framingui/ui";
 import type { BandAnchorFixture } from "@/lib/onboarding/band-anchor-fixtures";
 import { postJson } from "@/lib/onboarding/post-json";
 import { OnboardingBandSeed } from "./OnboardingBandSeed";
@@ -72,48 +73,58 @@ export function OnboardingFlow({ fixtures }: OnboardingFlowProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {error ? <p className="text-sm text-red-500">{error}</p> : null}
+      {error ? (
+        <Text variant="body" className="text-red-600 dark:text-red-400">
+          {error}
+        </Text>
+      ) : null}
 
       {step === "band-seed" ? (
         <OnboardingBandSeed fixtures={fixtures} onSeeded={handleSeeded} />
       ) : null}
 
       {step === "vocab-assessment" ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-gray-600">
-            어휘 진단을 완료하면 자가배치와 교차검증합니다.
-          </p>
-          {/* The existing vocab-assessment UI/flow is reused as-is elsewhere;
-              this call simulates receiving its completion callback. */}
-          <button
-            type="button"
-            onClick={() => handleAssessmentComplete("conversation")}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-          >
-            어휘 진단 완료 (테스트용)
-          </button>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-4">
+            <Text variant="body" className="text-neutral-600">
+              어휘 진단을 완료하면 자가배치와 교차검증합니다.
+            </Text>
+            {/* The existing vocab-assessment UI/flow is reused as-is elsewhere;
+                this call simulates receiving its completion callback. */}
+            <Button
+              type="button"
+              variant="default"
+              className="w-fit"
+              onClick={() => handleAssessmentComplete("conversation")}
+            >
+              어휘 진단 완료 (테스트용)
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
 
       {step === "course-select" ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-gray-600">
-            최종 IL: {finalIl?.toFixed(1)} · 뉴스 코스로 시작할게요.
-          </p>
-          <button
-            type="button"
-            onClick={handleSelectCourse}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-          >
-            뉴스 코스 시작하기
-          </button>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-4">
+            <Text variant="body" className="text-neutral-600">
+              최종 IL: {finalIl?.toFixed(1)} · 뉴스 코스로 시작할게요.
+            </Text>
+            <Button
+              type="button"
+              variant="default"
+              className="w-fit"
+              onClick={handleSelectCourse}
+            >
+              뉴스 코스 시작하기
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
 
       {step === "done" ? (
-        <p className="text-sm font-medium text-green-600">
+        <Text variant="body" className="font-medium text-green-600">
           온보딩이 완료되었습니다.
-        </p>
+        </Text>
       ) : null}
     </div>
   );

@@ -4,13 +4,16 @@
 //   pre-existing admin surface; this SPEC does not change that behavior.
 // @MX:SPEC: SPEC-WEB-001 Phase 5 Task 5.2 (REQ-WEB-004, REQ-WEB-005, AC-004-1, AC-005-2)
 
+import { Heading } from "@framingui/ui";
 import { LearningHome } from "./LearningHome";
 
 export default function LearningPage() {
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
       <header>
-        <h1 className="text-2xl font-bold">오늘의 학습</h1>
+        <Heading level={1} className="text-2xl">
+          오늘의 학습
+        </Heading>
       </header>
       <LearningHome />
     </div>
