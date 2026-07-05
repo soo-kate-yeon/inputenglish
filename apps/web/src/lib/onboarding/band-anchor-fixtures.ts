@@ -47,7 +47,7 @@ export const BAND_ANCHOR_FIXTURES: BandAnchorFixture[] = [
   {
     il: 3,
     label: "Everyday Vlog",
-    youtubeVideoId: "dQw4w9WgXcQ",
+    youtubeVideoId: "aGKMWBB5xwI",
     description: "일상 대화 속도의 브이로그",
   },
   {
