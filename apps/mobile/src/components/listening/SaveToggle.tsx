@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 interface SaveToggleProps {
   active: boolean;
@@ -46,9 +47,9 @@ export default function SaveToggle({
 
 const styles = StyleSheet.create({
   button: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: appTokens.size.n32,
+    height: appTokens.size.n32,
+    borderRadius: appTokens.radius.n16,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -62,11 +63,11 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   buttonTinted: {
-    borderColor: "rgba(255,255,255,0.2)",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: appTokens.color.va5a9c1a4,
+    backgroundColor: appTokens.color.vbfeccfcf,
   },
   buttonTintedActive: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderColor: "rgba(255,255,255,0.9)",
+    backgroundColor: appTokens.color.v0752d421,
+    borderColor: appTokens.color.v0752d421,
   },
 });

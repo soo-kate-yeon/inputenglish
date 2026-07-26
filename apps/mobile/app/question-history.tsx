@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, Stack } from "expo-router";
 import { useTheme } from "@/components/ui";
 import QuestionHistoryTab from "@/components/premium/QuestionHistoryTab";
+import { appTokens } from "../src/theme/app-tokens";
 
 /**
  * /question-history — re-readable list of asked items (SPEC-INPUT-001 REQ-INPUT-004-E2).
@@ -52,18 +53,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: appTokens.spacing.n16,
+    paddingVertical: appTokens.spacing.n12,
   },
   back: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
+    width: appTokens.size.n36,
+    height: appTokens.size.n36,
+    borderRadius: appTokens.radius.n999,
     alignItems: "center",
     justifyContent: "center",
   },
   backIcon: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: appTokens.typography.n24,
+    lineHeight: appTokens.typography.n28,
   },
 });

@@ -3,6 +3,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { appTokens } from "../theme/app-tokens";
 
 export function OfflineBanner() {
   const { isOnline } = useNetworkStatus();
@@ -24,15 +25,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 999,
-    backgroundColor: "#FF3B30",
-    paddingBottom: 8,
-    paddingHorizontal: 16,
+    backgroundColor: appTokens.color.v82241aef,
+    paddingBottom: appTokens.spacing.n8,
+    paddingHorizontal: appTokens.spacing.n16,
     alignItems: "center",
     justifyContent: "center",
   },
   text: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+    color: appTokens.color.vd14f9016,
+    fontSize: appTokens.typography.n14,
+    fontWeight: appTokens.typography.n600,
   },
 });

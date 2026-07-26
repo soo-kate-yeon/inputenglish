@@ -5,6 +5,7 @@ import type { TransformationExercise } from "@inputenglish/shared";
 import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
 import { colors, font, leading, radius, spacing } from "../../../theme";
+import { appTokens } from "../../../theme/app-tokens";
 
 interface KoreanToEnglishPageProps {
   exercise: TransformationExercise;
@@ -128,13 +129,13 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: 96,
+    paddingBottom: appTokens.spacing.n96,
     gap: spacing.lg,
   },
   eyebrow: {
-    fontSize: 9,
+    fontSize: appTokens.typography.n9,
     fontWeight: font.weight.bold,
-    letterSpacing: 1.5,
+    letterSpacing: appTokens.typography.n1_5,
     color: colors.textMuted,
   },
   instruction: {

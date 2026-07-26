@@ -5,6 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Sentence } from "@inputenglish/shared";
 import { colors, radius, font } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 interface ShadowingScriptLineProps {
   sentence: Sentence;
@@ -88,17 +89,17 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: appTokens.spacing.n20,
+    paddingVertical: appTokens.spacing.n14,
   },
   content: {
     flex: 1,
-    marginRight: 8,
+    marginRight: appTokens.spacing.n8,
   },
   text: {
     fontSize: font.size.base,
     color: colors.textMuted,
-    lineHeight: 26,
+    lineHeight: appTokens.typography.n26,
     fontWeight: font.weight.regular,
   },
   textActive: {
@@ -108,35 +109,35 @@ const styles = StyleSheet.create({
   translation: {
     fontSize: font.size.sm,
     color: colors.textSecondary,
-    marginTop: 6,
-    lineHeight: 22,
+    marginTop: appTokens.spacing.n6,
+    lineHeight: appTokens.typography.n22,
   },
   recordingIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
-    gap: 4,
+    marginTop: appTokens.spacing.n4,
+    gap: appTokens.spacing.n4,
   },
   recordingDot: {
-    width: 6,
-    height: 6,
+    width: appTokens.size.n6,
+    height: appTokens.size.n6,
     backgroundColor: colors.text,
   },
   recordingLabel: {
-    fontSize: 9,
-    letterSpacing: 1.5,
+    fontSize: appTokens.typography.n9,
+    letterSpacing: appTokens.typography.n1_5,
     fontWeight: font.weight.bold,
     color: colors.text,
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingTop: 2,
+    gap: appTokens.spacing.n8,
+    paddingTop: appTokens.spacing.n2,
   },
   recordBtn: {
-    width: 32,
-    height: 32,
+    width: appTokens.size.n32,
+    height: appTokens.size.n32,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     borderRadius: radius.pill,

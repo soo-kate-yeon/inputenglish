@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { colors, radius, font } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 const SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 type SpeedPreset = (typeof SPEED_PRESETS)[number];
@@ -79,9 +80,9 @@ export default function ListeningHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 8,
-    paddingHorizontal: 12,
-    paddingBottom: 4,
+    paddingTop: appTokens.spacing.n8,
+    paddingHorizontal: appTokens.spacing.n12,
+    paddingBottom: appTokens.spacing.n4,
     backgroundColor: colors.bg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -89,12 +90,12 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: appTokens.spacing.n8,
   },
   backButton: {
-    marginRight: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    marginRight: appTokens.spacing.n8,
+    paddingVertical: appTokens.spacing.n4,
+    paddingHorizontal: appTokens.spacing.n8,
   },
   backText: {
     color: colors.primary,
@@ -110,10 +111,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   speedButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: appTokens.spacing.n4,
+    paddingHorizontal: appTokens.spacing.n10,
     borderRadius: radius.lg,
-    marginRight: 6,
+    marginRight: appTokens.spacing.n6,
     backgroundColor: colors.bgMuted,
   },
   speedButtonActive: {
@@ -128,11 +129,11 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.semibold,
   },
   shadowingButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: appTokens.spacing.n4,
+    paddingHorizontal: appTokens.spacing.n10,
     borderRadius: radius.lg,
     backgroundColor: colors.primary,
-    marginLeft: 8,
+    marginLeft: appTokens.spacing.n8,
   },
   shadowingText: {
     fontSize: font.size.sm,

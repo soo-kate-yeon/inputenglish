@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { SessionContext } from "@inputenglish/shared";
 import ContextBriefCard from "./ContextBriefCard";
 import { colors, font, leading, radius, spacing } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 interface StudyBriefSheetProps {
   context: SessionContext | null;
@@ -174,18 +175,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.border,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowColor: appTokens.color.v598b32b7,
+    shadowOffset: { width: 0, height: appTokens.size.nNeg3 },
+    shadowOpacity: appTokens.shadow.n0_06,
+    shadowRadius: appTokens.shadow.n10,
+    elevation: appTokens.shadow.n8,
   },
   dragRegion: {
     flexShrink: 0,
   },
   handle: {
-    width: 42,
-    height: 4,
+    width: appTokens.size.n42,
+    height: appTokens.size.n4,
     borderRadius: radius.pill,
     alignSelf: "center",
     marginTop: spacing.sm + 2,
@@ -205,8 +206,8 @@ const styles = StyleSheet.create({
     letterSpacing: font.tracking.semiTight,
   },
   closeButton: {
-    width: 32,
-    height: 32,
+    width: appTokens.size.n32,
+    height: appTokens.size.n32,
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",

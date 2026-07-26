@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import type { Sentence } from "@inputenglish/shared";
 import { colors, font, leading, radius, spacing } from "../../../theme";
+import { appTokens } from "../../../theme/app-tokens";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - spacing.lg * 3;
@@ -112,9 +113,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   eyebrow: {
-    fontSize: 9,
+    fontSize: appTokens.typography.n9,
     fontWeight: font.weight.bold,
-    letterSpacing: 1.5,
+    letterSpacing: appTokens.typography.n1_5,
     color: colors.textMuted,
   },
   tipCard: {

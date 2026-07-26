@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { SessionContext, KeyVocabularyEntry } from "@inputenglish/shared";
 import { colors, font, leading, radius, spacing } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 function normalizeVocabEntry(
   item: string | KeyVocabularyEntry,
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
   },
   tipAccent: {
-    width: 3,
+    width: appTokens.size.n3,
     alignSelf: "stretch",
     backgroundColor: colors.accent,
     borderRadius: radius.sm,
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
     letterSpacing: font.tracking.normal,
   },
   divider: {
-    height: 1,
+    height: appTokens.size.n1,
     marginHorizontal: spacing.lg,
     backgroundColor: colors.border,
   },
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   vocabCard: {
-    width: 300,
+    width: appTokens.size.n300,
     padding: spacing.lg,
     gap: spacing.sm,
     backgroundColor: colors.bgSubtle,

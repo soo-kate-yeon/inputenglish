@@ -27,6 +27,7 @@ import {
 import { useSubscription } from "../src/hooks/useSubscription";
 import PurchaseButton from "../src/components/paywall/PurchaseButton";
 import { colors, font, palette, radius, spacing } from "../src/theme";
+import { appTokens } from "../src/theme/app-tokens";
 
 // --- Design tokens (podcast-ambient · dark modal context) ---
 // Opaque colors reference palette/colors; glass surfaces use rgba overrides.
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.bold,
     color: C.text,
     lineHeight: font.size["2xl"] + spacing.sm, // 36
-    letterSpacing: -0.3,
+    letterSpacing: appTokens.typography.nNeg0_3,
   },
   activeBadge: {
     alignSelf: "flex-start",
@@ -421,12 +422,12 @@ const styles = StyleSheet.create({
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
     color: C.textSecondary,
-    letterSpacing: 0.3,
+    letterSpacing: appTokens.typography.n0_3,
   },
 
   // ── Divider ─────────────────────────────────────────
   divider: {
-    height: 1,
+    height: appTokens.size.n1,
     backgroundColor: C.divider,
     marginBottom: spacing.lg,
   },
@@ -462,7 +463,7 @@ const styles = StyleSheet.create({
   planSectionLabel: {
     fontSize: font.size.xs,
     fontWeight: font.weight.bold,
-    letterSpacing: 1.6,
+    letterSpacing: appTokens.typography.n1_6,
     color: C.textMuted,
     marginBottom: spacing.xs,
   },
@@ -487,9 +488,9 @@ const styles = StyleSheet.create({
 
   // Radio
   radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9, // half of fixed 18px touch target
+    width: appTokens.size.n18,
+    height: appTokens.size.n18,
+    borderRadius: appTokens.radius.n9, // half of fixed 18px touch target
     borderWidth: 1.5,
     borderColor: C.border,
     alignItems: "center",
@@ -506,7 +507,7 @@ const styles = StyleSheet.create({
   // Option meta
   optionMeta: {
     flex: 1,
-    gap: 2,
+    gap: appTokens.spacing.n2,
   },
   optionLabelRow: {
     flexDirection: "row",
@@ -517,7 +518,7 @@ const styles = StyleSheet.create({
     fontSize: font.size.md,
     fontWeight: font.weight.semibold,
     color: C.textSecondary,
-    letterSpacing: 0.1,
+    letterSpacing: appTokens.typography.n0_1,
   },
   optionLabelSelected: { color: C.text },
   optionDesc: {
@@ -531,30 +532,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.accentBorder,
     borderRadius: radius.pill,
-    paddingHorizontal: 7, // between xs(4) and sm(8)
-    paddingVertical: 2,
+    paddingHorizontal: appTokens.spacing.n7, // between xs(4) and sm(8)
+    paddingVertical: appTokens.spacing.n2,
   },
   savingsBadgeText: {
-    fontSize: 10, // below font.size.xs (11) intentionally
+    fontSize: appTokens.typography.n10, // below font.size.xs (11) intentionally
     fontWeight: font.weight.bold,
     color: C.accent,
-    letterSpacing: 0.3,
+    letterSpacing: appTokens.typography.n0_3,
   },
 
   // Price block
   optionPriceBlock: {
     alignItems: "flex-end",
-    gap: 2,
+    gap: appTokens.spacing.n2,
   },
   optionPrice: {
     fontSize: font.size.sm,
     fontWeight: font.weight.bold,
     color: C.textSecondary,
-    letterSpacing: 0.1,
+    letterSpacing: appTokens.typography.n0_1,
   },
   optionPriceSelected: { color: C.text },
   optionPerMonth: {
-    fontSize: 10, // below font.size.xs (11) intentionally
+    fontSize: appTokens.typography.n10, // below font.size.xs (11) intentionally
     color: C.textMuted,
   },
 
@@ -568,7 +569,7 @@ const styles = StyleSheet.create({
   restoreText: {
     color: C.textMuted,
     fontSize: font.size.xs + 1, // 12 — between xs(11) and sm(13)
-    letterSpacing: 0.4,
+    letterSpacing: appTokens.typography.n0_4,
     textDecorationLine: "underline",
   },
 
@@ -580,11 +581,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   legalNotice: {
-    fontSize: 10,
+    fontSize: appTokens.typography.n10,
     color: C.textMuted,
     textAlign: "center",
-    lineHeight: 15,
-    letterSpacing: 0.2,
+    lineHeight: appTokens.typography.n15,
+    letterSpacing: appTokens.typography.n0_2,
   },
   legalLinks: {
     flexDirection: "row",
@@ -644,12 +645,12 @@ const styles = StyleSheet.create({
     color: C.ctaBtnText,
     fontSize: font.size.md,
     fontWeight: font.weight.bold,
-    letterSpacing: 0.3,
+    letterSpacing: appTokens.typography.n0_3,
   },
   ctaHint: {
     fontSize: font.size.xs,
     color: C.textMuted,
     textAlign: "center",
-    letterSpacing: 0.3,
+    letterSpacing: appTokens.typography.n0_3,
   },
 });

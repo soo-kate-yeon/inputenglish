@@ -7,6 +7,7 @@ import useAudioRecorder from "../../../hooks/useAudioRecorder";
 import { useTTS } from "../../../hooks/useTTS";
 import { ExerciseRecordingBar } from "./ExerciseRecordingBar";
 import { colors, font, leading, radius, spacing } from "../../../theme";
+import { appTokens } from "../../../theme/app-tokens";
 
 interface DialogCompletionPageProps {
   exercise: TransformationExercise;
@@ -161,13 +162,13 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: 96,
+    paddingBottom: appTokens.spacing.n96,
     gap: spacing.lg,
   },
   eyebrow: {
-    fontSize: 9,
+    fontSize: appTokens.typography.n9,
     fontWeight: font.weight.bold,
-    letterSpacing: 1.5,
+    letterSpacing: appTokens.typography.n1_5,
     color: colors.textMuted,
   },
   instruction: {
@@ -192,9 +193,9 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
   },
   speaker: {
-    fontSize: 9,
+    fontSize: appTokens.typography.n9,
     fontWeight: font.weight.bold,
-    letterSpacing: 1.5,
+    letterSpacing: appTokens.typography.n1_5,
     color: colors.textMuted,
   },
   lineRow: {
@@ -211,8 +212,8 @@ const styles = StyleSheet.create({
     letterSpacing: font.tracking.normal,
   },
   ttsBtn: {
-    padding: 4,
-    marginTop: 2,
+    padding: appTokens.spacing.n4,
+    marginTop: appTokens.spacing.n2,
   },
   ttsBtnDisabled: {
     opacity: 0.3,

@@ -371,6 +371,10 @@
   --badge-outline-foreground: var(--color-text-default);
   --badge-destructive-background: var(--color-error);
   --badge-destructive-foreground: var(--color-text-inverse);
+
+  /* framingui-legacy-tokens:start */
+  --input-fui-typography-600-eed0f8fb: 600;
+  /* framingui-legacy-tokens:end */
 }
 
 .dark {
@@ -434,7 +438,7 @@
   h4,
   h5,
   h6 {
-    font-weight: 600;
+    font-weight: var(--input-fui-typography-600-eed0f8fb);
   }
 }
 

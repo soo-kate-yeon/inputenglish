@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, radius, spacing } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 interface ShadowingRecordButtonProps {
   disabled?: boolean;
@@ -34,7 +35,7 @@ export default function ShadowingRecordButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 56,
+    minHeight: appTokens.size.n56,
     backgroundColor: colors.bgInverse,
     borderRadius: radius.pill,
     alignItems: "center",
@@ -50,6 +51,6 @@ const styles = StyleSheet.create({
     fontSize: font.size.md,
     color: colors.textInverse,
     fontWeight: font.weight.bold,
-    letterSpacing: 0.2,
+    letterSpacing: appTokens.typography.n0_2,
   },
 });

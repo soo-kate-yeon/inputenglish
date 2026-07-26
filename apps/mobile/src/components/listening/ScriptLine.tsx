@@ -6,6 +6,7 @@ import type { Sentence } from "@inputenglish/shared";
 import LoopToggle from "./LoopToggle";
 import SaveToggle from "./SaveToggle";
 import { colors, font, radius, shadow } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 interface ScriptLineProps {
   sentence: Sentence;
@@ -104,8 +105,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: appTokens.spacing.n20,
+    paddingVertical: appTokens.spacing.n16,
   },
 
   containerActive: {},
@@ -113,19 +114,19 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   containerDarkActive: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: appTokens.color.v84da7a19,
   },
 
   content: {
     flex: 1,
-    marginRight: 10,
-    gap: 6,
+    marginRight: appTokens.spacing.n10,
+    gap: appTokens.spacing.n6,
   },
 
   text: {
     fontSize: font.size.base,
     color: colors.textMuted,
-    lineHeight: 26,
+    lineHeight: appTokens.typography.n26,
     fontWeight: font.weight.regular,
   },
   textDark: {
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
   },
   textHidden: {
     color: colors.border,
-    letterSpacing: 4,
+    letterSpacing: appTokens.typography.n4,
   },
   textHiddenDark: {
     color: colors.borderOnDarkStrong,
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
   translation: {
     fontSize: font.size.sm,
     color: colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: appTokens.typography.n20,
   },
   translationActive: {
     color: colors.textSecondary,
@@ -164,11 +165,11 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingTop: 2,
+    gap: appTokens.spacing.n8,
+    paddingTop: appTokens.spacing.n2,
   },
   actionsSpacer: {
-    width: 72,
+    width: appTokens.size.n72,
     flexShrink: 0,
   },
 });

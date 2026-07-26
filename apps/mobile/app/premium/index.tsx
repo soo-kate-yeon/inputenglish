@@ -13,6 +13,7 @@ import {
   type TodayCiSessionShape,
 } from "@/lib/premium-api";
 import CiSessionScreen from "@/components/premium/CiSessionScreen";
+import { appTokens } from "../../src/theme/app-tokens";
 
 /**
  * /premium — v1.3 daily CI session (reading + segments + highlight question).
@@ -114,20 +115,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
-    padding: 24,
+    gap: appTokens.spacing.n16,
+    padding: appTokens.spacing.n24,
   },
   message: {
-    fontSize: 16,
+    fontSize: appTokens.typography.n16,
     textAlign: "center",
   },
   button: {
-    borderRadius: 999,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    borderRadius: appTokens.radius.n999,
+    paddingHorizontal: appTokens.spacing.n24,
+    paddingVertical: appTokens.spacing.n12,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: appTokens.typography.n16,
+    fontWeight: appTokens.typography.n600,
   },
 });

@@ -2,6 +2,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import { colors, font } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 interface ScriptToggleProps {
   hidden: boolean;
@@ -18,8 +19,8 @@ export default function ScriptToggle({ hidden, onPress }: ScriptToggleProps) {
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: appTokens.spacing.n8,
+    paddingHorizontal: appTokens.spacing.n16,
     backgroundColor: colors.bgSubtle,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

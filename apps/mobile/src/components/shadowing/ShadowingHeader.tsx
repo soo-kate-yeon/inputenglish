@@ -3,6 +3,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { colors, radius, font } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 export type ShadowingMode = "sentence" | "paragraph" | "total";
 
@@ -47,13 +48,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    gap: 4,
+    paddingHorizontal: appTokens.spacing.n8,
+    paddingVertical: appTokens.spacing.n6,
+    gap: appTokens.spacing.n4,
   },
   modeBtn: {
     flex: 1,
-    paddingVertical: 7,
+    paddingVertical: appTokens.spacing.n7,
     alignItems: "center",
     borderRadius: radius.pill,
   },
@@ -61,8 +62,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   modeText: {
-    fontSize: 10,
-    letterSpacing: 2,
+    fontSize: appTokens.typography.n10,
+    letterSpacing: appTokens.typography.n2,
     fontWeight: font.weight.semibold,
     color: colors.textMuted,
   },

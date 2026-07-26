@@ -4,6 +4,7 @@
 
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { appTokens } from "../../theme/app-tokens";
 
 type Plan = "FREE" | "PREMIUM";
 
@@ -76,65 +77,65 @@ export default function PlanCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    marginVertical: 8,
-    marginHorizontal: 16,
+    backgroundColor: appTokens.color.vd14f9016,
+    borderRadius: appTokens.radius.n16,
+    padding: appTokens.spacing.n20,
+    marginVertical: appTokens.spacing.n8,
+    marginHorizontal: appTokens.spacing.n16,
     borderWidth: 1,
-    borderColor: "#E5E5EA",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: appTokens.color.vd31e0c0a,
+    shadowColor: appTokens.color.v598b32b7,
+    shadowOffset: { width: 0, height: appTokens.size.n2 },
+    shadowOpacity: appTokens.shadow.n0_06,
+    shadowRadius: appTokens.shadow.n8,
+    elevation: appTokens.shadow.n2,
   },
   currentBadge: {
     alignSelf: "flex-start",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    marginBottom: 10,
+    borderRadius: appTokens.radius.n8,
+    paddingHorizontal: appTokens.spacing.n10,
+    paddingVertical: appTokens.spacing.n3,
+    marginBottom: appTokens.spacing.n10,
   },
   currentBadgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "700",
+    color: appTokens.color.vd14f9016,
+    fontSize: appTokens.typography.n11,
+    fontWeight: appTokens.typography.n700,
   },
   planName: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 14,
+    fontSize: appTokens.typography.n22,
+    fontWeight: appTokens.typography.n700,
+    marginBottom: appTokens.spacing.n14,
   },
   featureList: {
-    gap: 6,
-    marginBottom: 4,
+    gap: appTokens.spacing.n6,
+    marginBottom: appTokens.spacing.n4,
   },
   featureRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 6,
+    gap: appTokens.spacing.n6,
   },
   featureBullet: {
-    color: "#8E8E93",
-    fontSize: 14,
-    lineHeight: 20,
+    color: appTokens.color.v84423e18,
+    fontSize: appTokens.typography.n14,
+    lineHeight: appTokens.typography.n20,
   },
   featureText: {
     flex: 1,
-    fontSize: 14,
-    color: "#3C3C43",
-    lineHeight: 20,
+    fontSize: appTokens.typography.n14,
+    color: appTokens.color.vddbce3da,
+    lineHeight: appTokens.typography.n20,
   },
   ctaButton: {
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: appTokens.radius.n10,
+    paddingVertical: appTokens.spacing.n12,
     alignItems: "center",
-    marginTop: 16,
+    marginTop: appTokens.spacing.n16,
   },
   ctaText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
+    color: appTokens.color.vd14f9016,
+    fontWeight: appTokens.typography.n700,
+    fontSize: appTokens.typography.n15,
   },
 });

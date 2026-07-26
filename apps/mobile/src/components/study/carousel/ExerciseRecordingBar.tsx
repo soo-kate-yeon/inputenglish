@@ -3,6 +3,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, font, radius, spacing } from "../../../theme";
+import { appTokens } from "../../../theme/app-tokens";
 
 function fmt(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -123,11 +124,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   timer: {
-    fontSize: 13,
+    fontSize: appTokens.typography.n13,
     fontWeight: font.weight.bold,
     color: colors.text,
-    letterSpacing: 1,
-    minWidth: 40,
+    letterSpacing: appTokens.typography.n1,
+    minWidth: appTokens.size.n40,
     textAlign: "right",
   },
   containerWide: {
@@ -144,27 +145,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   progressTrack: {
-    height: 3,
+    height: appTokens.size.n3,
     backgroundColor: colors.border,
-    borderRadius: 2,
+    borderRadius: appTokens.radius.n2,
     overflow: "hidden",
   },
   progressFill: {
-    height: 3,
+    height: appTokens.size.n3,
     backgroundColor: colors.text,
-    borderRadius: 2,
+    borderRadius: appTokens.radius.n2,
   },
   fabPrimary: {
-    width: 52,
-    height: 52,
+    width: appTokens.size.n52,
+    height: appTokens.size.n52,
     borderRadius: radius.pill,
     backgroundColor: colors.bgInverse,
     alignItems: "center",
     justifyContent: "center",
   },
   iconBtn: {
-    width: 52,
-    height: 52,
+    width: appTokens.size.n52,
+    height: appTokens.size.n52,
     borderRadius: radius.pill,
     backgroundColor: colors.bg,
     borderWidth: 1,

@@ -6,6 +6,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { fetchAiTip } from "@/lib/ai-api";
+import { appTokens } from "../../theme/app-tokens";
 
 interface AiTipButtonProps {
   sentenceId: string;
@@ -100,23 +101,23 @@ export default function AiTipButton({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 10,
+    backgroundColor: appTokens.color.v3f34b586,
+    paddingHorizontal: appTokens.spacing.n18,
+    paddingVertical: appTokens.spacing.n9,
+    borderRadius: appTokens.radius.n10,
     alignSelf: "flex-start",
-    marginHorizontal: 12,
-    marginVertical: 4,
+    marginHorizontal: appTokens.spacing.n12,
+    marginVertical: appTokens.spacing.n4,
   },
   buttonDisabled: {
-    backgroundColor: "#C7C7CC",
+    backgroundColor: appTokens.color.vd4916bc1,
   },
   buttonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
+    color: appTokens.color.vd14f9016,
+    fontWeight: appTokens.typography.n600,
+    fontSize: appTokens.typography.n14,
   },
   buttonTextDisabled: {
-    color: "#8E8E93",
+    color: appTokens.color.v84423e18,
   },
 });

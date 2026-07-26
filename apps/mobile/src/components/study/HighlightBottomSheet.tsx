@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import type { Sentence } from "@inputenglish/shared";
 import { colors, radius, font } from "../../theme";
+import { appTokens } from "../../theme/app-tokens";
 
 interface HighlightBottomSheetProps {
   visible: boolean;
@@ -131,7 +132,7 @@ export default function HighlightBottomSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: appTokens.color.v0729ae0e,
   },
   sheetWrapper: {
     justifyContent: "flex-end",
@@ -140,55 +141,55 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
-    padding: 20,
-    paddingBottom: 36,
-    gap: 12,
+    padding: appTokens.spacing.n20,
+    paddingBottom: appTokens.spacing.n36,
+    gap: appTokens.spacing.n12,
   },
   handle: {
-    width: 40,
-    height: 4,
+    width: appTokens.size.n40,
+    height: appTokens.size.n4,
     borderRadius: radius.sm,
     backgroundColor: colors.border,
     alignSelf: "center",
-    marginBottom: 8,
+    marginBottom: appTokens.spacing.n8,
   },
   label: {
-    fontSize: 12,
+    fontSize: appTokens.typography.n12,
     color: colors.textMuted,
     fontWeight: font.weight.semibold,
   },
   selectedPreview: {
     backgroundColor: colors.warningBg,
-    padding: 10,
+    padding: appTokens.spacing.n10,
     borderRadius: radius.md,
   },
   selectedText: {
-    fontSize: 15,
+    fontSize: appTokens.typography.n15,
     color: colors.text,
-    lineHeight: 22,
+    lineHeight: appTokens.typography.n22,
     fontWeight: font.weight.semibold,
   },
   sentenceText: {
-    fontSize: 15,
+    fontSize: appTokens.typography.n15,
     color: colors.textSecondary,
-    lineHeight: 22,
+    lineHeight: appTokens.typography.n22,
     backgroundColor: colors.bgMuted,
-    padding: 10,
+    padding: appTokens.spacing.n10,
     borderRadius: radius.md,
   },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
-    padding: 12,
-    fontSize: 15,
+    padding: appTokens.spacing.n12,
+    fontSize: appTokens.typography.n15,
     color: colors.text,
-    minHeight: 80,
+    minHeight: appTokens.size.n80,
     textAlignVertical: "top",
   },
   saveButton: {
     backgroundColor: colors.text,
-    paddingVertical: 14,
+    paddingVertical: appTokens.spacing.n14,
     borderRadius: radius.pill,
     alignItems: "center",
   },
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: colors.textInverse,
-    fontSize: 16,
+    fontSize: appTokens.typography.n16,
     fontWeight: font.weight.semibold,
   },
 });

@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { appTokens } from "../../theme/app-tokens";
 
 const ALL_TAGS = ["연음", "문법", "발음", "속도"] as const;
 export type DifficultyTag = (typeof ALL_TAGS)[number];
@@ -73,36 +74,36 @@ export default function DifficultyTagSelector({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginVertical: 6,
+    marginVertical: appTokens.spacing.n6,
   },
   scrollContent: {
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: appTokens.spacing.n12,
+    gap: appTokens.spacing.n8,
     flexDirection: "row",
     alignItems: "center",
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: appTokens.spacing.n14,
+    paddingVertical: appTokens.spacing.n6,
+    borderRadius: appTokens.radius.n16,
     borderWidth: 1.5,
-    borderColor: "#C7C7CC",
-    backgroundColor: "#F2F2F7",
+    borderColor: appTokens.color.vd4916bc1,
+    backgroundColor: appTokens.color.v56e5145b,
   },
   chipSelected: {
-    borderColor: "#007AFF",
-    backgroundColor: "#E5F0FF",
+    borderColor: appTokens.color.v3f34b586,
+    backgroundColor: appTokens.color.vb15b6034,
   },
   chipDisabled: {
     opacity: 0.4,
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#3C3C43",
+    fontSize: appTokens.typography.n13,
+    fontWeight: appTokens.typography.n500,
+    color: appTokens.color.vddbce3da,
   },
   chipTextSelected: {
-    color: "#007AFF",
-    fontWeight: "600",
+    color: appTokens.color.v3f34b586,
+    fontWeight: appTokens.typography.n600,
   },
 });

@@ -13,6 +13,7 @@ import { Link } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { appTokens } from "../../src/theme/app-tokens";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -84,60 +85,60 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 48,
+    paddingHorizontal: appTokens.spacing.n24,
+    paddingBottom: appTokens.spacing.n48,
   },
   slogan: {
-    fontSize: 40,
-    fontWeight: "800",
-    color: "#fff",
+    fontSize: appTokens.typography.n40,
+    fontWeight: appTokens.typography.n800,
+    color: appTokens.color.vd14f9016,
     textAlign: "center",
-    lineHeight: 52,
-    letterSpacing: -1.2,
+    lineHeight: appTokens.typography.n52,
+    letterSpacing: appTokens.typography.nNeg1_2,
   },
   body: {
-    marginTop: 16,
-    fontSize: 15,
-    fontWeight: "400",
-    color: "rgba(255,255,255,0.65)",
+    marginTop: appTokens.spacing.n16,
+    fontSize: appTokens.typography.n15,
+    fontWeight: appTokens.typography.n400,
+    color: appTokens.color.vf0252325,
     textAlign: "center",
-    lineHeight: 24,
-    letterSpacing: 0.1,
+    lineHeight: appTokens.typography.n24,
+    letterSpacing: appTokens.typography.n0_1,
   },
   keyboardAvoid: {
     maxHeight: "60%",
   },
   ctaContainer: {
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingHorizontal: appTokens.spacing.n24,
+    gap: appTokens.spacing.n12,
   },
   divider: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginVertical: 4,
+    gap: appTokens.spacing.n12,
+    marginVertical: appTokens.spacing.n4,
   },
   dividerLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: appTokens.color.v43bcc076,
   },
   dividerText: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 13,
+    color: appTokens.color.v2f59e747,
+    fontSize: appTokens.typography.n13,
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: appTokens.spacing.n8,
   },
   footerText: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 14,
+    color: appTokens.color.v829bbf7d,
+    fontSize: appTokens.typography.n14,
   },
   footerLink: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 14,
-    fontWeight: "600",
+    color: appTokens.color.v78f2335d,
+    fontSize: appTokens.typography.n14,
+    fontWeight: appTokens.typography.n600,
   },
 });

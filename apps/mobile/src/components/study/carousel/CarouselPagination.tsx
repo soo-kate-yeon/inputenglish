@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { colors, radius } from "../../../theme";
+import { appTokens } from "../../../theme/app-tokens";
 
 interface CarouselPaginationProps {
   total: number;
@@ -35,19 +36,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 12,
+    gap: appTokens.spacing.n6,
+    paddingVertical: appTokens.spacing.n12,
   },
   dot: {
-    height: 5,
+    height: appTokens.size.n5,
     borderRadius: radius.pill,
   },
   dotActive: {
-    width: 20,
+    width: appTokens.size.n20,
     backgroundColor: colors.primary,
   },
   dotInactive: {
-    width: 5,
+    width: appTokens.size.n5,
     backgroundColor: colors.textMuted,
     opacity: 0.3,
   },

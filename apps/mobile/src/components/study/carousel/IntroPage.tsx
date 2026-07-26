@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { colors, font, radius, spacing } from "../../../theme";
+import { appTokens } from "../../../theme/app-tokens";
 
 interface IntroPageProps {
   onSkip: () => void;
@@ -74,7 +75,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
-    letterSpacing: 2.5,
+    letterSpacing: appTokens.typography.n2_5,
     color: colors.textSecondary,
   },
   title: {
@@ -112,13 +113,13 @@ const styles = StyleSheet.create({
   startBtn: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
-    paddingVertical: 16,
+    paddingVertical: appTokens.spacing.n16,
     alignItems: "center",
   },
   startText: {
     fontSize: font.size.md,
     fontWeight: font.weight.semibold,
     color: colors.textInverse,
-    letterSpacing: 0.5,
+    letterSpacing: appTokens.typography.n0_5,
   },
 });

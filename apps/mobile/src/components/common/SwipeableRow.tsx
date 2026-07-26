@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { appTokens } from "../../theme/app-tokens";
 
 const DELETE_THRESHOLD = -80;
 const BUTTON_WIDTH = 80;
@@ -97,7 +98,7 @@ export default function SwipeableRow({
 const styles = StyleSheet.create({
   container: {
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: appTokens.color.v4eb70e25,
   },
   deleteContainer: {
     position: "absolute",
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
     width: BUTTON_WIDTH,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#111111",
+    backgroundColor: appTokens.color.v54438514,
   },
   deleteButton: {
     flex: 1,
@@ -116,9 +117,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   deleteText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-    color: "#FFFFFF",
+    fontSize: appTokens.typography.n11,
+    fontWeight: appTokens.typography.n700,
+    letterSpacing: appTokens.typography.n1,
+    color: appTokens.color.v4eb70e25,
   },
 });
